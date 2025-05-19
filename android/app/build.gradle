@@ -1,0 +1,101 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+    id "com.google.gms.google-services" // Google Services Plugin pro Firebase
+}
+
+android {
+    namespace "com.example.svatebni_planovac"
+    compileSdk 35 // ✅ Aktualizováno na compileSdk 35
+
+    defaultConfig {
+        applicationId "com.example.svatebni_planovac"
+        minSdk 24  // ✅ Zvýšeno pro podporu Firebase Auth a dalších knihoven
+        targetSdk 34 // ✅ Aktualizováno na targetSdk 34
+        versionCode 1
+        versionName "1.0"
+
+        multiDexEnabled true // ✅ Povolení multidexu pro velké projekty
+    }
+
+    // ✅ Přidáno: Konfigurace signingConfigs pro release build.
+    // Tento blok nastavuje cestu k vašemu keystore, hesla a alias,
+    // které jsou nutné k podepsání APK pro produkční nasazení.
+    signingConfigs {
+        release {
+            storeFile file("C:/Users/Phili/my-release-key.jks")
+            storePassword "Lenicka251"  // Nahraďte heslem, které jste zadával při generování keystore
+            keyAlias "my-key-alias"
+            keyPassword "Lenicka251"      // Nahraďte heslem, které jste zadával pro klíč
+        }
+    }
+
+    buildTypes {
+        release {
+            shrinkResources true
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+        debug {
+            shrinkResources false
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+        freeCompilerArgs += ["-Xjvm-default=all"]
+    }
+
+    packagingOptions {
+        resources {
+            excludes += ['META-INF/DEPENDENCIES']
+        }
+    }
+
+    // ✅ Přidáno: Ignorování lint chyb při buildi
+    lintOptions {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
+    ndkVersion "25.1.8937393" // ✅ Nastavená verze NDK pro správnou kompilaci
+}
+
+dependencies {
+    // ✅ Použití Firebase BOM pro centralizovanou správu verzí Firebase knihoven
+    implementation platform('com.google.firebase:firebase-bom:32.3.1')
+
+    // Firebase služby
+    implementation 'com.google.firebase:firebase-auth-ktx'
+    implementation 'com.google.firebase:firebase-firestore-ktx'
+    implementation 'com.google.firebase:firebase-analytics-ktx'
+    implementation 'com.google.firebase:firebase-messaging-ktx'
+    implementation 'com.google.firebase:firebase-storage-ktx'
+
+    // AndroidX a Material Design
+    implementation "androidx.core:core-ktx:1.12.0"
+    implementation "androidx.appcompat:appcompat:1.6.1"
+    implementation "com.google.android.material:material:1.11.0"
+
+    // MultiDex podpora
+    implementation "androidx.multidex:multidex:2.0.1"
+
+    // Životní cyklus aplikace
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.7.0"
+}
+
+// Flutter konfigurace – zdroj aplikace
+flutter {
+    source = "../.."
+}
+
+// Google Services Plugin pro Firebase – aplikuje konfiguraci Google Services
+apply plugin: 'com.google.gms.google-services'

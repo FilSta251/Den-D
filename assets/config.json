@@ -1,0 +1,9 @@
+{
+    "apiBaseUrl": "https://api.example.com",
+    "environment": "development",
+    "debug": true,
+    "featureFlags": {
+      "newFeature": false
+    }
+  }
+  

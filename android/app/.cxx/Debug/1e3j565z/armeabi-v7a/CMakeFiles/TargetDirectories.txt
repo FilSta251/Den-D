@@ -1,0 +1,2 @@
+C:/Users/Phili/Documents/svatebni_planovac/android/app/.cxx/Debug/1e3j565z/armeabi-v7a/CMakeFiles/edit_cache.dir
+C:/Users/Phili/Documents/svatebni_planovac/android/app/.cxx/Debug/1e3j565z/armeabi-v7a/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,67 @@
+# Použijeme oficiální Docker image s Flutterem (můžete upravit verzi nebo image dle potřeby)
+image: cirrusci/flutter:latest
+
+# Definujeme fáze pipeline
+stages:
+  - analyze
+  - test
+  - build
+
+# Nastavení cache pro zrychlení buildů
+cache:
+  key: ${CI_PROJECT_NAME}
+  paths:
+    - .pub-cache
+    - build
+
+# Společné kroky před spuštěním jednotlivých jobů
+before_script:
+  - flutter --version
+  - flutter pub get
+
+# Job pro analýzu kódu
+analyze:
+  stage: analyze
+  script:
+    - flutter analyze
+  artifacts:
+    when: always
+    reports:
+      dotenv: analysis_report.txt
+
+# Job pro spuštění testů
+test:
+  stage: test
+  script:
+    - flutter test --coverage
+  artifacts:
+    when: always
+    paths:
+      - coverage/
+    reports:
+      junit: test_output.xml
+
+# Job pro sestavení Android APK (release)
+build_apk:
+  stage: build
+  script:
+    - flutter build apk --release
+  artifacts:
+    paths:
+      - build/app/outputs/flutter-apk/app-release.apk
+    expire_in: 1 week
+
+# Volitelný job pro sestavení iOS verze (vyžaduje macOS runner s tagem 'macos')
+build_ios:
+  stage: build
+  tags:
+    - macos
+  script:
+    - flutter pub get
+    - flutter build ios --release --no-codesign
+  artifacts:
+    paths:
+      - build/ios/iphoneos/Runner.app
+    expire_in: 1 week
+  only:
+    - master

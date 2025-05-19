@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  db:
+    container_name: wedding_planner_db
+    image: postgres:13
+    environment:
+      POSTGRES_DB: wedding_planner
+      POSTGRES_USER: wedding_user
+      POSTGRES_PASSWORD: wedding_pass
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+volumes:
+  db_data:
