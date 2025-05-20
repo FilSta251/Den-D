@@ -1,0 +1,1 @@
+OBSAH SOUBORU connectivity_manager.dart
