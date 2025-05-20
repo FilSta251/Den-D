@@ -1,5 +1,6 @@
 // lib/main.dart - OPRAVENÁ VERZE
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -34,6 +35,7 @@ import 'routes.dart'; // Import pro Routes konstanty
 import 'services/budget_manager.dart'; // Import pro BudgetManager
 import 'services/local_budget_service.dart'; // Import pro LocalBudgetService
 import 'services/cloud_budget_service.dart'; // Import pro CloudBudgetService
+import 'services/environment_config.dart'; // Import pro EnvironmentConfig
 
 // Import pro SubscriptionProvider (ChangeNotifier)
 import 'providers/subscription_provider.dart';
@@ -65,6 +67,16 @@ Future<T?> timeoutSafeCall<T>(Future<T> future, {
 // Funkce pro async inicializaci před spuštěním aplikace
 Future<void> _initializeApp() async {
   try {
+    // Načtení .env souboru
+    debugPrint("[Main] Loading .env file");
+    await dotenv.load(fileName: ".env");
+    debugPrint("[Main] .env file loaded successfully");
+    
+    // Inicializace EnvironmentConfig
+    debugPrint("[Main] Initializing EnvironmentConfig");
+    await EnvironmentConfig().initialize();
+    debugPrint("[Main] EnvironmentConfig initialized");
+    
     // Nastavení orientace displeje (pouze portrét)
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -96,7 +108,9 @@ Future<void> _initializeApp() async {
       
       // Nastavení Firebase Performance Monitoring
       debugPrint("[Main] Setting up Firebase Performance");
-      await FirebasePerformance.instance.setPerformanceCollectionEnabled(true);
+      await FirebasePerformance.instance.setPerformanceCollectionEnabled(
+        EnvironmentConfig().getValue<bool>("ENABLE_ANALYTICS", defaultValue: true)
+      );
       debugPrint("[Main] Firebase Performance monitoring enabled");
       
       debugPrint("[Main] Firebase initialized successfully");
@@ -122,7 +136,9 @@ Future<void> _initializeApp() async {
 
     // Nastavení Crashlytics
     debugPrint("[Main] Configuring Crashlytics");
-    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
+      EnvironmentConfig().getValue<bool>("ENABLE_CRASHLYTICS", defaultValue: true)
+    );
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterError;
     
     // Zachytávání nativních chyb
@@ -196,7 +212,9 @@ Future<void> main() async {
     // Přesouváme inicializaci do samostatné funkce
     await _initializeApp();
 
-    debugPrint("[Main] App starting in $environment environment");
+    // Zobrazení informací o prostředí z .env
+    debugPrint("[Main] App starting in ${EnvironmentConfig().environment} environment");
+    debugPrint("[Main] Using API URL: ${EnvironmentConfig().getValue<String>('API_URL')}");
 
     // Spuštění aplikace s EasyLocalization
     runApp(
