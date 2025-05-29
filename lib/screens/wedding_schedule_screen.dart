@@ -156,7 +156,7 @@ class _WeddingScheduleScreenState extends State<WeddingScheduleScreen> with Widg
           return Column(
             children: [
               // Banner pro informaci o cloudové synchronizaci
-              if (scheduleManager.isSyncing)
+              if (scheduleManager.scheduleItems.isNotEmpty)
                 Container(
                   width: double.infinity,
                   color: Colors.blue.shade100,

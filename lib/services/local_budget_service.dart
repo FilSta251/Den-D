@@ -17,6 +17,16 @@ class LocalBudgetService extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   List<Expense> get expenses => _expenses;
+
+  /// Vrací položku rozpočtu podle jejího ID.
+  /// Pokud položka neexistuje, vyhodí [Exception].
+  Expense getExpenseById(String id) {
+    try {
+      return _expenses.firstWhere((expense) => expense.id == id);
+    } catch (_) {
+      throw Exception('Expense with id $id not found');
+    }
+  }
   
   // Časová značka poslední aktualizace seznamu
   DateTime _lastSyncTimestamp = DateTime(2000); // Výchozí hodnota v minulosti

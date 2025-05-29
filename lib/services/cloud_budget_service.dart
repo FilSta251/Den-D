@@ -10,6 +10,14 @@ class CloudBudgetService {
   final FirebaseFirestore _firestore;
   final fb.FirebaseAuth _auth;
   
+  // Konstanty pro retry mechanismus
+  static const int _maxRetries = 3;
+  static const int _baseDelayMs = 500;
+  
+  // Cache pro offline použití
+  List<Expense>? _cachedExpenses;
+  DateTime? _cacheTimestamp;
+  
   CloudBudgetService({
     FirebaseFirestore? firestore,
     fb.FirebaseAuth? auth,
@@ -36,7 +44,7 @@ class CloudBudgetService {
       }
       
       return _getExpensesCollection()
-          .orderBy('date', descending: true) // Třídíme podle data sestupně
+          .orderBy('date', descending: true)
           .snapshots()
           .map((snapshot) {
         final items = snapshot.docs.map((doc) {
@@ -44,129 +52,121 @@ class CloudBudgetService {
           return Expense.fromJson(data);
         }).toList();
         
-        debugPrint("Stream: Přijato ${items.length} položek rozpočtu z Firestore");
+        // Aktualizujeme cache při každém novém stavu
+        _cachedExpenses = items;
+        _cacheTimestamp = DateTime.now();
+        
         return items;
       });
-    } catch (e, stackTrace) {
-      debugPrint('Error getting expenses stream: $e');
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
-      // Vracíme prázdný stream v případě chyby
-      return Stream.value([]);
+    } catch (e) {
+      debugPrint('Chyba při získávání streamu položek rozpočtu: $e');
+      return Stream.value(_cachedExpenses ?? []);
     }
   }
   
-  /// Načte položky rozpočtu z Firestore.
+  /// Načte položky rozpočtu z Firestore s retry logikou.
   Future<List<Expense>> fetchExpenses() async {
+    if (_userId == null) {
+      return _cachedExpenses ?? [];
+    }
+    
     try {
-      if (_userId == null) {
-        debugPrint("=== NELZE NAČÍST DATA Z FIRESTORE - UŽIVATEL NENÍ PŘIHLÁŠEN ===");
-        return [];
-      }
+      return await _withRetry<List<Expense>>(() async {
+        final snapshot = await _getExpensesCollection()
+            .orderBy('date', descending: true)
+            .get();
+        
+        final items = snapshot.docs.map((doc) {
+          return Expense.fromJson(doc.data());
+        }).toList();
+        
+        // Aktualizujeme cache
+        _cachedExpenses = items;
+        _cacheTimestamp = DateTime.now();
+        
+        return items;
+      });
+    } catch (e) {
+      debugPrint('Chyba při načítání položek rozpočtu: $e');
       
-      // Opakované pokusy pro lepší spolehlivost
-      const maxRetries = 3;
-      int attempts = 0;
-      Exception? lastException;
-      
-      while (attempts < maxRetries) {
-        try {
-          attempts++;
-          debugPrint("=== POKUS $attempts O NAČTENÍ ROZPOČTU Z FIRESTORE ===");
-          
-          final snapshot = await _getExpensesCollection()
-              .orderBy('date', descending: true)
-              .get();
-          
-          final items = snapshot.docs.map((doc) {
-            return Expense.fromJson(doc.data());
-          }).toList();
-          
-          debugPrint("=== ÚSPĚŠNĚ NAČTENO ${items.length} POLOŽEK ROZPOČTU Z FIRESTORE ===");
-          return items;
-        } catch (e) {
-          lastException = Exception("Pokus $attempts: $e");
-          debugPrint("=== CHYBA PŘI NAČÍTÁNÍ Z FIRESTORE: $e ===");
-          
-          // Počkáme před dalším pokusem (exponenciální backoff)
-          if (attempts < maxRetries) {
-            final delay = Duration(milliseconds: 500 * (1 << attempts));
-            debugPrint("=== ČEKÁM ${delay.inMilliseconds}ms PŘED DALŠÍM POKUSEM ===");
-            await Future.delayed(delay);
-          }
-        }
-      }
-      
-      // Pokud jsme sem došli, všechny pokusy selhaly
-      throw lastException ?? Exception("Nepodařilo se načíst data po $maxRetries pokusech");
-    } catch (e, stackTrace) {
-      debugPrint('=== FATÁLNÍ CHYBA PŘI NAČÍTÁNÍ ROZPOČTU Z FIRESTORE: $e ===');
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
-      // Vracíme prázdný seznam v případě chyby
-      return [];
+      // Vracíme cache v případě chyby
+      return _cachedExpenses ?? [];
     }
   }
   
   /// Přidá novou položku do rozpočtu.
   Future<void> addExpense(Expense expense) async {
-    try {
-      if (_userId == null) {
-        throw Exception("=== UŽIVATEL NENÍ PŘIHLÁŠEN ===");
-      }
-      
-      await _getExpensesCollection().doc(expense.id).set(expense.toJson());
-    } catch (e, stackTrace) {
-      debugPrint('=== CHYBA PŘI PŘIDÁVÁNÍ POLOŽKY ROZPOČTU: $e ===');
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
-      rethrow;
+    if (_userId == null) {
+      throw Exception("Uživatel není přihlášen");
     }
+    
+    await _withRetry<void>(() async {
+      await _getExpensesCollection().doc(expense.id).set(expense.toJson());
+      
+      // Aktualizujeme cache
+      if (_cachedExpenses != null) {
+        _cachedExpenses!.add(expense);
+        _cacheTimestamp = DateTime.now();
+      }
+    });
   }
   
   /// Aktualizuje existující položku rozpočtu.
   Future<void> updateExpense(Expense expense) async {
-    try {
-      if (_userId == null) {
-        throw Exception("=== UŽIVATEL NENÍ PŘIHLÁŠEN ===");
-      }
-      
-      await _getExpensesCollection().doc(expense.id).update(expense.toJson());
-    } catch (e, stackTrace) {
-      debugPrint('=== CHYBA PŘI AKTUALIZACI POLOŽKY ROZPOČTU: $e ===');
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
-      rethrow;
+    if (_userId == null) {
+      throw Exception("Uživatel není přihlášen");
     }
+    
+    await _withRetry<void>(() async {
+      await _getExpensesCollection().doc(expense.id).update(expense.toJson());
+      
+      // Aktualizujeme cache
+      if (_cachedExpenses != null) {
+        final index = _cachedExpenses!.indexWhere((e) => e.id == expense.id);
+        if (index >= 0) {
+          _cachedExpenses![index] = expense;
+          _cacheTimestamp = DateTime.now();
+        }
+      }
+    });
   }
   
   /// Odstraní položku rozpočtu.
   Future<void> removeExpense(String expenseId) async {
-    try {
-      if (_userId == null) {
-        throw Exception("=== UŽIVATEL NENÍ PŘIHLÁŠEN ===");
-      }
-      
-      await _getExpensesCollection().doc(expenseId).delete();
-    } catch (e, stackTrace) {
-      debugPrint('=== CHYBA PŘI ODSTRAŇOVÁNÍ POLOŽKY ROZPOČTU: $e ===');
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
-      rethrow;
+    if (_userId == null) {
+      throw Exception("Uživatel není přihlášen");
     }
+    
+    await _withRetry<void>(() async {
+      await _getExpensesCollection().doc(expenseId).delete();
+      
+      // Aktualizujeme cache
+      if (_cachedExpenses != null) {
+        _cachedExpenses!.removeWhere((e) => e.id == expenseId);
+        _cacheTimestamp = DateTime.now();
+      }
+    });
   }
   
   /// Vymaže všechny položky rozpočtu.
   Future<void> clearAllExpenses() async {
-    try {
-      if (_userId == null) return;
+    if (_userId == null) return;
+    
+    await _withRetry<void>(() async {
+      final snapshot = await _getExpensesCollection().get();
+      
+      if (snapshot.docs.isEmpty) return;
       
       final batch = _firestore.batch();
-      final snapshot = await _getExpensesCollection().get();
       for (final doc in snapshot.docs) {
         batch.delete(doc.reference);
       }
       await batch.commit();
-    } catch (e, stackTrace) {
-      debugPrint('=== CHYBA PŘI MAZÁNÍ VŠECH POLOŽEK ROZPOČTU: $e ===');
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
-      rethrow;
-    }
+      
+      // Aktualizujeme cache
+      _cachedExpenses = [];
+      _cacheTimestamp = DateTime.now();
+    });
   }
   
   /// Získá časovou značku poslední synchronizace z Firestore
@@ -181,7 +181,7 @@ class CloudBudgetService {
       }
       return null;
     } catch (e) {
-      debugPrint('=== CHYBA PŘI ZÍSKÁVÁNÍ ČASOVÉ ZNAČKY ROZPOČTU: $e ===');
+      debugPrint('Chyba při získávání časové značky: $e');
       return null;
     }
   }
@@ -195,66 +195,85 @@ class CloudBudgetService {
         'lastBudgetSync': Timestamp.fromDate(timestamp),
       }, SetOptions(merge: true));
     } catch (e) {
-      debugPrint('=== CHYBA PŘI UKLÁDÁNÍ ČASOVÉ ZNAČKY ROZPOČTU: $e ===');
+      debugPrint('Chyba při ukládání časové značky: $e');
     }
   }
   
   /// Synchronizuje položky z lokálního úložiště do cloudu.
   Future<void> syncFromLocal(List<Expense> localExpenses) async {
-    try {
-      if (_userId == null || localExpenses.isEmpty) return;
+    if (_userId == null || localExpenses.isEmpty) return;
+    
+    await _withRetry<void>(() async {
+      // Optimalizace: zjistíme, co opravdu potřebujeme synchronizovat
       
-      // Opakované pokusy pro lepší spolehlivost
-      const maxRetries = 3;
-      int attempts = 0;
-      Exception? lastException;
+      // 1. Nejprve získáme aktuální stav z Firestore
+      final snapshot = await _getExpensesCollection().get();
+      final cloudExpenseIds = snapshot.docs.map((doc) => doc.id).toSet();
+      final localExpenseIds = localExpenses.map((e) => e.id).toSet();
       
-      while (attempts < maxRetries) {
-        try {
-          attempts++;
-          debugPrint("=== POKUS $attempts O SYNCHRONIZACI ROZPOČTU DO FIRESTORE ===");
-          
-          final batch = _firestore.batch();
-          
-          // Nejprve vyčistíme současnou kolekci
-          final snapshot = await _getExpensesCollection().get();
-          for (final doc in snapshot.docs) {
-            batch.delete(doc.reference);
-          }
-          
-          // Pak přidáme všechny lokální položky
-          for (final expense in localExpenses) {
-            final docRef = _getExpensesCollection().doc(expense.id);
-            batch.set(docRef, expense.toJson());
-          }
-          
-          await batch.commit();
-          
-          // Uložíme časovou značku synchronizace
-          final now = DateTime.now();
-          await saveLastSyncTimestamp(now);
-          
-          debugPrint("=== ÚSPĚŠNĚ SYNCHRONIZOVÁNO ${localExpenses.length} POLOŽEK ROZPOČTU DO FIRESTORE ===");
-          return;
-        } catch (e) {
-          lastException = Exception("Pokus $attempts: $e");
-          debugPrint("=== CHYBA PŘI SYNCHRONIZACI ROZPOČTU DO FIRESTORE: $e ===");
-          
-          // Počkáme před dalším pokusem (exponenciální backoff)
-          if (attempts < maxRetries) {
-            final delay = Duration(milliseconds: 500 * (1 << attempts));
-            debugPrint("=== ČEKÁM ${delay.inMilliseconds}ms PŘED DALŠÍM POKUSEM ===");
-            await Future.delayed(delay);
-          }
-        }
+      // 2. Určíme, které položky musíme přidat, aktualizovat nebo odstranit
+      final toAdd = localExpenses.where((e) => !cloudExpenseIds.contains(e.id)).toList();
+      final toUpdate = localExpenses.where((e) => cloudExpenseIds.contains(e.id)).toList();
+      final toRemove = cloudExpenseIds.where((id) => !localExpenseIds.contains(id)).toList();
+      
+      // 3. Vytvoříme batch operace pro efektivní aktualizaci
+      final batch = _firestore.batch();
+      
+      // Přidání nových položek
+      for (final expense in toAdd) {
+        final docRef = _getExpensesCollection().doc(expense.id);
+        batch.set(docRef, expense.toJson());
       }
       
-      // Pokud jsme sem došli, všechny pokusy selhaly
-      throw lastException ?? Exception("Nepodařilo se synchronizovat data po $maxRetries pokusech");
-    } catch (e, stackTrace) {
-      debugPrint('=== FATÁLNÍ CHYBA PŘI SYNCHRONIZACI ROZPOČTU: $e ===');
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
-      rethrow;
+      // Aktualizace existujících položek
+      for (final expense in toUpdate) {
+        final docRef = _getExpensesCollection().doc(expense.id);
+        batch.update(docRef, expense.toJson());
+      }
+      
+      // Odstranění chybějících položek
+      for (final id in toRemove) {
+        final docRef = _getExpensesCollection().doc(id);
+        batch.delete(docRef);
+      }
+      
+      // 4. Provedeme batch operaci
+      await batch.commit();
+      
+      // 5. Uložíme časovou značku synchronizace
+      final now = DateTime.now();
+      await saveLastSyncTimestamp(now);
+      
+      // Aktualizujeme cache
+      _cachedExpenses = List.from(localExpenses);
+      _cacheTimestamp = now;
+      
+      debugPrint("Synchronizace dokončena: přidáno ${toAdd.length}, aktualizováno ${toUpdate.length}, odstraněno ${toRemove.length} položek");
+    });
+  }
+  
+  /// Retry wrapper pro Firebase operace s exponenciálním backoff.
+  Future<T> _withRetry<T>(Future<T> Function() operation) async {
+    int attempt = 0;
+    
+    while (attempt < _maxRetries) {
+      try {
+        return await operation();
+      } catch (e) {
+        attempt++;
+        
+        if (attempt >= _maxRetries) {
+          rethrow;
+        }
+        
+        // Exponenciální backoff
+        final delay = _baseDelayMs * (1 << (attempt - 1));
+        await Future.delayed(Duration(milliseconds: delay));
+        
+        debugPrint('Retry attempt $attempt after ${delay}ms delay');
+      }
     }
+    
+    throw Exception('Operation failed after $_maxRetries attempts');
   }
 }

@@ -4,6 +4,7 @@
 
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import '../services/environment_config.dart';
 
 /// [DefaultFirebaseOptions] poskytuje konfiguraci Firebase aplikace
 /// podle platformy, na které běží vaše aplikace.
@@ -45,32 +46,40 @@ class DefaultFirebaseOptions {
   }
 
   /// Firebase konfigurace pro Android.
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDCjzTWz3bk71X1sAED9Hk46fwGMfBi6kU',
-    appId: '1:223175794018:android:0c2e612e42a557ea40203b',
-    messagingSenderId: '223175794018',
-    projectId: 'svatebni-planovac',
-    storageBucket: 'svatebni-planovac.firebasestorage.app',
-  );
+  static FirebaseOptions get android {
+    final config = EnvironmentConfig();
+    return FirebaseOptions(
+      apiKey: config.getValue<String>('firebase.apiKey'),  // ZMĚNA
+      appId: config.getValue<String>('firebase.appId'),  // ZMĚNA
+      messagingSenderId: config.getValue<String>('firebase.messagingSenderId'),  // ZMĚNA
+      projectId: config.getValue<String>('firebase.projectId'),  // ZMĚNA
+      storageBucket: config.getValue<String>('firebase.storageBucket'),  // ZMĚNA
+    );
+  }
 
-  /// Firebase konfigurace pro iOS.
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyD2ajQ65tSFMPpuVZ8HeHtdrMnqOZ_uHWs',
-    appId: '1:223175794018:ios:38103f703f3c4b7140203b',
-    messagingSenderId: '223175794018',
-    projectId: 'svatebni-planovac',
-    storageBucket: 'svatebni-planovac.firebasestorage.app',
-    iosBundleId: 'com.example.svatebniPlanovac', // Ujistěte se, že iosBundleId odpovídá konfiguraci v Apple Developer Console.
-  );
+  static FirebaseOptions get ios {
+    final config = EnvironmentConfig();
+    return FirebaseOptions(
+      apiKey: config.getValue<String>('firebase.apiKey'),  // ZMĚNA
+      appId: config.getValue<String>('firebase.ios.appId', defaultValue: config.getValue<String>('firebase.appId')),  // ZMĚNA
+      messagingSenderId: config.getValue<String>('firebase.messagingSenderId'),  // ZMĚNA
+      projectId: config.getValue<String>('firebase.projectId'),  // ZMĚNA
+      storageBucket: config.getValue<String>('firebase.storageBucket'),  // ZMĚNA
+      iosBundleId: config.getValue<String>('firebase.ios.bundleId', defaultValue: 'com.example.svatebni-planovac'),  // ZMĚNA
+    );
+  }
 
   // Pro podporu webu odkomentujte a nakonfigurujte následující sekci:
   /*
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'your_web_api_key',
-    appId: 'your_web_app_id',
-    messagingSenderId: 'your_messaging_sender_id',
-    projectId: 'your_project_id',
-    storageBucket: 'your_storage_bucket',
-  );
+  static FirebaseOptions get web {
+    final config = EnvironmentConfig();
+    return FirebaseOptions(
+      apiKey: config.getValue<String>('FIREBASE_WEB_API_KEY'),
+      appId: config.getValue<String>('FIREBASE_WEB_APP_ID'),
+      messagingSenderId: config.getValue<String>('FIREBASE_MESSAGING_SENDER_ID'),
+      projectId: config.getValue<String>('FIREBASE_PROJECT_ID'),
+      storageBucket: config.getValue<String>('FIREBASE_STORAGE_BUCKET'),
+    );
+  }
   */
 }

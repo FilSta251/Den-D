@@ -3,9 +3,18 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/expense.dart';
 import '../services/local_budget_service.dart';
 import '../services/cloud_budget_service.dart';
+
+/// Enum pro sledování stavu synchronizace
+enum SyncState {
+  idle,
+  syncing,
+  error,
+  offline,
+}
 
 /// Manager pro synchronizaci položek rozpočtu mezi lokálním úložištěm a cloudem.
 /// 
@@ -17,9 +26,20 @@ class BudgetManager extends ChangeNotifier {
   final CloudBudgetService _cloudService;
   final fb.FirebaseAuth _auth;
   
-  bool _isSyncing = false;
-  bool get isSyncing => _isSyncing;
+  // Synchronizační stav
+  SyncState _syncState = SyncState.idle;
+  SyncState get syncState => _syncState;
+  String? _syncError;
+  String? get syncError => _syncError;
+  DateTime? _lastSyncTime;
+  DateTime? get lastSyncTime => _lastSyncTime;
   
+  // Sledování připojení k internetu
+  bool _isOnline = true;
+  bool get isOnline => _isOnline;
+  StreamSubscription? _connectivitySubscription;
+  
+  // Interní stav
   StreamSubscription? _cloudSubscription;
   StreamSubscription? _authSubscription;
   bool _initialized = false;
@@ -27,9 +47,16 @@ class BudgetManager extends ChangeNotifier {
   Timer? _syncTimer;
   Timer? _debounceTimer;
   String? _currentUserId;
+  int _pendingSyncOperations = 0;
   
+  // Nastavení
   bool _cloudSyncEnabled = true;
   bool get cloudSyncEnabled => _cloudSyncEnabled;
+  
+  // Stav změn
+  final List<Map<String, dynamic>> _pendingChanges = [];
+  bool get hasPendingChanges => _pendingChanges.isNotEmpty;
+  int get pendingChangesCount => _pendingChanges.length;
   
   BudgetManager({
     required LocalBudgetService localService,
@@ -44,7 +71,10 @@ class BudgetManager extends ChangeNotifier {
   }
   
   Future<void> _init() async {
-    debugPrint("=== INICIALIZACE BUDGET MANAGER ===");
+    _setSyncState(SyncState.idle);
+    
+    // Inicializace sledování připojení k internetu
+    _setupConnectivityMonitoring();
     
     // DŮLEŽITÉ: Nejprve se přihlašujeme na stream událostí autentizace
     _authSubscription = _auth.authStateChanges().listen((user) async {
@@ -52,13 +82,12 @@ class BudgetManager extends ChangeNotifier {
         final newUserId = user.uid;
         // Pokud se přihlásil jiný uživatel než dříve nebo jsme jen teď detekovali přihlášení
         if (_currentUserId != newUserId) {
-          debugPrint("=== PŘIHLÁŠEN NOVÝ UŽIVATEL: ${user.uid} ===");
+          debugPrint("Nový uživatel přihlášen: ${user.uid}");
           
           // Uložíme ID aktuálního uživatele
           _currentUserId = newUserId;
           
           // Vyčistíme lokální data před načtením dat nového uživatele
-          // DŮLEŽITÉ: Vypneme posluchače změn před čištěním, aby se nevyvolaly zbytečné synchronizace
           _localService.removeListener(_handleLocalChanges);
           _localService.clearAllExpenses();
           
@@ -68,16 +97,13 @@ class BudgetManager extends ChangeNotifier {
           // Znovu napojíme posluchače změn
           _localService.addListener(_handleLocalChanges);
         } else {
-          debugPrint("=== UŽIVATEL ZŮSTÁVÁ PŘIHLÁŠEN: ${user.uid} ===");
           await _refreshFromCloud();
         }
       } else {
-        debugPrint("=== UŽIVATEL ODHLÁŠEN ===");
-        // Vyčistíme ID uživatele
+        // Uživatel odhlášen
         _currentUserId = null;
         
         // Vyčistíme lokální data při odhlášení
-        // DŮLEŽITÉ: Vypneme posluchače změn před čištěním
         _localService.removeListener(_handleLocalChanges);
         _localService.clearAllExpenses();
         
@@ -92,74 +118,142 @@ class BudgetManager extends ChangeNotifier {
     // Pokud je uživatel již přihlášen, okamžitě zahájíme synchronizaci
     if (_auth.currentUser != null) {
       _currentUserId = _auth.currentUser!.uid;
-      debugPrint("=== UŽIVATEL JIŽ PŘIHLÁŠEN PŘI STARTU: $_currentUserId ===");
       await _forceInitialSync();
     } else {
-      debugPrint("=== UŽIVATEL NENÍ PŘIHLÁŠEN PŘI STARTU ===");
       await _loadLocalData();
     }
     
     // Pravidelná synchronizace pro udržení aktuálních dat
-    _syncTimer = Timer.periodic(const Duration(seconds: 15), (_) async {
-      if (_auth.currentUser != null && _cloudSyncEnabled) {
-        debugPrint("=== PERIODICKÁ SYNCHRONIZACE POLOŽEK ROZPOČTU ===");
-        await _refreshFromCloud();
-      }
+    _syncTimer = Timer.periodic(const Duration(minutes: 10), (_) {
+      _attemptSynchronization();
     });
     
     // Registrace posluchače lokálních změn
     _localService.addListener(_handleLocalChanges);
   }
   
-  /// Synchronizuje lokální data do cloudu.
-  Future<void> _syncToCloud() async {
-    if (_auth.currentUser == null) {
-      debugPrint("=== NELZE SYNCHRONIZOVAT POLOŽKY ROZPOČTU DO CLOUDU - UŽIVATEL NENÍ PŘIHLÁŠEN ===");
-      return;
-    }
+  // Nastavení sledování připojení k internetu
+  void _setupConnectivityMonitoring() {
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((result) async {
+      final isConnected = result.isNotEmpty && result.first != ConnectivityResult.none;
+      
+      if (isConnected && !_isOnline) {
+        // Přechod z offline do online stavu
+        debugPrint("Připojení k internetu obnoveno, zahajuji synchronizaci");
+        _isOnline = true;
+        await _syncPendingChanges();
+      } else if (!isConnected && _isOnline) {
+        // Přechod z online do offline stavu
+        debugPrint("Připojení k internetu ztraceno, přepínám do offline režimu");
+        _isOnline = false;
+        _setSyncState(SyncState.offline);
+      }
+      
+      notifyListeners();
+    });
     
-    if (_localService.expenses.isEmpty) {
-      debugPrint("=== LOKÁLNÍ POLOŽKY ROZPOČTU JSOU PRÁZDNÉ, NEPROVÁDÍM SYNC DO CLOUDU ===");
-      return;
+    // Inicializace počátečního stavu připojení
+    Connectivity().checkConnectivity().then((result) {
+      _isOnline = result.isNotEmpty && result.first != ConnectivityResult.none;
+      if (!_isOnline) {
+        _setSyncState(SyncState.offline);
+      }
+    });
+  }
+  
+  // Nastavení stavu synchronizace
+  void _setSyncState(SyncState state, [String? error]) {
+    _syncState = state;
+    _syncError = error;
+    if (state == SyncState.idle) {
+      _lastSyncTime = DateTime.now();
     }
-    
-    _isSyncing = true;
     notifyListeners();
+  }
+  
+  // Pokus o synchronizaci - spustí se pouze pokud jsme online
+  Future<void> _attemptSynchronization() async {
+    if (!_isOnline || !_cloudSyncEnabled || _auth.currentUser == null) {
+      return;
+    }
+    
+    if (_pendingChanges.isNotEmpty) {
+      await _syncPendingChanges();
+    } else {
+      await _refreshFromCloud();
+    }
+  }
+  
+  // Synchronizace lokálních změn do cloudu
+  Future<void> _syncPendingChanges() async {
+    if (_auth.currentUser == null || !_isOnline) {
+      return;
+    }
+    
+    if (_syncState == SyncState.syncing) {
+      return; // Již probíhá synchronizace
+    }
+    
+    if (_pendingChanges.isEmpty && _pendingSyncOperations == 0) {
+      return; // Nemáme žádné změny k synchronizaci
+    }
+    
+    _setSyncState(SyncState.syncing);
     
     try {
-      debugPrint("=== SYNCHRONIZUJI ${_localService.expenses.length} POLOŽEK ROZPOČTU DO CLOUDU ===");
-      await _cloudService.syncFromLocal(_localService.expenses);
-      debugPrint("=== SYNCHRONIZACE POLOŽEK ROZPOČTU DO CLOUDU DOKONČENA ===");
+      // Pokud máme konkrétní akce, zpracujeme je
+      if (_pendingChanges.isNotEmpty) {
+        final List<Map<String, dynamic>> changesToProcess = List.from(_pendingChanges);
+        _pendingChanges.clear();
+        
+        for (final change in changesToProcess) {
+          final String operation = change['operation'];
+          final Expense expense = change['expense'];
+          
+          switch (operation) {
+            case 'add':
+              await _cloudService.addExpense(expense);
+              break;
+            case 'update':
+              await _cloudService.updateExpense(expense);
+              break;
+            case 'remove':
+              await _cloudService.removeExpense(expense.id);
+              break;
+          }
+        }
+      } 
+      // Nemáme konkrétní akce, ale máme změny v datech - sync celé kolekce
+      else if (_pendingSyncOperations > 0) {
+        await _cloudService.syncFromLocal(_localService.expenses);
+        _pendingSyncOperations = 0;
+      }
+      
+      _setSyncState(SyncState.idle);
     } catch (e) {
-      debugPrint("=== CHYBA PŘI NAHRÁVÁNÍ POLOŽEK ROZPOČTU DO CLOUDU: $e ===");
-    } finally {
-      _isSyncing = false;
-      notifyListeners();
+      debugPrint("Chyba při synchronizaci změn: $e");
+      _setSyncState(SyncState.error, e.toString());
     }
   }
   
   // Nová metoda pro forsírovanou inicializační synchronizaci
   Future<void> _forceInitialSync() async {
-    debugPrint("=== FORSÍROVANÁ INICIALIZAČNÍ SYNCHRONIZACE POLOŽEK ROZPOČTU ===");
+    if (_syncState == SyncState.syncing) return;
     
-    _isSyncing = true;
-    notifyListeners();
+    _setSyncState(SyncState.syncing);
     
     try {
+      // Načtení poslední synchronizace z cloudu
+      final lastCloudSync = await _cloudService.getLastSyncTimestamp();
+      
       // 1. Nejprve načteme data z cloudu
       final cloudExpenses = await _cloudService.fetchExpenses();
-      debugPrint("=== NAČTENO ${cloudExpenses.length} POLOŽEK ROZPOČTU Z CLOUDU ===");
       
       // 2. Poté načteme lokální data
       await _loadLocalData();
-      debugPrint("=== NAČTENO ${_localService.expenses.length} POLOŽEK ROZPOČTU Z LOKÁLU ===");
       
       // 3. Určíme, co použijeme:
-      
-      // KRITICKÁ ZMĚNA: Pokud máme data v cloudu, použijeme VŽDY cloud jako zdroj pravdy
       if (cloudExpenses.isNotEmpty) {
-        debugPrint("=== POUŽÍVÁM DATA Z CLOUDU JAKO ZDROJ PRAVDY ===");
-        
         // Vypneme posluchače změn, abychom předešli zbytečným notifikacím
         _localService.removeListener(_handleLocalChanges);
         
@@ -170,8 +264,7 @@ class BudgetManager extends ChangeNotifier {
         _localService.addListener(_handleLocalChanges);
       } 
       // Pokud máme lokální data, ale cloud je prázdný, nahrajeme na cloud
-      else if (_localService.expenses.isNotEmpty) {
-        debugPrint("=== NAHRÁVÁM LOKÁLNÍ POLOŽKY ROZPOČTU DO CLOUDU ===");
+      else if (_localService.expenses.isNotEmpty && _isOnline) {
         await _cloudService.syncFromLocal(_localService.expenses);
       }
       
@@ -179,26 +272,22 @@ class BudgetManager extends ChangeNotifier {
       _enableCloudSync();
       
       _initialized = true;
+      _setSyncState(SyncState.idle);
       
     } catch (e) {
-      debugPrint("=== CHYBA PŘI INICIALIZAČNÍ SYNCHRONIZACI POLOŽEK ROZPOČTU: $e ===");
-    } finally {
-      _isSyncing = false;
-      notifyListeners();
+      debugPrint("Chyba při inicializační synchronizaci: $e");
+      _setSyncState(SyncState.error, e.toString());
     }
   }
   
-  // Metoda pro aktualizaci dat z cloudu s jasným logem
+  // Metoda pro aktualizaci dat z cloudu
   Future<void> _refreshFromCloud() async {
+    if (!_isOnline || _auth.currentUser == null) return;
+    
     try {
-      if (_auth.currentUser == null) return;
-      
-      debugPrint("=== AKTUALIZUJI POLOŽKY ROZPOČTU Z CLOUDU ===");
       final cloudExpenses = await _cloudService.fetchExpenses();
       
       if (cloudExpenses.isNotEmpty) {
-        debugPrint("=== NAČTENO ${cloudExpenses.length} POLOŽEK ROZPOČTU Z CLOUDU ===");
-        
         // Vypneme posluchače změn
         _localService.removeListener(_handleLocalChanges);
         
@@ -211,38 +300,27 @@ class BudgetManager extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      debugPrint("=== CHYBA PŘI AKTUALIZACI POLOŽEK ROZPOČTU Z CLOUDU: $e ===");
+      debugPrint("Chyba při aktualizaci z cloudu: $e");
+      // Nezobrazujeme uživateli tyto chyby, pouze logujeme
     }
   }
   
   Future<void> _loadLocalData() async {
     if (!_localDataLoaded) {
-      debugPrint("=== NAČÍTÁM LOKÁLNÍ POLOŽKY ROZPOČTU ===");
       await _localService.loadExpenses();
       _localDataLoaded = true;
-      debugPrint("=== LOKÁLNÍ POLOŽKY ROZPOČTU NAČTENY: ${_localService.expenses.length} POLOŽEK ===");
     }
   }
   
   /// Zapne synchronizaci s cloudem.
   void _enableCloudSync() {
-    if (!_cloudSyncEnabled) {
-      debugPrint("=== CLOUD SYNC POLOŽEK ROZPOČTU JE VYPNUTÝ V NASTAVENÍ ===");
+    if (!_cloudSyncEnabled || _auth.currentUser == null) {
       return;
     }
-    
-    if (_auth.currentUser == null) {
-      debugPrint("=== NELZE ZAPNOUT CLOUD SYNC POLOŽEK ROZPOČTU - UŽIVATEL NENÍ PŘIHLÁŠEN ===");
-      return;
-    }
-    
-    debugPrint("=== ZAPÍNÁM CLOUD SYNC POLOŽEK ROZPOČTU ===");
     
     // Zaregistrujeme poslech změn z cloudu
     _cloudSubscription?.cancel();
     _cloudSubscription = _cloudService.getExpensesStream().listen((cloudExpenses) {
-      debugPrint("=== STREAM: PŘIJATO ${cloudExpenses.length} POLOŽEK ROZPOČTU Z CLOUDU ===");
-      
       if (cloudExpenses.isNotEmpty) {
         // Vypneme posluchače změn
         _localService.removeListener(_handleLocalChanges);
@@ -256,13 +334,12 @@ class BudgetManager extends ChangeNotifier {
         notifyListeners();
       }
     }, onError: (error) {
-      debugPrint("=== CHYBA VE STREAMU CLOUDOVÝCH DAT POLOŽEK ROZPOČTU: $error ===");
+      debugPrint("Chyba ve streamu cloudových dat: $error");
     });
   }
   
   /// Vypne synchronizaci s cloudem.
   void _disableCloudSync() {
-    debugPrint("=== VYPÍNÁM CLOUD SYNC POLOŽEK ROZPOČTU ===");
     _cloudSubscription?.cancel();
     _cloudSubscription = null;
     _initialized = false;
@@ -270,82 +347,94 @@ class BudgetManager extends ChangeNotifier {
   
   /// Reaguje na změny v lokálním úložišti.
   void _handleLocalChanges() {
-    if (!_cloudSyncEnabled || _auth.currentUser == null) {
-      debugPrint("=== ZMĚNA V LOKÁLNÍCH DATECH POLOŽEK ROZPOČTU, ALE CLOUD SYNC NENÍ AKTIVNÍ ===");
-      return;
-    }
+    // Inkrementujeme počítadlo nevyřízených synchronizací
+    _pendingSyncOperations++;
     
-    // Zahájíme synchronizaci do cloudu - s krátkým zpožděním pro debounce
-    debugPrint("=== ZMĚNA V LOKÁLNÍCH DATECH POLOŽEK ROZPOČTU, SYNCHRONIZUJI DO CLOUDU ===");
-    
-    // Zrušíme případný předchozí časovač
+    // Zahájíme synchronizaci do cloudu s debounce
     _debounceTimer?.cancel();
-    
-    // Vytvoříme nový časovač
-    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
-      _syncToCloud();
+    _debounceTimer = Timer(const Duration(seconds: 2), () {
+      _attemptSynchronization();
     });
   }
   
   /// Přidá nový výdaj do rozpočtu.
   void addExpense(Expense expense) {
-    debugPrint("=== PŘIDÁVÁM NOVÝ VÝDAJ: ${expense.title} ===");
     _localService.addExpense(expense);
     
-    // Okamžitě synchronizujeme do cloudu
-    if (_auth.currentUser != null && _cloudSyncEnabled) {
-      _syncToCloud();
-    }
+    // Přidáme operaci do fronty změn
+    _pendingChanges.add({
+      'operation': 'add',
+      'expense': expense,
+      'timestamp': DateTime.now(),
+    });
+    
+    _attemptSynchronization();
   }
   
   /// Aktualizuje existující výdaj v rozpočtu.
   void updateExpense(Expense expense) {
-    debugPrint("=== AKTUALIZUJI VÝDAJ: ${expense.title} ===");
     _localService.updateExpense(expense);
     
-    // Okamžitě synchronizujeme do cloudu
-    if (_auth.currentUser != null && _cloudSyncEnabled) {
-      _syncToCloud();
-    }
+    // Přidáme operaci do fronty změn
+    _pendingChanges.add({
+      'operation': 'update',
+      'expense': expense,
+      'timestamp': DateTime.now(),
+    });
+    
+    _attemptSynchronization();
   }
   
   /// Odstraní výdaj z rozpočtu.
   void removeExpense(String expenseId) {
-    debugPrint("=== ODSTRAŇUJI VÝDAJ ===");
+    // Nejprve si uložíme referenci na výdaj před odstraněním
+    final expense = _localService.getExpenseById(expenseId);
+    if (expense == null) return;
+    
     _localService.removeExpense(expenseId);
     
-    // Okamžitě synchronizujeme do cloudu
-    if (_auth.currentUser != null && _cloudSyncEnabled) {
-      _syncToCloud();
-    }
+    // Přidáme operaci do fronty změn
+    _pendingChanges.add({
+      'operation': 'remove',
+      'expense': expense,
+      'timestamp': DateTime.now(),
+    });
+    
+    _attemptSynchronization();
   }
   
   /// Vyčistí všechny výdaje rozpočtu.
   void clearAllExpenses() {
-    debugPrint("=== MAŽU VŠECHNY VÝDAJE ===");
+    // Vytvoříme kopii všech výdajů před smazáním
+    final allExpenses = List<Expense>.from(_localService.expenses);
+    
     _localService.clearAllExpenses();
     
-    // Okamžitě synchronizujeme do cloudu
-    if (_auth.currentUser != null && _cloudSyncEnabled) {
-      _syncToCloud();
+    // Přidáme operace odstranění pro každý výdaj
+    for (final expense in allExpenses) {
+      _pendingChanges.add({
+        'operation': 'remove',
+        'expense': expense,
+        'timestamp': DateTime.now(),
+      });
     }
+    
+    _attemptSynchronization();
   }
   
   /// Vynucené načtení výdajů z cloudu - veřejná metoda pro přímé volání z UI
   Future<void> forceRefreshFromCloud() async {
-    debugPrint("=== VYNUCENÉ NAČTENÍ POLOŽEK ROZPOČTU Z CLOUDU (veřejná metoda) ===");
-    if (_auth.currentUser == null) {
-      debugPrint("=== NELZE NAČÍST POLOŽKY ROZPOČTU Z CLOUDU - UŽIVATEL NENÍ PŘIHLÁŠEN ===");
-      await _loadLocalData();
+    if (_auth.currentUser == null || !_isOnline) {
+      if (!_isOnline) {
+        _setSyncState(SyncState.offline);
+      }
       return;
     }
     
-    _isSyncing = true;
-    notifyListeners();
+    _setSyncState(SyncState.syncing);
     
     try {
       final cloudExpenses = await _cloudService.fetchExpenses();
-      debugPrint("=== NAČTENO ${cloudExpenses.length} POLOŽEK ROZPOČTU Z CLOUDU ===");
       
       if (cloudExpenses.isNotEmpty) {
         // Vypneme posluchače změn
@@ -356,40 +445,69 @@ class BudgetManager extends ChangeNotifier {
         
         // Zapneme posluchače zpět
         _localService.addListener(_handleLocalChanges);
-      } else {
-        debugPrint("=== Z CLOUDU NEBYLY NAČTENY ŽÁDNÉ POLOŽKY ROZPOČTU ===");
       }
+      
+      _setSyncState(SyncState.idle);
     } catch (e) {
-      debugPrint("=== CHYBA PŘI NAČÍTÁNÍ POLOŽEK ROZPOČTU Z CLOUDU: $e ===");
-    } finally {
-      _isSyncing = false;
-      notifyListeners();
+      debugPrint("Chyba při načítání z cloudu: $e");
+      _setSyncState(SyncState.error, e.toString());
     }
   }
   
   /// Vynucená synchronizace do cloudu.
   Future<void> forceSyncToCloud() async {
-    debugPrint("=== VYNUCENÁ SYNCHRONIZACE POLOŽEK ROZPOČTU DO CLOUDU ===");
-    if (_auth.currentUser == null) {
-      debugPrint("=== NELZE SYNCHRONIZOVAT POLOŽKY ROZPOČTU DO CLOUDU - UŽIVATEL NENÍ PŘIHLÁŠEN ===");
+    if (_auth.currentUser == null || !_isOnline) {
+      if (!_isOnline) {
+        _setSyncState(SyncState.offline);
+      }
       return;
     }
     
-    await _syncToCloud();
+    _setSyncState(SyncState.syncing);
+    
+    try {
+      await _syncPendingChanges();
+      
+      // Pokud nemáme žádné konkrétní změny, synchronizujeme vše
+      if (_pendingChanges.isEmpty) {
+        await _cloudService.syncFromLocal(_localService.expenses);
+      }
+      
+      _setSyncState(SyncState.idle);
+    } catch (e) {
+      debugPrint("Chyba při synchronizaci do cloudu: $e");
+      _setSyncState(SyncState.error, e.toString());
+    }
   }
   
   /// Zapne/vypne cloudovou synchronizaci.
   set cloudSyncEnabled(bool value) {
-    debugPrint("=== NASTAVUJI CLOUDOVOU SYNCHRONIZACI POLOŽEK ROZPOČTU NA: $value ===");
     _cloudSyncEnabled = value;
     if (value) {
-      if (_auth.currentUser != null) {
+      if (_auth.currentUser != null && _isOnline) {
         _enableCloudSync();
+        _attemptSynchronization();
       }
     } else {
       _disableCloudSync();
     }
     notifyListeners();
+  }
+  
+  /// Vymaže frontu nevyřízených změn
+  void clearPendingChanges() {
+    _pendingChanges.clear();
+    _pendingSyncOperations = 0;
+    notifyListeners();
+  }
+  
+  /// Vrací stav připojení k internetu jako text
+  String get connectivityStatus {
+    if (_isOnline) {
+      return "Online";
+    } else {
+      return "Offline";
+    }
   }
   
   /// Exportuje položky rozpočtu do JSON formátu.
@@ -400,13 +518,15 @@ class BudgetManager extends ChangeNotifier {
   /// Importuje položky rozpočtu z JSON formátu.
   Future<void> importFromJson(String jsonData) async {
     await _localService.importFromJson(jsonData);
+    _pendingSyncOperations++;
+    _attemptSynchronization();
   }
   
   /// Seznam výdajů rozpočtu.
   List<Expense> get expenses => _localService.expenses;
   
   /// Indikátor načítání.
-  bool get isLoading => _localService.isLoading || _isSyncing;
+  bool get isLoading => _localService.isLoading || _syncState == SyncState.syncing;
   
   /// Vypočítá celkovou zaplacenou částku
   double get totalPaid => expenses.fold(0.0, (sum, exp) => sum + exp.paid);
@@ -419,9 +539,9 @@ class BudgetManager extends ChangeNotifier {
   
   @override
   void dispose() {
-    debugPrint("=== UKONČUJI BUDGET MANAGER ===");
-    _authSubscription?.cancel();  // Zrušení posluchače autentizace
+    _authSubscription?.cancel();
     _cloudSubscription?.cancel();
+    _connectivitySubscription?.cancel();
     _syncTimer?.cancel();
     _debounceTimer?.cancel();
     _localService.removeListener(_handleLocalChanges);

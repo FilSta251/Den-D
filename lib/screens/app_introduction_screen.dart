@@ -56,7 +56,7 @@ class _AppIntroductionScreenState extends State<AppIntroductionScreen> {
     // Označíme intro jako dokončené
     await OnboardingManager.markIntroCompleted();
     // Přejdeme na chatbota
-    Navigator.pushReplacementNamed(context, Routes.chatbot);
+    Navigator.pushReplacementNamed(context, AppRoutes.chatbot);
   }
 
   // Přidaná metoda pro přeskočení úvodních obrazovek
@@ -64,7 +64,7 @@ class _AppIntroductionScreenState extends State<AppIntroductionScreen> {
     // Označíme intro jako dokončené
     await OnboardingManager.markIntroCompleted();
     // Přejdeme na chatbota
-    Navigator.pushReplacementNamed(context, Routes.chatbot);
+    Navigator.pushReplacementNamed(context, AppRoutes.chatbot);
   }
 
   @override

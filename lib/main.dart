@@ -1,6 +1,5 @@
-// lib/main.dart - OPRAVENÁ VERZE
+// lib/main.dart - OPRAVENÁ VERZE S CHYBOVÝMI KOMPONENTAMI
 
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -19,7 +18,6 @@ import 'dart:async';
 
 // Repositories and Services
 import 'repositories/user_repository.dart';
-import 'repositories/tasks_repository.dart';
 import 'repositories/wedding_repository.dart';
 import 'repositories/subscription_repository.dart';
 import 'services/auth_service.dart';
@@ -35,7 +33,12 @@ import 'routes.dart'; // Import pro Routes konstanty
 import 'services/budget_manager.dart'; // Import pro BudgetManager
 import 'services/local_budget_service.dart'; // Import pro LocalBudgetService
 import 'services/cloud_budget_service.dart'; // Import pro CloudBudgetService
-import 'services/environment_config.dart'; // Import pro EnvironmentConfig
+
+// Nové importy
+import 'services/environment_config.dart';
+import 'services/connectivity_manager.dart';
+import 'utils/error_handler.dart';
+import 'services/security_service.dart';
 
 // Import pro SubscriptionProvider (ChangeNotifier)
 import 'providers/subscription_provider.dart';
@@ -43,22 +46,71 @@ import 'providers/subscription_provider.dart';
 // Router a Theme
 import 'theme/app_theme.dart';
 
+// NOVÉ IMPORTY - CHYBOVÉ KOMPONENTY
+import 'widgets/error_dialog.dart';
+import 'widgets/custom_error_widget.dart';
+import 'utils/global_error_handler.dart';
+import 'package:svatebni_planovac/utils/global_error_handler.dart' as geh;
+import 'package:svatebni_planovac/widgets/error_dialog.dart' as ed;
+
 /// Konstantní proměnná určující prostředí (např. 'production').
 const String environment = "production";
 
 /// Pomocná funkce pro ošetření asynchronních operací s timeoutem
+/// ROZŠÍŘENO o podporu ErrorDialog
 Future<T?> timeoutSafeCall<T>(Future<T> future, {
   int timeoutSeconds = 10,
   T? defaultValue,
-  String operationName = 'Operace'
+  String operationName = 'Operace',
+  BuildContext? context,
+  bool showErrorDialog = false,
 }) async {
   try {
     return await future.timeout(Duration(seconds: timeoutSeconds));
-  } on TimeoutException {
+  } on TimeoutException catch (e, stack) {
     debugPrint('[$operationName] Ukončeno kvůli timeoutu (${timeoutSeconds}s)');
+    
+    // Globální handling
+    GlobalErrorHandler.instance.handleError(
+      e,
+      stackTrace: stack,
+      type: ed.ErrorType.timeout,
+      userMessage: 'Operace $operationName trvala příliš dlouho',
+      errorCode: 'TIMEOUT_001',
+    );
+    
+    // Volitelně zobrazit dialog
+    if (showErrorDialog && context != null) {
+      ErrorDialog.show(
+        context,
+        message: 'Operace $operationName trvala příliš dlouho',
+        errorType: ed.ErrorType.timeout,
+        recoveryActions: [RecoveryAction.retry],
+        onRecoveryAction: (action) {
+          if (action == RecoveryAction.retry) {
+            // Retry logika
+            timeoutSafeCall(future, 
+              timeoutSeconds: timeoutSeconds, 
+              defaultValue: defaultValue, 
+              operationName: operationName
+            );
+          }
+        },
+      );
+    }
+    
     return defaultValue;
   } catch (e, stack) {
     debugPrint('[$operationName] Chyba: $e');
+    
+    // Globální handling
+    GlobalErrorHandler.instance.handleError(
+      e,
+      stackTrace: stack,
+      userMessage: 'Chyba v operaci $operationName',
+      errorCode: 'OP_ERROR_001',
+    );
+    
     FirebaseCrashlytics.instance.recordError(e, stack, reason: operationName);
     return defaultValue;
   }
@@ -67,15 +119,8 @@ Future<T?> timeoutSafeCall<T>(Future<T> future, {
 // Funkce pro async inicializaci před spuštěním aplikace
 Future<void> _initializeApp() async {
   try {
-    // Načtení .env souboru
-    debugPrint("[Main] Loading .env file");
-    await dotenv.load(fileName: ".env");
-    debugPrint("[Main] .env file loaded successfully");
-    
-    // Inicializace EnvironmentConfig
-    debugPrint("[Main] Initializing EnvironmentConfig");
-    await EnvironmentConfig().initialize();
-    debugPrint("[Main] EnvironmentConfig initialized");
+    // NOVÉ: Inicializace globálního error handleru
+    GlobalErrorHandler.initialize();
     
     // Nastavení orientace displeje (pouze portrét)
     await SystemChrome.setPreferredOrientations([
@@ -83,117 +128,222 @@ Future<void> _initializeApp() async {
       DeviceOrientation.portraitDown,
     ]);
     
+    
+    
     // Inicializace EasyLocalization (načtení jazykových překladů)
-    debugPrint("[Main] Initializing EasyLocalization");
     await EasyLocalization.ensureInitialized();
-    debugPrint("[Main] EasyLocalization initialized");
 
-    // Inicializace Firebase
+    // Inicializace environment konfigurace
+    final envConfig = EnvironmentConfig();
+    await envConfig.initialize();
+
+    // Inicializace Firebase s error handlingem
     try {
-      debugPrint("[Main] Initializing Firebase");
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
-      debugPrint("[Main] Firebase initialized");
-      
+            
       // Optimalizace Firestore cache pro offline použití
       FirebaseFirestore.instance.settings = Settings(
         persistenceEnabled: true,
         cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
       );
       
-      debugPrint("[Main] Setting Firebase Auth persistence");
-      await fb.FirebaseAuth.instance.setPersistence(fb.Persistence.LOCAL);
-      debugPrint("[Main] Firebase Auth persistence set to LOCAL");
       
       // Nastavení Firebase Performance Monitoring
-      debugPrint("[Main] Setting up Firebase Performance");
-      await FirebasePerformance.instance.setPerformanceCollectionEnabled(
-        EnvironmentConfig().getValue<bool>("ENABLE_ANALYTICS", defaultValue: true)
-      );
-      debugPrint("[Main] Firebase Performance monitoring enabled");
-      
-      debugPrint("[Main] Firebase initialized successfully");
+      await FirebasePerformance.instance.setPerformanceCollectionEnabled(true);
     } catch (e, stack) {
       if (e.toString().contains('[core/duplicate-app]')) {
-        debugPrint("[Main] Firebase default app already exists. Skipping initialization.");
+        debugPrint("[Main] Firebase již existuje, přeskakuji inicializaci.");
       } else {
-        debugPrint("[Main] Error initializing Firebase: $e");
-        debugPrintStack(label: 'StackTrace', stackTrace: stack);
+        debugPrint("[Main] Chyba při inicializaci Firebase: $e");
+        
+        // Použití globálního error handleru
+        GlobalErrorHandler.instance.handleError(
+          e,
+          stackTrace: stack,
+          type: ed.ErrorType.critical,
+          userMessage: 'Nepodařilo se inicializovat Firebase služby',
+          errorCode: 'FIREBASE_INIT_001',
+        );
+        
         FirebaseCrashlytics.instance.recordError(e, stack, reason: 'Firebase Initialization');
       }
     }
 
-    // Inicializace service locatoru (DI)
-    debugPrint("[Main] Initializing service locator (DI)");
-    await di.init();
-    await timeoutSafeCall(
-      di.locator.allReady(), 
-      timeoutSeconds: 5,
-      operationName: 'DI initialization'
-    );
-    debugPrint("[Main] Dependency injection initialized");
+    // Inicializace service locatoru (DI) s error handlingem
+    try {
+      await di.init();
+      await timeoutSafeCall(
+        di.locator.allReady(), 
+        timeoutSeconds: 5,
+        operationName: 'DI initialization'
+      );
+    } catch (e, stack) {
+      GlobalErrorHandler.instance.handleError(
+        e,
+        stackTrace: stack,
+        type: ed.ErrorType.critical,
+        userMessage: 'Chyba při inicializaci aplikačních služeb',
+        errorCode: 'DI_INIT_001',
+      );
+      rethrow;
+    }
 
-    // Nastavení Crashlytics
-    debugPrint("[Main] Configuring Crashlytics");
-    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
-      EnvironmentConfig().getValue<bool>("ENABLE_CRASHLYTICS", defaultValue: true)
-    );
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterError;
+    // Inicializace nových služeb s error handlingem
+    try {
+      final errorHandler = ErrorHandler();
+      await errorHandler.initialize();
+
+      final connectivityManager = ConnectivityManager();
+      await connectivityManager.initialize();
+
+      final securityService = SecurityService();
+      await securityService.initialize();
+    } catch (e, stack) {
+      GlobalErrorHandler.instance.handleError(
+        e,
+        stackTrace: stack,
+        type: ed.ErrorType.server,
+        userMessage: 'Chyba při inicializaci bezpečnostních služeb',
+        errorCode: 'SEC_INIT_001',
+      );
+    }
+
+    // Nastavení Crashlytics s našimi error komponentami
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+    
+    // Přepsání FlutterError.onError pro použití našeho systému
+    FlutterError.onError = (FlutterErrorDetails details) {
+      FirebaseCrashlytics.instance.recordFlutterError(details);
+      
+      // Také použij náš globální handler
+      GlobalErrorHandler.instance.handleError(
+        details.exception,
+        stackTrace: details.stack,
+        type: ed.ErrorType.critical,
+        userMessage: 'Došlo k neočekávané chybě aplikace',
+        errorCode: 'FLUTTER_ERROR_001',
+      );
+    };
     
     // Zachytávání nativních chyb
     PlatformDispatcher.instance.onError = (error, stack) {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      
+      // Také použij náš globální handler
+      GlobalErrorHandler.instance.handleError(
+        error,
+        stackTrace: stack,
+        type: ed.ErrorType.critical,
+        userMessage: 'Kritická chyba systému',
+        errorCode: 'PLATFORM_ERROR_001',
+      );
+      
       return true;
     };
-    debugPrint("[Main] Crashlytics configured");
 
-    // Nastavení sledování stavu přihlášení a obnovu tokenů
-    fb.FirebaseAuth.instance.authStateChanges().listen((fb.User? user) {
-      if (user != null) {
-        FirebaseCrashlytics.instance.setUserIdentifier(user.uid);
-        user.getIdTokenResult().then((idTokenResult) {
-          // Kontrola zda není token prošlý nebo příliš starý
-          if (idTokenResult.issuedAtTime != null) {
-            final issuedAtDate = DateTime.fromMillisecondsSinceEpoch(idTokenResult.issuedAtTime!.millisecondsSinceEpoch);
-            final now = DateTime.now();
-            if (now.difference(issuedAtDate).inHours > 12) {
-              // Vynutíme obnovení tokenu po 12 hodinách
-              user.getIdToken(true).catchError((error) {
-                debugPrint("[Main] Token refresh error: $error");
-              });
+    // Nastavení sledování stavu přihlášení a obnovu tokenů s error handlingem
+    fb.FirebaseAuth.instance.authStateChanges().listen(
+      (fb.User? user) {
+        if (user != null) {
+          FirebaseCrashlytics.instance.setUserIdentifier(user.uid);
+          user.getIdTokenResult().then((idTokenResult) {
+            // Kontrola zda není token prošlý nebo příliš starý
+            if (idTokenResult.issuedAtTime != null) {
+              final issuedAtDate = DateTime.fromMillisecondsSinceEpoch(idTokenResult.issuedAtTime!.millisecondsSinceEpoch);
+              final now = DateTime.now();
+              if (now.difference(issuedAtDate).inHours > 12) {
+                // Vynutíme obnovení tokenu po 12 hodinách
+                user.getIdToken(true).catchError((error) {
+                  debugPrint("[Main] Token refresh error: $error");
+                  
+                  GlobalErrorHandler.instance.handleError(
+                    error,
+                    type: ed.ErrorType.auth,
+                    userMessage: 'Chyba při obnovení přihlášení',
+                    errorCode: 'TOKEN_REFRESH_001',
+                  );
+                });
+              }
             }
-          }
-        }).catchError((error) {
-          debugPrint("[Main] Token validation error: $error");
-        });
-      } else {
-        FirebaseCrashlytics.instance.setUserIdentifier('');
-      }
-    });
-
-    // Inicializace dalších služeb (oznámení, crash-reporting, apod.)
-    debugPrint("[Main] Initializing additional services");
-    await timeoutSafeCall(
-      di.locator<NotificationService>().initialize(),
-      timeoutSeconds: 3,
-      operationName: 'NotificationService initialization'
+          }).catchError((error) {
+            debugPrint("[Main] Token validation error: $error");
+            
+            GlobalErrorHandler.instance.handleError(
+              error,
+              type: ed.ErrorType.auth,
+              userMessage: 'Chyba při ověření přihlášení',
+              errorCode: 'TOKEN_VALIDATION_001',
+            );
+          });
+        } else {
+          FirebaseCrashlytics.instance.setUserIdentifier('');
+        }
+      },
+      onError: (error) {
+        GlobalErrorHandler.instance.handleError(
+          error,
+          type: ed.ErrorType.auth,
+          userMessage: 'Chyba při sledování stavu přihlášení',
+          errorCode: 'AUTH_STATE_001',
+        );
+      },
     );
-    await di.locator<CrashReportingService>().initialize();
-    
-    // Kontrola síťového připojení při startu
-    final connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult == ConnectivityResult.none) {
-      debugPrint("[Main] No network connection detected at startup");
-    } else {
-      debugPrint("[Main] Network connection available at startup");
+
+    // Inicializace dalších služeb s error handlingem
+    try {
+      await timeoutSafeCall(
+        di.locator<NotificationService>().initialize(),
+        timeoutSeconds: 3,
+        operationName: 'NotificationService initialization'
+      );
+    } catch (e, stack) {
+      GlobalErrorHandler.instance.handleError(
+        e,
+        stackTrace: stack,
+        type: ed.ErrorType.permission,
+        userMessage: 'Chyba při inicializaci oznámení',
+        errorCode: 'NOTIFICATION_INIT_001',
+      );
     }
     
-    debugPrint("[Main] Additional services initialized");
+    await di.locator<CrashReportingService>().initialize();
+    
+    // Kontrola síťového připojení při startu s error handlingem
+    try {
+      final connectivityResult = await Connectivity().checkConnectivity();
+      if (connectivityResult == ConnectivityResult.none) {
+        debugPrint("[Main] Při startu nebylo detekováno síťové připojení");
+        
+        GlobalErrorHandler.instance.handleError(
+          Exception('No network connectivity'),
+          type: ed.ErrorType.network,
+          userMessage: 'Aplikace spuštěna bez připojení k internetu',
+          errorCode: 'NETWORK_STARTUP_001',
+        );
+      }
+    } catch (e, stack) {
+      GlobalErrorHandler.instance.handleError(
+        e,
+        stackTrace: stack,
+        type: ed.ErrorType.network,
+        userMessage: 'Chyba při kontrole připojení',
+        errorCode: 'CONNECTIVITY_CHECK_001',
+      );
+    }
   } catch (e, stack) {
-    debugPrint("[Main] Critical error during app initialization: $e");
-    debugPrintStack(label: 'StackTrace', stackTrace: stack);
+    debugPrint("[Main] Kritická chyba během inicializace aplikace: $e");
     FirebaseCrashlytics.instance.recordError(e, stack, reason: 'App Initialization', fatal: true);
+    
+    GlobalErrorHandler.instance.handleError(
+      e,
+      stackTrace: stack,
+      type: ed.ErrorType.critical,
+      userMessage: 'Kritická chyba při spuštění aplikace',
+      errorCode: 'APP_INIT_CRITICAL_001',
+    );
+    
     rethrow; // Rethrow aby se aplikace mohla rozhodnout, zda pokračovat nebo ne
   }
 }
@@ -212,9 +362,7 @@ Future<void> main() async {
     // Přesouváme inicializaci do samostatné funkce
     await _initializeApp();
 
-    // Zobrazení informací o prostředí z .env
-    debugPrint("[Main] App starting in ${EnvironmentConfig().environment} environment");
-    debugPrint("[Main] Using API URL: ${EnvironmentConfig().getValue<String>('API_URL')}");
+    debugPrint("[Main] App starting in $environment environment");
 
     // Spuštění aplikace s EasyLocalization
     runApp(
@@ -227,10 +375,9 @@ Future<void> main() async {
       ),
     );
   } catch (e, stack) {
-    // Zachycení kritických chyb při startu
+    // Zachycení kritických chyb při startu - POUŽITÍ NAŠICH KOMPONENT
     debugPrint("=== KRITICKÁ CHYBA PŘI SPUŠTĚNÍ APLIKACE ===");
     debugPrint(e.toString());
-    debugPrintStack(label: 'StackTrace', stackTrace: stack);
     
     try {
       // Záznam do Crashlytics
@@ -239,38 +386,27 @@ Future<void> main() async {
       // Crashlytics nemusí být inicializovaný
     }
     
-    // Zobrazení nouzové obrazovky s chybou
+    // NOVÁ CHYBOVÁ OBRAZOVKA s našimi komponentami
     runApp(MaterialApp(
       home: Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 80, color: Colors.red),
-                const SizedBox(height: 20),
-                const Text(
-                  'Nepodařilo se spustit aplikaci',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Omlouváme se za potíže. Prosím zkuste aplikaci restartovat nebo kontaktujte podporu.',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 30),
-                ElevatedButton(
-                  onPressed: () {
-                    // Pokusíme se restartovat aplikaci
-                    SystemNavigator.pop();
-                  },
-                  child: const Text('Zavřít aplikaci'),
-                ),
-              ],
-            ),
-          ),
+        body: CustomErrorWidget(
+          message: 'Nepodařilo se spustit aplikaci',
+          errorType: ErrorWidgetType.unknown,
+          onRetry: () {
+            // Pokus o restart aplikace
+            main();
+          },
+          onSecondaryAction: () {
+            SystemNavigator.pop();
+          },
+          secondaryActionText: 'Zavřít aplikaci',
+          secondaryActionIcon: Icons.close,
+          detailMessage: 'Omlouváme se za potíže. Prosím zkuste aplikaci restartovat nebo kontaktujte podporu. Chyba: ${e.toString()}',
+          showReportButton: true,
+          onReportError: () {
+            // Zde by byla implementace reportování chyby
+            debugPrint('Reporting error: $e');
+          },
         ),
       ),
     ));
@@ -278,138 +414,95 @@ Future<void> main() async {
 }
 
 /// Pomocná funkce pro výpis informací o aktuálně přihlášeném uživateli
-/// Přesunuto do samostatné funkce, aby se nespouštělo v hlavním vláknu
+/// ROZŠÍŘENO o error handling
 Future<void> logCurrentUser() async {
   try {
     final user = fb.FirebaseAuth.instance.currentUser;
     if (user != null) {
-      debugPrint('[Main] === AKTUÁLNÍ UŽIVATEL PŘI STARTU APLIKACE ===');
-      debugPrint('[Main] UID: ${user.uid}');
-      debugPrint('[Main] Email: ${user.email}');
-      debugPrint('[Main] Email ověřen: ${user.emailVerified}');
-      debugPrint('[Main] Poskytovatel přihlášení: ${user.providerData.map((p) => p.providerId).join(', ')}');
-      
-      // Test získání tokenu (může být užitečné při debugování)
-      try {
-        final token = await timeoutSafeCall(
-          user.getIdToken(),
-          timeoutSeconds: 3,
-          operationName: 'Get user token'
-        );
-        if (token != null) {
-          debugPrint('[Main] ID token získán úspěšně.');
-        } else {
-          debugPrint('[Main] Nepodařilo se získat ID token (timeout)');
-        }
-      } catch (e) {
-        debugPrint('[Main] Nepodařilo se získat ID token: $e');
-      }
-
-      // Ověření, zda existují dokumenty uživatele ve Firestore
-      await checkUserDocuments(user.uid);
-    } else {
-      debugPrint('[Main] === ŽÁDNÝ PŘIHLÁŠENÝ UŽIVATEL PŘI STARTU APLIKACE ===');
+      debugPrint('[Auth] Přihlášený uživatel: ${user.uid}');
     }
   } catch (e, stack) {
-    debugPrint('[Main] Chyba při získávání informací o aktuálním uživateli: $e');
-    debugPrintStack(label: 'StackTrace', stackTrace: stack);
+    GlobalErrorHandler.instance.handleError(
+      e,
+      stackTrace: stack,
+      type: ed.ErrorType.auth,
+      userMessage: 'Chyba při získání informací o uživateli',
+      errorCode: 'USER_INFO_001',
+    );
     FirebaseCrashlytics.instance.recordError(e, stack, reason: 'User Info Check');
   }
 }
 
 /// Ověří existenci dokumentů uživatele ve Firestore
+/// ROZŠÍŘENO o lepší error handling
 Future<void> checkUserDocuments(String uid) async {
   try {
-    debugPrint('[Main] Checking user documents in Firestore');
-    
     // Kontrola uživatelského profilu
-    try {
-      final userDoc = await timeoutSafeCall(
-        FirebaseFirestore.instance.collection('users').doc(uid).get(),
-        timeoutSeconds: 5,
-        operationName: 'Users check'
-      );
-      if (userDoc != null) {
-        debugPrint('[Main] User document exists: ${userDoc.exists}');
-      }
-    } catch (e) {
-      debugPrint('[Main] Error checking user document: $e');
-    }
+    final userDoc = await timeoutSafeCall(
+      FirebaseFirestore.instance.collection('users').doc(uid).get(),
+      timeoutSeconds: 5,
+      operationName: 'Users check'
+    );
     
     // Kontrola wedding info
-    try {
-      final weddingDoc = await timeoutSafeCall(
-        FirebaseFirestore.instance.collection('wedding_info').doc(uid).get(),
-        timeoutSeconds: 5,
-        operationName: 'Wedding info check'
-      );
-      if (weddingDoc != null) {
-        debugPrint('[Main] Wedding info document exists: ${weddingDoc.exists}');
-        if (weddingDoc.exists) {
-          debugPrint('[Main] Wedding info data: ${weddingDoc.data()}');
-        }
-      }
-    } catch (e) {
-      debugPrint('[Main] Error checking wedding info document: $e');
-    }
+    final weddingDoc = await timeoutSafeCall(
+      FirebaseFirestore.instance.collection('wedding_info').doc(uid).get(),
+      timeoutSeconds: 5,
+      operationName: 'Wedding info check'
+    );
     
     // Kontrola předplatného
-    try {
-      final subscriptionDoc = await timeoutSafeCall(
-        FirebaseFirestore.instance.collection('subscriptions').doc(uid).get(),
-        timeoutSeconds: 5,
-        operationName: 'Subscription check'
-      );
-      if (subscriptionDoc != null) {
-        debugPrint('[Main] Subscription document exists: ${subscriptionDoc.exists}');
-      }
-    } catch (e) {
-      debugPrint('[Main] Error checking subscription document: $e');
-    }
+    final subscriptionDoc = await timeoutSafeCall(
+      FirebaseFirestore.instance.collection('subscriptions').doc(uid).get(),
+      timeoutSeconds: 5,
+      operationName: 'Subscription check'
+    );
     
   } catch (e, stack) {
-    debugPrint('[Main] Error checking user documents: $e');
-    debugPrintStack(label: 'StackTrace', stackTrace: stack);
+    GlobalErrorHandler.instance.handleError(
+      e,
+      stackTrace: stack,
+      type: ed.ErrorType.server,
+      userMessage: 'Chyba při ověření uživatelských dat',
+      errorCode: 'USER_DOCS_001',
+    );
     FirebaseCrashlytics.instance.recordError(e, stack, reason: 'User Documents Check');
   }
 }
 
 /// Testuje základní oprávnění k Firestore
+/// ROZŠÍŘENO o error handling
 Future<void> testFirestorePermissions() async {
   final Trace trace = FirebasePerformance.instance.newTrace('firestore_permissions_test');
   await trace.start();
   
   try {
-    debugPrint('[Main] Testing basic Firestore permissions');
     final user = fb.FirebaseAuth.instance.currentUser;
     
     if (user == null) {
-      debugPrint('[Main] No user logged in, skipping Firestore permissions test');
       await trace.stop();
       return;
     }
     
     // Test čtení - wedding_info
-    debugPrint('[Main] Testing READ permission for wedding_info/${user.uid}');
     try {
       final docRef = FirebaseFirestore.instance.collection('wedding_info').doc(user.uid);
-      final docSnapshot = await timeoutSafeCall(
+      await timeoutSafeCall(
         docRef.get(),
         timeoutSeconds: 5,
         operationName: 'READ wedding_info'
       );
-      
-      if (docSnapshot != null) {
-        debugPrint('[Main] READ permission for wedding_info: ${docSnapshot.exists ? "SUCCESS" : "Document does not exist, but read permission OK"}');
-      } else {
-        debugPrint('[Main] READ permission for wedding_info: TIMEOUT');
-      }
     } catch (e) {
-      debugPrint('[Main] READ permission for wedding_info FAILED: $e');
+      debugPrint('[Firestore] Chyba čtení: $e');
+      GlobalErrorHandler.instance.handleError(
+        e,
+        type: ed.ErrorType.permission,
+        userMessage: 'Chyba při čtení svatebních informací',
+        errorCode: 'FIRESTORE_READ_001',
+      );
     }
     
     // Test zápisu - wedding_info
-    debugPrint('[Main] Testing WRITE permission for wedding_info/${user.uid}');
     try {
       final docRef = FirebaseFirestore.instance.collection('wedding_info').doc(user.uid);
       await timeoutSafeCall(
@@ -421,15 +514,23 @@ Future<void> testFirestorePermissions() async {
         timeoutSeconds: 5,
         operationName: 'WRITE wedding_info'
       );
-      debugPrint('[Main] WRITE permission for wedding_info: SUCCESS');
     } catch (e) {
-      debugPrint('[Main] WRITE permission for wedding_info FAILED: $e');
+      debugPrint('[Firestore] Chyba zápisu: $e');
+      GlobalErrorHandler.instance.handleError(
+        e,
+        type: ed.ErrorType.permission,
+        userMessage: 'Chyba při ukládání svatebních informací',
+        errorCode: 'FIRESTORE_WRITE_001',
+      );
     }
-    
-    debugPrint('[Main] Firestore permissions test completed');
   } catch (e, stack) {
-    debugPrint('[Main] Error during Firestore permissions test: $e');
-    debugPrintStack(label: 'StackTrace', stackTrace: stack);
+    GlobalErrorHandler.instance.handleError(
+      e,
+      stackTrace: stack,
+      type: ed.ErrorType.server,
+      userMessage: 'Chyba při testování oprávnění k databázi',
+      errorCode: 'FIRESTORE_PERMISSIONS_001',
+    );
     FirebaseCrashlytics.instance.recordError(e, stack, reason: 'Firestore Permissions Test');
   } finally {
     await trace.stop();
@@ -478,6 +579,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     
+    // NOVÉ: Nastavení kontextu pro globální error handler
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      GlobalErrorHandler.instance.setContext(context);
+    });
+    
     // Start performance trace
     _appStartupTrace = FirebasePerformance.instance.newTrace('app_startup');
     _appStartupTrace.start();
@@ -485,52 +591,81 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // Přidání observeru stavu aplikace
     WidgetsBinding.instance.addObserver(this);
     
-    // Vytvoření instance SubscriptionRepository
-    _subscriptionRepository = SubscriptionRepository(
-      firestore: FirebaseFirestore.instance,
-      firebaseAuth: fb.FirebaseAuth.instance
-    );
-    
-    // Vytvoření instance CloudScheduleService a ScheduleManager
-    _cloudScheduleService = CloudScheduleService(
-      firestore: FirebaseFirestore.instance,
-      auth: fb.FirebaseAuth.instance
-    );
-    
-    _scheduleManager = ScheduleManager(
-      localService: di.locator<LocalScheduleService>(),
-      cloudService: _cloudScheduleService,
-      auth: fb.FirebaseAuth.instance
-    );
-    
-    // Vytvoření instance LocalBudgetService a CloudBudgetService
-    _localBudgetService = di.locator<LocalBudgetService>();
-    _cloudBudgetService = CloudBudgetService(
-      firestore: FirebaseFirestore.instance,
-      auth: fb.FirebaseAuth.instance
-    );
-    
+    try {
+      // Vytvoření instance SubscriptionRepository
+      _subscriptionRepository = SubscriptionRepository(
+        firestore: FirebaseFirestore.instance,
+        firebaseAuth: fb.FirebaseAuth.instance
+      );
+      
+      // Vytvoření instance CloudScheduleService a ScheduleManager
+      _cloudScheduleService = CloudScheduleService(
+        firestore: FirebaseFirestore.instance,
+        auth: fb.FirebaseAuth.instance
+      );
+      
+      _scheduleManager = ScheduleManager(
+        localService: di.locator<LocalScheduleService>(),
+        cloudService: _cloudScheduleService,
+        auth: fb.FirebaseAuth.instance
+      );
+      
+      // Vytvoření instance LocalBudgetService a CloudBudgetService
+      _localBudgetService = di.locator<LocalBudgetService>();
+      _cloudBudgetService = CloudBudgetService(
+        firestore: FirebaseFirestore.instance,
+        auth: fb.FirebaseAuth.instance
+      );
+      
       // Vytvoření instance BudgetManager se správnými službami
-    _budgetManager = BudgetManager(
-      localService: _localBudgetService,
-      cloudService: _cloudBudgetService,
-      auth: fb.FirebaseAuth.instance
-    );
+      _budgetManager = BudgetManager(
+        localService: _localBudgetService,
+        cloudService: _cloudBudgetService,
+        auth: fb.FirebaseAuth.instance
+      );
+    } catch (e, stack) {
+      GlobalErrorHandler.instance.handleError(
+        e,
+        stackTrace: stack,
+        type: ed.ErrorType.critical,
+        userMessage: 'Chyba při inicializaci hlavních služeb',
+        errorCode: 'MAIN_SERVICES_INIT_001',
+      );
+    }
     
-    // Monitorování změn připojení
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
-      // Jelikož connectivity_plus vrací List<ConnectivityResult>, bereme první výsledek
-      final connectivityResult = results.isNotEmpty ? results.first : ConnectivityResult.none;
-      debugPrint('[MyApp] Connectivity changed: $connectivityResult');
-      if (connectivityResult != ConnectivityResult.none) {
-        // Máme připojení, můžeme synchronizovat data
-        _scheduleManager.synchronizeData(); // Upraveno - používáme existující metodu
-        // Zde by mohly být další synchronizace
-      }
-    });
+    // Monitorování změn připojení s error handlingem
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      (List<ConnectivityResult> results) {
+        try {
+          // Jelikož connectivity_plus vrací List<ConnectivityResult>, bereme první výsledek
+          final connectivityResult = results.isNotEmpty ? results.first : ConnectivityResult.none;
+          
+          if (connectivityResult != ConnectivityResult.none) {
+            // Máme připojení, můžeme synchronizovat data
+            _scheduleManager.synchronizeData(); // Upraveno - používáme existující metodu
+            // Zde by mohly být další synchronizace
+          }
+        } catch (e, stack) {
+          GlobalErrorHandler.instance.handleError(
+            e,
+            stackTrace: stack,
+            type: ed.ErrorType.network,
+            userMessage: 'Chyba při zpracování změny připojení',
+            errorCode: 'CONNECTIVITY_CHANGE_001',
+          );
+        }
+      },
+      onError: (error) {
+        GlobalErrorHandler.instance.handleError(
+          error,
+          type: ed.ErrorType.network,
+          userMessage: 'Chyba při sledování stavu připojení',
+          errorCode: 'CONNECTIVITY_MONITOR_001',
+        );
+      },
+    );
     
     // Přesouvám logování uživatele a testování oprávnění mimo hlavní vlákno
-    // a také mimo initState, aby se neblokoval UI
     _runBackgroundChecks();
   }
   
@@ -539,18 +674,28 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.didChangeDependencies();
     if (_isFirstBuild) {
       _isFirstBuild = false;
-      // Zde můžeme provést akce, které potřebují context, ale jen jednou
+      // NOVÉ: Aktualizace kontextu pro error handler
+      GlobalErrorHandler.instance.setContext(context);
     }
   }
   
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    debugPrint('[MyApp] App lifecycle state changed: $state');
     if (state == AppLifecycleState.resumed) {
-      // Aplikace byla obnovena z pozadí
-      _scheduleManager.synchronizeData(); // Upraveno - používáme existující metodu
-      // Kontrola aktualizací Firebase konfigurace
-      fb.FirebaseAuth.instance.currentUser?.getIdToken(true);
+      try {
+        // Aplikace byla obnovena z pozadí
+        _scheduleManager.synchronizeData(); // Upraveno - používáme existující metodu
+        // Kontrola aktualizací Firebase konfigurace
+        fb.FirebaseAuth.instance.currentUser?.getIdToken(true);
+      } catch (e, stack) {
+        GlobalErrorHandler.instance.handleError(
+          e,
+          stackTrace: stack,
+          type: ed.ErrorType.auth,
+          userMessage: 'Chyba při obnovení aplikace',
+          errorCode: 'APP_RESUME_001',
+        );
+      }
     }
   }
   
@@ -565,47 +710,61 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // Ukončení subscription na connectivity
     _connectivitySubscription.cancel();
     
-    // Uvolnění prostředků SubscriptionRepository při ukončení aplikace
-    _subscriptionRepository.dispose();
-    
-    // Uvolnění prostředků ScheduleManager při ukončení aplikace
-    _scheduleManager.dispose();
-    
-    // Uvolnění prostředků BudgetManager při ukončení aplikace
-    _budgetManager.dispose();
+    // Uvolnění prostředků s error handlingem
+    try {
+      _subscriptionRepository.dispose();
+      _scheduleManager.dispose();
+      _budgetManager.dispose();
+    } catch (e, stack) {
+      GlobalErrorHandler.instance.handleError(
+        e,
+        stackTrace: stack,
+        type: ed.ErrorType.unknown,
+        userMessage: 'Chyba při ukončování aplikace',
+        errorCode: 'APP_DISPOSE_001',
+      );
+    }
     
     super.dispose();
   }
   
   void _runBackgroundChecks() async {
-    // Inicializace méně kritických komponent s odstupem (neblokuje UI)
-    Future.delayed(const Duration(seconds: 1), () {
-      // Zde použijeme existující metodu nebo necháme prázdné, pokud metoda neexistuje
-      // _scheduleManager.initialize();
-      // Další méně kritické inicializace
-    });
-    
-    // Tyto operace jsou nyní spouštěny jako Future, takže neblokují UI
-    await logCurrentUser();
-    await testFirestorePermissions();
-    
-    // Ověření stavu předplatného
     try {
-      // Zde použijeme jen základní operaci, protože metoda checkSubscriptionStatus neexistuje
-      await timeoutSafeCall(
-        Future.value(null), // Prázdná operace místo neexistující metody
-        timeoutSeconds: 5,
-        operationName: 'Check subscription status'
+      // Inicializace méně kritických komponent s odstupem (neblokuje UI)
+      Future.delayed(const Duration(seconds: 1), () {
+        // Zde použijeme existující metodu nebo necháme prázdné, pokud metoda neexistuje
+        // _scheduleManager.initialize();
+        // Další méně kritické inicializace
+      });
+      
+      // Tyto operace jsou nyní spouštěny jako Future, takže neblokují UI
+      await logCurrentUser();
+      await testFirestorePermissions();
+      
+      // Ověření stavu předplatného
+      try {
+        // Zde použijeme jen základní operaci, protože metoda checkSubscriptionStatus neexistuje
+        await timeoutSafeCall(
+          Future.value(null), // Prázdná operace místo neexistující metody
+          timeoutSeconds: 5,
+          operationName: 'Check subscription status'
+        );
+      } catch (e) {
+        debugPrint('[Subscription] Chyba kontroly předplatného: $e');
+      }
+    } catch (e, stack) {
+      GlobalErrorHandler.instance.handleError(
+        e,
+        stackTrace: stack,
+        type: ed.ErrorType.unknown,
+        userMessage: 'Chyba při kontrolách na pozadí',
+        errorCode: 'BACKGROUND_CHECKS_001',
       );
-    } catch (e) {
-      debugPrint('[MyApp] Error checking subscription status: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('[MyApp] Building MyApp widget');
-    
     // Získání překladu pro název aplikace - použití statické metody místo context.tr
     String appName = _tr('app_name');
     
@@ -616,7 +775,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           create: (_) => di.locator<AuthService>().authStateChanges,
           initialData: null,
           catchError: (_, error) {
-            debugPrint('[MyApp] Error in auth state stream: $error');
+            GlobalErrorHandler.instance.handleError(
+              error,
+              type: ed.ErrorType.auth,
+              userMessage: 'Chyba při sledování stavu přihlášení',
+              errorCode: 'AUTH_STREAM_001',
+            );
             FirebaseCrashlytics.instance.recordError(error, null, reason: 'Auth State Stream Error');
             return null;
           },
@@ -638,7 +802,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           create: (context) => _subscriptionRepository.subscriptionStream,
           initialData: null,
           catchError: (_, error) {
-            debugPrint('[MyApp] Error in subscription stream: $error');
+            GlobalErrorHandler.instance.handleError(
+              error,
+              type: ed.ErrorType.server,
+              userMessage: 'Chyba při načítání informací o předplatném',
+              errorCode: 'SUBSCRIPTION_STREAM_001',
+            );
             FirebaseCrashlytics.instance.recordError(error, null, reason: 'Subscription Stream Error');
             return null;
           },
@@ -682,63 +851,120 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         themeMode: ThemeMode.system,
         // Použití RouteGenerator z routes.dart
         onGenerateRoute: (settings) {
-          debugPrint('[MyApp] Generating route for: ${settings.name}');
-          
-          // Zaznamenání navigace pro analytiku
-          if (settings.name != null && settings.name != '/') {
-            try {
-              // Zde by byla analytika, ale nyní ji přeskočíme
-              // di.locator<AnalyticsService>().logScreenView(screenName: settings.name!);
-            } catch (e) {
-              debugPrint('[MyApp] Failed to log screen view: $e');
+          try {
+            // Zaznamenání navigace pro analytiku
+            if (settings.name != null && settings.name != '/') {
+              try {
+                // Zde by byla analytika, ale nyní ji přeskočíme
+                // di.locator<AnalyticsService>().logScreenView(screenName: settings.name!);
+              } catch (e) {
+                debugPrint('[Navigation] Chyba logování zobrazení: $e');
+                GlobalErrorHandler.instance.handleError(
+                  e,
+                  type: ed.ErrorType.unknown,
+                  userMessage: 'Chyba při zaznamenání navigace',
+                  errorCode: 'NAVIGATION_LOG_001',
+                );
+              }
             }
+            
+            return RouteGenerator.generateRoute(settings);
+          } catch (e, stack) {
+            GlobalErrorHandler.instance.handleError(
+              e,
+              stackTrace: stack,
+              type: ed.ErrorType.critical,
+              userMessage: 'Chyba při generování obrazovky',
+              errorCode: 'ROUTE_GENERATION_001',
+            );
+            
+            // Fallback route s našimi error komponentami
+            return MaterialPageRoute(
+              builder: (context) => Scaffold(
+                body: CustomErrorWidget(
+                  message: 'Chyba při načítání obrazovky',
+                  errorType: ErrorWidgetType.unknown,
+                  onRetry: () {
+                    Navigator.of(context).pushNamedAndRemoveUntil(
+                      RoutePaths.splash,
+                      (route) => false,
+                    );
+                  },
+                  detailMessage: 'Požadovaná obrazovka ${settings.name} se nepodařila načíst. Chyba: ${e.toString()}',
+                ),
+              ),
+            );
           }
-          
-          return RouteGenerator.generateRoute(settings);
         },
         navigatorKey: di.locator<NavigationService>().navigatorKey,
         navigatorObservers: [
           // Zde můžete přidat další observery (např. pro Firebase Analytics)
         ],
         builder: (context, child) {
-          // Přidání ErrorWidget handleru
+          // AKTUALIZACE kontextu pro globální error handler
+          GlobalErrorHandler.instance.setContext(context);
+          
+          // NOVÝ ErrorWidget handler s našimi komponentami
           ErrorWidget.builder = (FlutterErrorDetails details) {
+            // Zaznamenání chyby
+            GlobalErrorHandler.instance.handleError(
+              details.exception,
+              stackTrace: details.stack,
+              type: ErrorType.critical,
+              userMessage: 'Neočekávaná chyba v uživatelském rozhraní',
+              errorCode: 'UI_ERROR_001',
+            );
+            
             return Scaffold(
-              body: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline, color: Colors.red, size: 60),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Něco se pokazilo',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Chyba byla zaznamenána a budeme se jí zabývat. Zkuste to prosím znovu.',
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () {
-                          // Pokusíme se navigovat zpět na hlavní obrazovku
-                          di.locator<NavigationService>().navigatorKey.currentState?.pushNamedAndRemoveUntil(
-                            RoutePaths.splash,
-                            (route) => false,
-                          );
-                        },
-                        child: const Text('Zpět na hlavní obrazovku'),
-                      ),
-                    ],
-                  ),
-                ),
+              body: CustomErrorWidget(
+                message: 'Něco se pokazilo',
+                errorType: ErrorWidgetType.unknown,
+                onRetry: () {
+                  // Pokusíme se navigovat zpět na hlavní obrazovku
+                  try {
+                    di.locator<NavigationService>().navigatorKey.currentState?.pushNamedAndRemoveUntil(
+                      RoutePaths.splash,
+                      (route) => false,
+                    );
+                  } catch (e) {
+                    // Backup - restart celé aplikace
+                    main();
+                  }
+                },
+                onSecondaryAction: () {
+                  SystemNavigator.pop();
+                },
+                secondaryActionText: 'Zavřít aplikaci',
+                secondaryActionIcon: Icons.close,
+                detailMessage: kDebugMode 
+                    ? 'Technické detaily: ${details.exception}\n\nStack trace: ${details.stack}'
+                    : 'Došlo k neočekávané chybě. Kontaktujte podporu pokud problém přetrvává.',
+                showReportButton: true,
+                onReportError: () {
+                  // Zobrazit dialog pro reportování chyby
+                  showDialog(
+                    context: context,
+                    builder: (context) => ErrorDialog(
+                      title: 'Nahlásit chybu',
+                      message: 'Chcete nahlásit tuto chybu vývojářskému týmu?',
+                      errorType: ErrorType.info,
+                      errorCode: 'UI_ERROR_REPORT',
+                      technicalDetails: details.toString(),
+                      recoveryActions: [RecoveryAction.contact, RecoveryAction.ignore],
+                      onRecoveryAction: (action) {
+                        if (action == RecoveryAction.contact) {
+                          // Implementace kontaktu na podporu
+                          debugPrint('Sending error report: ${details.exception}');
+                        }
+                      },
+                    ),
+                  );
+                },
               ),
             );
           };
           
+          // Wrapper pro automatické zavírání klávesnice
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => FocusManager.instance.primaryFocus?.unfocus(),

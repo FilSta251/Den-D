@@ -22,7 +22,7 @@ class SubscriptionOfferDialog extends StatelessWidget {
       }
       Navigator.of(context).pop(true);
     } catch (e) {
-      Logger().logError("Subscription purchase failed", e);
+      Logger().logError("Subscription purchase failed: $e");
       Navigator.of(context).pop(false);
     }
   }

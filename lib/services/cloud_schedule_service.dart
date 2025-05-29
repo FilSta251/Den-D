@@ -16,6 +16,14 @@ class CloudScheduleService {
   final FirebaseFirestore _firestore;
   final fb.FirebaseAuth _auth;
   
+  // Konstanty pro retry mechanismus
+  static const int _maxRetries = 3;
+  static const int _baseDelayMs = 500;
+  
+  // Cache pro offline použití
+  List<ScheduleItem>? _cachedItems;
+  DateTime? _cacheTimestamp;
+  
   CloudScheduleService({
     FirebaseFirestore? firestore,
     fb.FirebaseAuth? auth,
@@ -42,7 +50,7 @@ class CloudScheduleService {
       }
       
       return _getScheduleCollection()
-          .orderBy('lastModified', descending: true) // Třídíme podle času poslední úpravy
+          .orderBy('lastModified', descending: true)
           .snapshots()
           .map((snapshot) {
         final items = snapshot.docs.map((doc) {
@@ -51,131 +59,123 @@ class CloudScheduleService {
           return ScheduleItem.fromJson(data);
         }).toList();
         
-        debugPrint("Stream: Přijato ${items.length} položek z Firestore");
+        // Aktualizujeme cache při každém novém stavu
+        _cachedItems = items;
+        _cacheTimestamp = DateTime.now();
+        
         return items;
       });
-    } catch (e, stackTrace) {
-      debugPrint('Error getting schedule items stream: $e');
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
-      // Vracíme prázdný stream v případě chyby
-      return Stream.value([]);
+    } catch (e) {
+      debugPrint('Chyba při získávání streamu položek harmonogramu: $e');
+      return Stream.value(_cachedItems ?? []);
     }
   }
   
-  /// Načte položky harmonogramu z Firestore.
+  /// Načte položky harmonogramu z Firestore s retry logikou.
   Future<List<ScheduleItem>> fetchScheduleItems() async {
+    if (_userId == null) {
+      return _cachedItems ?? [];
+    }
+    
     try {
-      if (_userId == null) {
-        debugPrint("=== NELZE NAČÍST DATA Z FIRESTORE - UŽIVATEL NENÍ PŘIHLÁŠEN ===");
-        return [];
-      }
+      return await _withRetry<List<ScheduleItem>>(() async {
+        final snapshot = await _getScheduleCollection()
+            .orderBy('lastModified', descending: true)
+            .get();
+        
+        final items = snapshot.docs.map((doc) {
+          final data = doc.data();
+          data['id'] = doc.id;
+          return ScheduleItem.fromJson(data);
+        }).toList();
+        
+        // Aktualizujeme cache
+        _cachedItems = items;
+        _cacheTimestamp = DateTime.now();
+        
+        return items;
+      });
+    } catch (e) {
+      debugPrint('Chyba při načítání položek harmonogramu: $e');
       
-      // Opakované pokusy pro lepší spolehlivost
-      const maxRetries = 3;
-      int attempts = 0;
-      Exception? lastException;
-      
-      while (attempts < maxRetries) {
-        try {
-          attempts++;
-          debugPrint("=== POKUS $attempts O NAČTENÍ DAT Z FIRESTORE ===");
-          
-          final snapshot = await _getScheduleCollection()
-              .orderBy('lastModified', descending: true)
-              .get();
-          
-          final items = snapshot.docs.map((doc) {
-            final data = doc.data();
-            data['id'] = doc.id;
-            return ScheduleItem.fromJson(data);
-          }).toList();
-          
-          debugPrint("=== ÚSPĚŠNĚ NAČTENO ${items.length} POLOŽEK Z FIRESTORE ===");
-          return items;
-        } catch (e) {
-          lastException = Exception("Pokus $attempts: $e");
-          debugPrint("=== CHYBA PŘI NAČÍTÁNÍ Z FIRESTORE: $e ===");
-          
-          // Počkáme před dalším pokusem (exponenciální backoff)
-          if (attempts < maxRetries) {
-            final delay = Duration(milliseconds: 500 * (1 << attempts));
-            debugPrint("=== ČEKÁM ${delay.inMilliseconds}ms PŘED DALŠÍM POKUSEM ===");
-            await Future.delayed(delay);
-          }
-        }
-      }
-      
-      // Pokud jsme sem došli, všechny pokusy selhaly
-      throw lastException ?? Exception("Nepodařilo se načíst data po $maxRetries pokusech");
-    } catch (e, stackTrace) {
-      debugPrint('=== FATÁLNÍ CHYBA PŘI NAČÍTÁNÍ Z FIRESTORE: $e ===');
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
-      // Vracíme prázdný seznam v případě chyby
-      return [];
+      // Vracíme cache v případě chyby
+      return _cachedItems ?? [];
     }
   }
   
   /// Přidá novou položku do harmonogramu.
   Future<void> addItem(ScheduleItem item) async {
-    try {
-      if (_userId == null) {
-        throw Exception("=== UŽIVATEL NENÍ PŘIHLÁŠEN ===");
-      }
-      
-      await _getScheduleCollection().doc(item.id).set(item.toJson());
-    } catch (e, stackTrace) {
-      debugPrint('=== CHYBA PŘI PŘIDÁVÁNÍ POLOŽKY: $e ===');
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
-      rethrow;
+    if (_userId == null) {
+      throw Exception("Uživatel není přihlášen");
     }
+    
+    await _withRetry<void>(() async {
+      await _getScheduleCollection().doc(item.id).set(item.toJson());
+      
+      // Aktualizujeme cache
+      if (_cachedItems != null) {
+        _cachedItems!.add(item);
+        _cacheTimestamp = DateTime.now();
+      }
+    });
   }
   
   /// Aktualizuje existující položku harmonogramu.
   Future<void> updateItem(ScheduleItem item) async {
-    try {
-      if (_userId == null) {
-        throw Exception("=== UŽIVATEL NENÍ PŘIHLÁŠEN ===");
-      }
-      
-      await _getScheduleCollection().doc(item.id).update(item.toJson());
-    } catch (e, stackTrace) {
-      debugPrint('=== CHYBA PŘI AKTUALIZACI POLOŽKY: $e ===');
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
-      rethrow;
+    if (_userId == null) {
+      throw Exception("Uživatel není přihlášen");
     }
+    
+    await _withRetry<void>(() async {
+      await _getScheduleCollection().doc(item.id).update(item.toJson());
+      
+      // Aktualizujeme cache
+      if (_cachedItems != null) {
+        final index = _cachedItems!.indexWhere((e) => e.id == item.id);
+        if (index >= 0) {
+          _cachedItems![index] = item;
+          _cacheTimestamp = DateTime.now();
+        }
+      }
+    });
   }
   
   /// Odstraní položku harmonogramu.
   Future<void> removeItem(String itemId) async {
-    try {
-      if (_userId == null) {
-        throw Exception("=== UŽIVATEL NENÍ PŘIHLÁŠEN ===");
-      }
-      
-      await _getScheduleCollection().doc(itemId).delete();
-    } catch (e, stackTrace) {
-      debugPrint('=== CHYBA PŘI ODSTRAŇOVÁNÍ POLOŽKY: $e ===');
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
-      rethrow;
+    if (_userId == null) {
+      throw Exception("Uživatel není přihlášen");
     }
+    
+    await _withRetry<void>(() async {
+      await _getScheduleCollection().doc(itemId).delete();
+      
+      // Aktualizujeme cache
+      if (_cachedItems != null) {
+        _cachedItems!.removeWhere((e) => e.id == itemId);
+        _cacheTimestamp = DateTime.now();
+      }
+    });
   }
   
   /// Vymaže všechny položky harmonogramu.
   Future<void> clearAllItems() async {
-    try {
-      if (_userId == null) return;
+    if (_userId == null) return;
+    
+    await _withRetry<void>(() async {
+      final snapshot = await _getScheduleCollection().get();
+      
+      if (snapshot.docs.isEmpty) return;
       
       final batch = _firestore.batch();
-      final snapshot = await _getScheduleCollection().get();
       for (final doc in snapshot.docs) {
         batch.delete(doc.reference);
       }
       await batch.commit();
-    } catch (e, stackTrace) {
-      debugPrint('=== CHYBA PŘI MAZÁNÍ VŠECH POLOŽEK: $e ===');
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
-      rethrow;
-    }
+      
+      // Aktualizujeme cache
+      _cachedItems = [];
+      _cacheTimestamp = DateTime.now();
+    });
   }
   
   /// Získá časovou značku poslední synchronizace z Firestore
@@ -190,7 +190,7 @@ class CloudScheduleService {
       }
       return null;
     } catch (e) {
-      debugPrint('=== CHYBA PŘI ZÍSKÁVÁNÍ ČASOVÉ ZNAČKY: $e ===');
+      debugPrint('Chyba při získávání časové značky: $e');
       return null;
     }
   }
@@ -204,115 +204,87 @@ class CloudScheduleService {
         'lastScheduleSync': Timestamp.fromDate(timestamp),
       }, SetOptions(merge: true));
     } catch (e) {
-      debugPrint('=== CHYBA PŘI UKLÁDÁNÍ ČASOVÉ ZNAČKY: $e ===');
+      debugPrint('Chyba při ukládání časové značky: $e');
     }
   }
   
   /// Synchronizuje položky z lokálního úložiště do cloudu.
   Future<void> syncFromLocal(List<ScheduleItem> localItems) async {
-    try {
-      if (_userId == null || localItems.isEmpty) return;
+    if (_userId == null || localItems.isEmpty) return;
+    
+    await _withRetry<void>(() async {
+      // Optimalizace: zjistíme, co opravdu potřebujeme synchronizovat
       
-      // Opakované pokusy pro lepší spolehlivost
-      const maxRetries = 3;
-      int attempts = 0;
-      Exception? lastException;
+      // 1. Nejprve získáme aktuální stav z Firestore
+      final snapshot = await _getScheduleCollection().get();
+      final cloudItemIds = snapshot.docs.map((doc) => doc.id).toSet();
+      final localItemIds = localItems.map((e) => e.id).toSet();
       
-      while (attempts < maxRetries) {
-        try {
-          attempts++;
-          debugPrint("=== POKUS $attempts O SYNCHRONIZACI DAT DO FIRESTORE ===");
-          
-          final batch = _firestore.batch();
-          
-          // Nejprve vyčistíme současnou kolekci
-          final snapshot = await _getScheduleCollection().get();
-          for (final doc in snapshot.docs) {
-            batch.delete(doc.reference);
-          }
-          
-          // Pak přidáme všechny lokální položky
-          for (final item in localItems) {
-            final docRef = _getScheduleCollection().doc(item.id);
-            // Aktualizujeme lastModified časovou značku
-            final updatedItem = item.copyWith(lastModified: DateTime.now());
-            batch.set(docRef, updatedItem.toJson());
-          }
-          
-          await batch.commit();
-          
-          // Uložíme časovou značku synchronizace
-          final now = DateTime.now();
-          await saveLastSyncTimestamp(now);
-          
-          debugPrint("=== ÚSPĚŠNĚ SYNCHRONIZOVÁNO ${localItems.length} POLOŽEK DO FIRESTORE ===");
-          return;
-        } catch (e) {
-          lastException = Exception("Pokus $attempts: $e");
-          debugPrint("=== CHYBA PŘI SYNCHRONIZACI DO FIRESTORE: $e ===");
-          
-          // Počkáme před dalším pokusem (exponenciální backoff)
-          if (attempts < maxRetries) {
-            final delay = Duration(milliseconds: 500 * (1 << attempts));
-            debugPrint("=== ČEKÁM ${delay.inMilliseconds}ms PŘED DALŠÍM POKUSEM ===");
-            await Future.delayed(delay);
-          }
-        }
+      // 2. Určíme, které položky musíme přidat, aktualizovat nebo odstranit
+      final toAdd = localItems.where((e) => !cloudItemIds.contains(e.id)).toList();
+      final toUpdate = localItems.where((e) => cloudItemIds.contains(e.id)).toList();
+      final toRemove = cloudItemIds.where((id) => !localItemIds.contains(id)).toList();
+      
+      // 3. Vytvoříme batch operace pro efektivní aktualizaci
+      final batch = _firestore.batch();
+      
+      // Přidání nových položek
+      for (final item in toAdd) {
+        final updatedItem = item.copyWith(lastModified: DateTime.now());
+        final docRef = _getScheduleCollection().doc(item.id);
+        batch.set(docRef, updatedItem.toJson());
       }
       
-      // Pokud jsme sem došli, všechny pokusy selhaly
-      throw lastException ?? Exception("Nepodařilo se synchronizovat data po $maxRetries pokusech");
-    } catch (e, stackTrace) {
-      debugPrint('=== FATÁLNÍ CHYBA PŘI SYNCHRONIZACI: $e ===');
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
-      rethrow;
-    }
+      // Aktualizace existujících položek
+      for (final item in toUpdate) {
+        final updatedItem = item.copyWith(lastModified: DateTime.now());
+        final docRef = _getScheduleCollection().doc(item.id);
+        batch.update(docRef, updatedItem.toJson());
+      }
+      
+      // Odstranění chybějících položek
+      for (final id in toRemove) {
+        final docRef = _getScheduleCollection().doc(id);
+        batch.delete(docRef);
+      }
+      
+      // 4. Provedeme batch operaci
+      await batch.commit();
+      
+      // 5. Uložíme časovou značku synchronizace
+      final now = DateTime.now();
+      await saveLastSyncTimestamp(now);
+      
+      // Aktualizujeme cache
+      _cachedItems = List.from(localItems);
+      _cacheTimestamp = now;
+      
+      debugPrint("Synchronizace dokončena: přidáno ${toAdd.length}, aktualizováno ${toUpdate.length}, odstraněno ${toRemove.length} položek");
+    });
   }
   
-  /// Inteligentní sloučení položek z lokálního úložiště a cloudu.
-  Future<List<ScheduleItem>> mergeLists(List<ScheduleItem> localItems, List<ScheduleItem> cloudItems) async {
-    // Vytvoříme slovník pro rychlý přístup k položkám podle ID
-    final Map<String, ScheduleItem> localMap = {for (var item in localItems) item.id: item};
-    final Map<String, ScheduleItem> cloudMap = {for (var item in cloudItems) item.id: item};
+  /// Retry wrapper pro Firebase operace s exponenciálním backoff.
+  Future<T> _withRetry<T>(Future<T> Function() operation) async {
+    int attempt = 0;
     
-    // Spojíme všechna unikátní ID
-    final Set<String> allIds = {...localMap.keys, ...cloudMap.keys};
-    
-    // Pro každé ID vybereme novější verzi položky
-    final mergedItems = <ScheduleItem>[];
-    for (final id in allIds) {
-      final localItem = localMap[id];
-      final cloudItem = cloudMap[id];
-      
-      if (localItem != null && cloudItem != null) {
-        // Obě položky existují, vybereme novější
-        if (localItem.lastModified.isAfter(cloudItem.lastModified)) {
-          debugPrint("=== POLOŽKA $id: LOKÁLNÍ JE NOVĚJŠÍ ===");
-          mergedItems.add(localItem);
-        } else {
-          debugPrint("=== POLOŽKA $id: CLOUDOVÁ JE NOVĚJŠÍ ===");
-          mergedItems.add(cloudItem);
+    while (attempt < _maxRetries) {
+      try {
+        return await operation();
+      } catch (e) {
+        attempt++;
+        
+        if (attempt >= _maxRetries) {
+          rethrow;
         }
-      } else if (localItem != null) {
-        // Jen lokální položka
-        debugPrint("=== POLOŽKA $id: POUZE LOKÁLNÍ ===");
-        mergedItems.add(localItem);
-      } else if (cloudItem != null) {
-        // Jen cloudová položka
-        debugPrint("=== POLOŽKA $id: POUZE CLOUDOVÁ ===");
-        mergedItems.add(cloudItem);
+        
+        // Exponenciální backoff
+        final delay = _baseDelayMs * (1 << (attempt - 1));
+        await Future.delayed(Duration(milliseconds: delay));
+        
+        debugPrint('Retry attempt $attempt after ${delay}ms delay');
       }
     }
     
-    // Seřadíme podle času
-    mergedItems.sort((a, b) {
-      if (a.time == null && b.time == null) return 0;
-      if (a.time == null) return 1;
-      if (b.time == null) return -1;
-      return a.time!.compareTo(b.time!);
-    });
-    
-    debugPrint("=== SLOUČENO ${mergedItems.length} POLOŽEK ===");
-    return mergedItems;
+    throw Exception('Operation failed after $_maxRetries attempts');
   }
 }
