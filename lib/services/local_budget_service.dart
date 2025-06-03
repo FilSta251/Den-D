@@ -1,187 +1,204 @@
-// lib/services/local_budget_service.dart
+// lib/services/local_budget_service.dart - REFAKTOROVANÁ VERZE
 
-import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'base/base_local_storage_service.dart';
 import '../models/expense.dart';
 
-/// Služba pro lokální správu rozpočtu svatby.
-class LocalBudgetService extends ChangeNotifier {
-  final String _storageKey = 'wedding_budget_expenses';
-  List<Expense> _expenses = [];
-  Timer? _saveDebounce;
+/// Služba pro lokální správu rozpočtu svatby využívající základní třídu.
+class LocalBudgetService extends BaseLocalStorageService<Expense> 
+    with IdBasedItemsMixin<Expense>, TimeBasedItemsMixin<Expense> {
   
-  bool _isLoading = false;
-  bool get isLoading => _isLoading;
-
-  List<Expense> get expenses => _expenses;
-
-  /// Vrací položku rozpočtu podle jejího ID.
-  /// Pokud položka neexistuje, vyhodí [Exception].
-  Expense getExpenseById(String id) {
-    try {
-      return _expenses.firstWhere((expense) => expense.id == id);
-    } catch (_) {
-      throw Exception('Expense with id $id not found');
-    }
+  LocalBudgetService() : super(storageKey: 'wedding_budget_expenses');
+  
+  /// Seznam výdajů (pro zpětnou kompatibilitu)
+  List<Expense> get expenses => items;
+  
+  @override
+  Map<String, dynamic> itemToJson(Expense item) {
+    return item.toJson();
   }
   
-  // Časová značka poslední aktualizace seznamu
-  DateTime _lastSyncTimestamp = DateTime(2000); // Výchozí hodnota v minulosti
-  DateTime get lastSyncTimestamp => _lastSyncTimestamp;
-
-  LocalBudgetService() {
-    loadExpenses();
+  @override
+  Expense itemFromJson(Map<String, dynamic> json) {
+    return Expense.fromJson(json);
   }
-
+  
+  @override
+  DateTime getItemTimestamp(Expense item) {
+    return item.date;
+  }
+  
+  @override
+  String getItemId(Expense item) {
+    return item.id;
+  }
+  
+  /// Načte výdaje (alias pro loadItems)
   Future<void> loadExpenses() async {
-    _isLoading = true;
-    notifyListeners();
-    
-    try {
-      debugPrint("=== LOKÁLNÍ SLUŽBA: NAČÍTÁM ROZPOČET Z ÚLOŽIŠTĚ ===");
-      
-      // Použití přímého přístupu namísto compute
-      final items = await _loadExpensesIsolate();
-      _expenses = items;
-      
-      // Aktualizace časové značky podle nejnovější položky
-      _updateLastSyncTimestamp();
-      
-      debugPrint("=== LOKÁLNÍ SLUŽBA: NAČTENO ${_expenses.length} POLOŽEK ROZPOČTU Z LOKÁLNÍHO ÚLOŽIŠTĚ ===");
-    } catch (e) {
-      debugPrint("=== LOKÁLNÍ SLUŽBA: CHYBA PŘI NAČÍTÁNÍ: $e ===");
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+    await loadItems();
   }
   
-  // Aktualizuje časovou značku poslední synchronizace
-  void _updateLastSyncTimestamp() {
-    if (_expenses.isNotEmpty) {
-      _lastSyncTimestamp = _expenses
-          .map((item) => item.date)
-          .reduce((a, b) => a.isAfter(b) ? a : b);
-    }
-    debugPrint("=== LOKÁLNÍ SLUŽBA: POSLEDNÍ SYNCHRONIZACE ROZPOČTU: $_lastSyncTimestamp ===");
-  }
-  
-  // Načítání položek přímo místo compute
-  Future<List<Expense>> _loadExpensesIsolate() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final String? storedData = prefs.getString(_storageKey);
-      if (storedData != null) {
-        List<dynamic> jsonData = jsonDecode(storedData);
-        return jsonData.map((e) => Expense.fromJson(e)).toList();
-      }
-    } catch (e) {
-      debugPrint("Error parsing expense items: $e");
-    }
-    return [];
-  }
-
+  /// Uloží výdaje (alias pro saveItems)
   Future<void> saveExpenses() async {
-    try {
-      debugPrint("=== LOKÁLNÍ SLUŽBA: UKLÁDÁM ROZPOČET DO ÚLOŽIŠTĚ ===");
-      
-      // Ukládání přímo místo compute
-      await _saveExpensesIsolate();
-      
-      // Aktualizace časové značky
-      _updateLastSyncTimestamp();
-      
-      debugPrint("=== LOKÁLNÍ SLUŽBA: ROZPOČET ULOŽEN, ${_expenses.length} POLOŽEK ===");
-    } catch (e) {
-      debugPrint("=== LOKÁLNÍ SLUŽBA: CHYBA PŘI UKLÁDÁNÍ: $e ===");
-    }
+    await saveItems();
   }
   
-  // Ukládání položek přímo místo compute
-  Future<void> _saveExpensesIsolate() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final data = _expenses.map((item) => item.toJson()).toList();
-      final String jsonData = jsonEncode(data);
-      await prefs.setString(_storageKey, jsonData);
-    } catch (e) {
-      debugPrint("Error saving expense items: $e");
-    }
-  }
-  
+  /// Přidá výdaj
   void addExpense(Expense expense) {
-    debugPrint("=== LOKÁLNÍ SLUŽBA: PŘIDÁVÁM VÝDAJ: ${expense.title} ===");
-    _expenses.add(expense);
-    _notifyChange();
-  }
-
-  void removeExpense(String id) {
-    final index = _expenses.indexWhere((expense) => expense.id == id);
-    if (index != -1) {
-      debugPrint("=== LOKÁLNÍ SLUŽBA: ODSTRAŇUJI VÝDAJ: ${_expenses[index].title} ===");
-      _expenses.removeAt(index);
-      _notifyChange();
-    }
-  }
-
-  void updateExpense(Expense updatedExpense) {
-    final index = _expenses.indexWhere((expense) => expense.id == updatedExpense.id);
-    if (index != -1) {
-      debugPrint("=== LOKÁLNÍ SLUŽBA: AKTUALIZUJI VÝDAJ: ${updatedExpense.title} ===");
-      _expenses[index] = updatedExpense;
-      _notifyChange();
-    }
-  }
-
-  void clearAllExpenses() {
-    debugPrint("=== LOKÁLNÍ SLUŽBA: MAŽU VŠECHNY VÝDAJE ===");
-    _expenses.clear();
-    _notifyChange();
+    addItem(expense);
   }
   
-  /// Aktualizuje seznam položek bez notifikace posluchačů (pro interní použití)
-  void setExpensesWithoutNotify(List<Expense> expenses) {
-    debugPrint("=== LOKÁLNÍ SLUŽBA: NASTAVUJI ${expenses.length} VÝDAJŮ BEZ NOTIFIKACE ===");
-    _expenses = expenses;
-    saveExpenses();
+  /// Odebere výdaj podle ID
+  void removeExpense(String id) {
+    removeItemById(id);
   }
-
-  String exportToJson() {
-    debugPrint("=== LOKÁLNÍ SLUŽBA: EXPORTUJI ROZPOČET DO JSON ===");
-    return jsonEncode(_expenses.map((item) => item.toJson()).toList());
+  
+  /// Aktualizuje výdaj
+  void updateExpense(Expense updatedExpense) {
+    updateItemById(updatedExpense.id, updatedExpense);
   }
-
-  Future<void> importFromJson(String jsonData) async {
-    debugPrint("=== LOKÁLNÍ SLUŽBA: IMPORTUJI ROZPOČET Z JSON ===");
-    try {
-      // Parsování JSON dat přímo místo compute
-      List<dynamic> data = jsonDecode(jsonData);
-      _expenses = data.map((e) => Expense.fromJson(e)).toList();
-      _notifyChange();
-    } catch (e) {
-      debugPrint("=== LOKÁLNÍ SLUŽBA: CHYBA PŘI IMPORTU: $e ===");
+  
+  /// Získá výdaj podle ID (s ošetřením chyby)
+  Expense getExpenseById(String id) {
+    final expense = findItemById(id);
+    if (expense == null) {
+      throw Exception('Výdaj s ID $id nebyl nalezen');
     }
+    return expense;
   }
-
-  void _notifyChange() {
-    notifyListeners();
-    _debounceSave();
+  
+  /// Vymaže všechny výdaje (alias)
+  void clearAllExpenses() {
+    clearAllItems();
   }
-
-  void _debounceSave() {
-    _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(milliseconds: 500), () {
-      saveExpenses();
+  
+  /// Nastaví výdaje bez notifikace (alias)
+  void setExpensesWithoutNotify(List<Expense> expenses) {
+    setItemsWithoutNotify(expenses);
+  }
+  
+  /// Vypočítá celkovou částku výdajů
+  double get totalAmount {
+    return expenses.fold(0.0, (sum, expense) => sum + expense.amount);
+  }
+  
+  /// Vypočítá částku podle kategorie
+  double getAmountByCategory(String category) {
+    return findItems((expense) => expense.category == category)
+        .fold(0.0, (sum, expense) => sum + expense.amount);
+  }
+  
+  /// Získá všechny kategorie
+  Set<String> get categories {
+    return expenses.map((expense) => expense.category).toSet();
+  }
+  
+  /// Získá výdaje podle kategorie
+  List<Expense> getExpensesByCategory(String category) {
+    return findItems((expense) => expense.category == category);
+  }
+  
+  /// Získá výdaje podle zaplacení
+  List<Expense> getPaidExpenses() {
+    return findItems((expense) => expense.isPaid);
+  }
+  
+  /// Získá nezaplacené výdaje
+  List<Expense> getUnpaidExpenses() {
+    return findItems((expense) => !expense.isPaid);
+  }
+  
+  /// Vypočítá částku zaplacených výdajů
+  double get paidAmount {
+    return getPaidExpenses().fold(0.0, (sum, expense) => sum + expense.amount);
+  }
+  
+  /// Vypočítá částku nezaplacených výdajů
+  double get unpaidAmount {
+    return getUnpaidExpenses().fold(0.0, (sum, expense) => sum + expense.amount);
+  }
+  
+  /// Získá výdaje v daném měsíci
+  List<Expense> getExpensesByMonth(int year, int month) {
+    return findItems((expense) {
+      return expense.date.year == year && expense.date.month == month;
     });
   }
-
-  @override
-  void dispose() {
-    debugPrint("=== LOKÁLNÍ SLUŽBA: UKONČUJI SLUŽBU ROZPOČTU ===");
-    _saveDebounce?.cancel();
-    super.dispose();
+  
+  /// Získá výdaje v daném roce
+  List<Expense> getExpensesByYear(int year) {
+    return findItems((expense) => expense.date.year == year);
+  }
+  
+  /// Získá statistiky rozpočtu
+  Map<String, dynamic> getBudgetStatistics() {
+    return {
+      'totalExpenses': itemCount,
+      'totalAmount': totalAmount,
+      'paidAmount': paidAmount,
+      'unpaidAmount': unpaidAmount,
+      'paidExpenses': getPaidExpenses().length,
+      'unpaidExpenses': getUnpaidExpenses().length,
+      'categories': categories.length,
+      'lastModified': lastSyncTimestamp,
+    };
+  }
+  
+  /// Získá souhrn podle kategorií
+  Map<String, double> getCategorySummary() {
+    final summary = <String, double>{};
+    for (final category in categories) {
+      summary[category] = getAmountByCategory(category);
+    }
+    return summary;
+  }
+  
+  /// Seřadí výdaje podle částky
+  List<Expense> get expensesSortedByAmount {
+    final sorted = List<Expense>.from(expenses);
+    sorted.sort((a, b) => b.amount.compareTo(a.amount));
+    return sorted;
+  }
+  
+  /// Najde výdaje v daném rozmezí částek
+  List<Expense> findExpensesInAmountRange(double minAmount, double maxAmount) {
+    return findItems((expense) => 
+      expense.amount >= minAmount && expense.amount <= maxAmount
+    );
+  }
+  
+  /// Získá průměrnou částku výdajů
+  double get averageAmount {
+    if (expenses.isEmpty) return 0.0;
+    return totalAmount / expenses.length;
+  }
+  
+  /// Označí všechny výdaje jako zaplacené
+  void markAllAsPaid() {
+    for (var i = 0; i < expenses.length; i++) {
+      if (!expenses[i].isPaid) {
+        updateItemAt(i, expenses[i].copyWith(isPaid: true));
+      }
+    }
+  }
+  
+  /// Vytvoří nový výdaj
+  static Expense createExpense({
+    required String title,
+    required double amount,
+    required String category,
+    String? note,
+    bool isPaid = false,
+    DateTime? date,
+  }) {
+    return Expense(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: title,
+      amount: amount,
+      category: category,
+      note: note ?? '',
+      isPaid: isPaid,
+      date: date ?? DateTime.now(),
+    );
   }
 }

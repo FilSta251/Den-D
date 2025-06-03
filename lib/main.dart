@@ -192,9 +192,6 @@ Future<void> _initializeApp() async {
 
     // Inicializace nových služeb s error handlingem
     try {
-      final errorHandler = ErrorHandler();
-      await errorHandler.initialize();
-
       final connectivityManager = ConnectivityManager();
       await connectivityManager.initialize();
 

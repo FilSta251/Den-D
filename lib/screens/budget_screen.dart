@@ -81,6 +81,7 @@ class _AddExpenseFormState extends State<AddExpenseForm> {
   final TextEditingController _categoryController = TextEditingController();
   final TextEditingController _paidController = TextEditingController();
   final TextEditingController _pendingController = TextEditingController();
+  final TextEditingController _noteController = TextEditingController();
 
   @override
   void dispose() {
@@ -88,6 +89,7 @@ class _AddExpenseFormState extends State<AddExpenseForm> {
     _categoryController.dispose();
     _paidController.dispose();
     _pendingController.dispose();
+    _noteController.dispose();
     super.dispose();
   }
 
@@ -96,6 +98,7 @@ class _AddExpenseFormState extends State<AddExpenseForm> {
     final String category = _categoryController.text.trim();
     final double paid = double.tryParse(_paidController.text.trim()) ?? 0;
     final double pending = double.tryParse(_pendingController.text.trim()) ?? 0;
+    final String note = _noteController.text.trim();
     
     // Kontrola povinných údajů - pouze název a zaplaceno
     if (title.isNotEmpty) {
@@ -103,8 +106,9 @@ class _AddExpenseFormState extends State<AddExpenseForm> {
         id: const Uuid().v4(), // Používáme UUID pro jedinečné identifikátory
         title: title,
         category: category.isNotEmpty ? category : "Obecné", // Výchozí kategorie, pokud není zadána
-        paid: paid,
-        pending: pending,
+        amount: paid + pending, // Celková částka je součet zaplaceno + nezaplaceno
+        note: note,
+        isPaid: pending == 0, // Je zaplaceno, pokud pending je 0
         date: DateTime.now(),
       );
       widget.onExpenseAdded(newExpense);
@@ -124,11 +128,19 @@ class _AddExpenseFormState extends State<AddExpenseForm> {
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
       decoration: BoxDecoration(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         color: Theme.of(context).scaffoldBackgroundColor,
       ),
-      padding: MediaQuery.of(context).viewInsets.add(const EdgeInsets.all(16)),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        left: 16,
+        right: 16,
+        top: 16,
+      ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -172,6 +184,15 @@ class _AddExpenseFormState extends State<AddExpenseForm> {
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 8),
+            TextField(
+              controller: _noteController,
+              decoration: const InputDecoration(
+                labelText: 'Poznámka',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 8),
             // Přidání poznámky o povinných polích
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0),
@@ -207,6 +228,7 @@ class _EditExpenseFormState extends State<EditExpenseForm> {
   late TextEditingController _categoryController;
   late TextEditingController _paidController;
   late TextEditingController _pendingController;
+  late TextEditingController _noteController;
 
   @override
   void initState() {
@@ -215,6 +237,7 @@ class _EditExpenseFormState extends State<EditExpenseForm> {
     _categoryController = TextEditingController(text: widget.expense.category);
     _paidController = TextEditingController(text: widget.expense.paid.toString());
     _pendingController = TextEditingController(text: widget.expense.pending.toString());
+    _noteController = TextEditingController(text: widget.expense.note);
   }
 
   @override
@@ -223,6 +246,7 @@ class _EditExpenseFormState extends State<EditExpenseForm> {
     _categoryController.dispose();
     _paidController.dispose();
     _pendingController.dispose();
+    _noteController.dispose();
     super.dispose();
   }
 
@@ -231,15 +255,17 @@ class _EditExpenseFormState extends State<EditExpenseForm> {
     final String category = _categoryController.text.trim();
     final double paid = double.tryParse(_paidController.text.trim()) ?? 0;
     final double pending = double.tryParse(_pendingController.text.trim()) ?? 0;
+    final String note = _noteController.text.trim();
     
     // Kontrola povinných údajů - pouze název a zaplaceno
     if (title.isNotEmpty) {
       final Expense updatedExpense = widget.expense.copyWith(
         title: title,
         category: category.isNotEmpty ? category : "Obecné", // Výchozí kategorie, pokud není zadána
-        paid: paid,
-        pending: pending,
-        date: DateTime.now(),
+        amount: paid + pending, // Celková částka je součet zaplaceno + nezaplaceno
+        note: note,
+        isPaid: pending == 0, // Je zaplaceno, pokud pending je 0
+        updatedAt: DateTime.now(),
       );
       widget.onExpenseUpdated(updatedExpense);
       Navigator.pop(context);
@@ -304,6 +330,15 @@ class _EditExpenseFormState extends State<EditExpenseForm> {
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _noteController,
+              decoration: const InputDecoration(
+                labelText: 'Poznámka',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
             ),
             const SizedBox(height: 8),
             // Přidání poznámky o povinných polích
@@ -614,12 +649,24 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       itemCount: expenses.length,
                       itemBuilder: (context, index) {
                         final expense = expenses[index];
+                        // Používáme getter paid a pending z modelu Expense
                         return Card(
                           margin: const EdgeInsets.symmetric(vertical: 4),
                           child: ListTile(
                             title: Text(expense.title),
-                            subtitle: Text(
-                              "Kategorie: ${expense.category}\nZaplaceno: ${expense.paid.toStringAsFixed(2)} Kč | Nevyřízeno: ${expense.pending.toStringAsFixed(2)} Kč",
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("Kategorie: ${expense.category}"),
+                                Text(
+                                  "Zaplaceno: ${expense.paid.toStringAsFixed(2)} Kč | Nevyřízeno: ${expense.pending.toStringAsFixed(2)} Kč",
+                                ),
+                                if (expense.note.isNotEmpty)
+                                  Text(
+                                    "Poznámka: ${expense.note}",
+                                    style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                                  ),
+                              ],
                             ),
                             isThreeLine: true,
                             trailing: Row(
@@ -647,6 +694,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
       ),
       
       floatingActionButton: FloatingActionButton(
+        heroTag: "budget_fab", // Přidáme unikátní heroTag
         onPressed: () => _showAddExpenseDialog(context),
         tooltip: 'Přidat výdaj',
         child: const Icon(Icons.add),

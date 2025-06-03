@@ -76,7 +76,6 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
     }
     
     // Pro Android 13+ (API úroveň 33+) je také potřeba explicitně požádat o povolení
-    // OPRAVA: requestPermission není dostupné, používáme requestNotificationsPermission
     final android = flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
@@ -213,6 +212,7 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
       debugPrint('[CalendarPage] Error loading wedding info: $e');
     }
   }
+
   Future<void> _loadEvents() async {
     final prefs = await SharedPreferences.getInstance();
     final String? jsonString = prefs.getString('events');
@@ -731,6 +731,7 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
       }
     }
   }
+
   // Pomocná metoda pro převod TimeOfDay na minuty pro snadné porovnávání
   int _timeToMinutes(TimeOfDay time) {
     return time.hour * 60 + time.minute;
@@ -900,10 +901,12 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
     );
     
     // Vytvoření obsahu upozornění
-    final titleText = tr('reminder_title', namedArgs: {'0': title});
+    // Opravili jsme placeholder tak, aby používal namedArgs {event}
+    final titleText = tr('reminder_title', namedArgs: {'event': title});
+    // Opravili jsme placeholder tak, aby používal namedArgs {time}
     final bodyText = event["location"].isNotEmpty
-        ? '${tr('reminder_body', namedArgs: {'0': DateFormat.Hm().format(eventTime)})} - ${event["location"]}'
-        : tr('reminder_body', namedArgs: {'0': DateFormat.Hm().format(eventTime)});
+        ? '${tr('reminder_body', namedArgs: {'time': DateFormat.Hm().format(eventTime)})} - ${event["location"]}'
+        : tr('reminder_body', namedArgs: {'time': DateFormat.Hm().format(eventTime)});
         
     final payload = jsonEncode({
       'eventId': event["id"],
@@ -1001,33 +1004,168 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          tr('event_details'),
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.blue),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _addOrEditEvent(event: event, index: index);
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _deleteEvent(_selectedDay ?? _focusedDay, index);
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 10),
+                  
+                  // Název události
                   Text(
-                    tr('event_details'),
-                    style: const TextStyle(
-                      fontSize: 20,
+                    event["title"],
+                    style: TextStyle(
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
+                      color: Color(event["color"]),
                     ),
                   ),
+                  const SizedBox(height: 15),
+                  
+                  // Čas události
                   Row(
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
+                      Icon(Icons.access_time, color: Colors.grey.shade700),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: event["allDay"]
+                            ? Text(tr('all_day_event'))
+                            : Text(
+                                '${DateFormat.Hm().format(event["time"])} - ${event["endTime"] != null ? DateFormat.Hm().format(event["endTime"]) : ""}',
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                      ),
+                    ],
+                  ),
+                  
+                  // Lokace (pokud existuje)
+                  if (event["location"] != null && event["location"].toString().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Row(
+                        children: [
+                          Icon(Icons.location_on, color: Colors.grey.shade700),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              event["location"],
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  
+                  // Popis (pokud existuje)
+                  if (event["description"] != null && event["description"].toString().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 15),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            tr('event_description'),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            event["description"],
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ],
+                      ),
+                    ),
+                  
+                  const SizedBox(height: 15),
+                  
+                  // Reminder status
+                  if (event["reminder"] != null)
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.pink.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.pink.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.notifications_active, color: Colors.pink),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(_getReminderText(event["reminder"])),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                  const SizedBox(height: 20),
+                  
+                  // Tlačítka akcí
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.edit),
+                        label: Text(tr('edit')),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.blue,
+                        ),
                         onPressed: () {
                           Navigator.pop(context);
                           _addOrEditEvent(event: event, index: index);
                         },
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.delete),
+                        label: Text(tr('delete')),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
                         onPressed: () {
                           Navigator.pop(context);
                           _deleteEvent(_selectedDay ?? _focusedDay, index);
@@ -1037,132 +1175,7 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
                   ),
                 ],
               ),
-              const Divider(),
-              const SizedBox(height: 10),
-              
-              // Název události
-              Text(
-                event["title"],
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(event["color"]),
-                ),
-              ),
-              const SizedBox(height: 15),
-              
-              // Čas události
-              Row(
-                children: [
-                  Icon(Icons.access_time, color: Colors.grey.shade700),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: event["allDay"]
-                        ? Text(tr('all_day_event'))
-                        : Text(
-                            '${DateFormat.Hm().format(event["time"])} - ${event["endTime"] != null ? DateFormat.Hm().format(event["endTime"]) : ""}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                  ),
-                ],
-              ),
-              
-              // Lokace (pokud existuje)
-              if (event["location"] != null && event["location"].toString().isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: Row(
-                    children: [
-                      Icon(Icons.location_on, color: Colors.grey.shade700),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          event["location"],
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              
-              // Popis (pokud existuje)
-              if (event["description"] != null && event["description"].toString().isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 15),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        tr('event_description'),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        event["description"],
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                    ],
-                  ),
-                ),
-              
-              const SizedBox(height: 15),
-              
-              // Reminder status
-              if (event["reminder"] != null)
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.pink.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.pink.shade200),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.notifications_active, color: Colors.pink),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(_getReminderText(event["reminder"])),
-                      ),
-                    ],
-                  ),
-                ),
-                
-              const SizedBox(height: 20),
-              
-              // Tlačítka akcí
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.edit),
-                    label: Text(tr('edit')),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.blue,
-                    ),
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _addOrEditEvent(event: event, index: index);
-                    },
-                  ),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.delete),
-                    label: Text(tr('delete')),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                    ),
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _deleteEvent(_selectedDay ?? _focusedDay, index);
-                    },
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
         );
       },
@@ -1389,13 +1402,16 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
                 children: [
                   Icon(Icons.event, color: Colors.pink.shade700),
                   const SizedBox(width: 8),
-                  Text(
-                    tr('events_for_day', namedArgs: {
-                      'date': DateFormat.yMMMMd(context.locale.toString()).format(_selectedDay ?? _focusedDay)
-                    }),
-                    style: const TextStyle(
-                      fontSize: 16, 
-                      fontWeight: FontWeight.bold
+                  Expanded(
+                    child: Text(
+                      tr('events_for_day', namedArgs: {
+                        'date': DateFormat.yMMMMd(context.locale.toString()).format(_selectedDay ?? _focusedDay)
+                      }),
+                      style: const TextStyle(
+                        fontSize: 16, 
+                        fontWeight: FontWeight.bold
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -1482,7 +1498,7 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
                                         ),
                                       ),
                                     ],
-                                  ),
+                                  ),  
                               ],
                             ),
                             trailing: Row(

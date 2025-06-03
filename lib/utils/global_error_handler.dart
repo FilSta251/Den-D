@@ -9,8 +9,10 @@ import '../widgets/custom_error_widget.dart';
 import 'package:svatebni_planovac/widgets/error_dialog.dart';
 import '../services/crash_reporting_service.dart';
 import 'package:flutter/services.dart';
+import '../di/service_locator.dart' as di;
+import '../services/navigation_service.dart';
 
-/// Enum pro typy chyb v aplikaci
+/// Enum pro typy chyb v aplikaci - sjednoceno s error_dialog.dart
 enum ErrorType {
   network,
   auth,
@@ -20,9 +22,9 @@ enum ErrorType {
   storage,
   critical,
   unknown,
-  warning,    // PŘIDEJ
-  info,       // PŘIDEJ
-  timeout,    // PŘIDEJ
+  warning,
+  info,
+  timeout,
 }
 
 /// Třída reprezentující chybu v aplikaci
@@ -64,6 +66,15 @@ class GlobalErrorHandler {
 
   // Context pro zobrazování dialogs a snackbars
   BuildContext? _context;
+  
+  // NavigationService pro přístup k kontextu
+  NavigationService? get _navigationService {
+    try {
+      return di.locator<NavigationService>();
+    } catch (_) {
+      return null;
+    }
+  }
   
   // Callback pro custom handling chyb
   ErrorCallback? _errorCallback;
@@ -170,7 +181,7 @@ class GlobalErrorHandler {
       _errorCallback?.call(appError);
       
       // UI handling
-      if (showToUser && _context != null) {
+      if (showToUser) {
         await _showErrorToUser(appError);
       }
       
@@ -312,14 +323,29 @@ class GlobalErrorHandler {
 
   /// Zobrazení chyby uživateli
   Future<void> _showErrorToUser(AppError error) async {
-    if (_context == null || !_context!.mounted) return;
-    
-    final shouldShowDialog = _shouldShowErrorDialog(error.type);
-    
-    if (shouldShowDialog) {
-      await _showErrorDialog(error);
-    } else {
-      _showErrorSnackBar(error);
+    try {
+      // Získej kontext z NavigationService nebo použij uložený kontext
+      final context = _context ?? _navigationService?.navigatorKey.currentContext;
+      
+      if (context == null || !context.mounted) {
+        debugPrint('[GlobalErrorHandler] No valid context for showing error');
+        return;
+      }
+      
+      final shouldShowDialog = _shouldShowErrorDialog(error.type);
+      
+      // Použij post frame callback pro bezpečné zobrazení
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          if (shouldShowDialog) {
+            _showErrorDialog(error, context);
+          } else {
+            _showErrorSnackBar(error, context);
+          }
+        }
+      });
+    } catch (e) {
+      debugPrint('[GlobalErrorHandler] Error showing error to user: $e');
     }
   }
 
@@ -331,33 +357,37 @@ class GlobalErrorHandler {
   }
 
   /// Zobrazení error dialogu
-  Future<void> _showErrorDialog(AppError error) async {
-    if (_context == null) return;
-    
-    await ErrorDialog.show(
-      _context!,
-      title: _getErrorTitle(error.type),
-      message: error.userMessage ?? error.message,
-      errorType: error.type,  // Protože už používáš stejný ErrorType
-      errorCode: error.errorCode,
-      technicalDetails: error.stackTrace?.toString(),
-      recoveryActions: _getRecoveryActions(error.type),
-      onRecoveryAction: (action) => _handleRecoveryAction(action, error),
-    );
+  Future<void> _showErrorDialog(AppError error, BuildContext context) async {
+    try {
+      await ErrorDialog.show(
+        context,
+        title: _getErrorTitle(error.type),
+        message: error.userMessage ?? error.message,
+        errorType: error.type,
+        errorCode: error.errorCode,
+        technicalDetails: error.stackTrace?.toString(),
+        recoveryActions: _getRecoveryActions(error.type),
+        onRecoveryAction: (action) => _handleRecoveryAction(action, error, context),
+      );
+    } catch (e) {
+      debugPrint('[GlobalErrorHandler] Error showing dialog: $e');
+    }
   }
 
   /// Zobrazení error snackbaru
-  void _showErrorSnackBar(AppError error) {
-    if (_context == null) return;
-    
-    ScaffoldMessenger.of(_context!).showSnackBar(
-      SnackBar(
-        content: Text(error.userMessage ?? error.message),
-        backgroundColor: _getErrorColor(error.type),
-        action: _getSnackBarAction(error),
-        duration: _getSnackBarDuration(error.type),
-      ),
-    );
+  void _showErrorSnackBar(AppError error, BuildContext context) {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.userMessage ?? error.message),
+          backgroundColor: _getErrorColor(error.type),
+          action: _getSnackBarAction(error, context),
+          duration: _getSnackBarDuration(error.type),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[GlobalErrorHandler] Error showing snackbar: $e');
+    }
   }
 
   /// Získání titulu chyby
@@ -377,13 +407,17 @@ class GlobalErrorHandler {
         return 'Problém s úložištěm';
       case ErrorType.critical:
         return 'Kritická chyba';
+      case ErrorType.warning:
+        return 'Upozornění';
+      case ErrorType.info:
+        return 'Informace';
+      case ErrorType.timeout:
+        return 'Časový limit vypršel';
       case ErrorType.unknown:
       default:
         return 'Chyba aplikace';
     }
   }
-
-//
 
   /// Získání možností obnovení podle typu chyby
   List<RecoveryAction> _getRecoveryActions(ErrorType type) {
@@ -402,6 +436,11 @@ class GlobalErrorHandler {
         return [RecoveryAction.retry, RecoveryAction.settings];
       case ErrorType.critical:
         return [RecoveryAction.restart, RecoveryAction.contact];
+      case ErrorType.timeout:
+        return [RecoveryAction.retry, RecoveryAction.refresh];
+      case ErrorType.warning:
+      case ErrorType.info:
+        return [RecoveryAction.ignore];
       case ErrorType.unknown:
       default:
         return [RecoveryAction.retry, RecoveryAction.goBack];
@@ -409,7 +448,7 @@ class GlobalErrorHandler {
   }
 
   /// Zpracování recovery akce
-  void _handleRecoveryAction(RecoveryAction action, AppError error) {
+  void _handleRecoveryAction(RecoveryAction action, AppError error, BuildContext context) {
     switch (action) {
       case RecoveryAction.retry:
         // Emit retry event - aplikace může naslouchat
@@ -422,12 +461,10 @@ class GlobalErrorHandler {
         
       case RecoveryAction.login:
         // Navigate to login
-        if (_context != null) {
-          Navigator.of(_context!).pushNamedAndRemoveUntil(
-            '/auth', 
-            (route) => false,
-          );
-        }
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/auth', 
+          (route) => false,
+        );
         break;
         
       case RecoveryAction.settings:
@@ -436,11 +473,24 @@ class GlobalErrorHandler {
         break;
         
       case RecoveryAction.contact:
-        _showContactSupport(error);
+        _showContactSupport(error, context);
         break;
         
       case RecoveryAction.restart:
-        _showRestartDialog();
+        _showRestartDialog(context);
+        break;
+        
+      case RecoveryAction.goBack:
+        Navigator.of(context).pop();
+        break;
+        
+      case RecoveryAction.refresh:
+        // Implementace by závisela na konkrétní obrazovce
+        debugPrint('Refresh requested');
+        break;
+        
+      case RecoveryAction.ignore:
+        // Jen zavři dialog
         break;
         
       default:
@@ -449,12 +499,10 @@ class GlobalErrorHandler {
   }
 
   /// Zobrazení kontaktu na podporu
-  void _showContactSupport(AppError error) {
-    if (_context == null) return;
-    
+  void _showContactSupport(AppError error, BuildContext context) {
     showDialog(
-      context: _context!,
-      builder: (context) => AlertDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Kontaktovat podporu'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -485,13 +533,13 @@ class GlobalErrorHandler {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Zavřít'),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.of(context).pop();
-              _copyErrorForSupport(error);
+              Navigator.of(dialogContext).pop();
+              _copyErrorForSupport(error, context);
             },
             child: const Text('Kopírovat detaily'),
           ),
@@ -501,13 +549,11 @@ class GlobalErrorHandler {
   }
 
   /// Zobrazení restart dialogu
-  void _showRestartDialog() {
-    if (_context == null) return;
-    
+  void _showRestartDialog(BuildContext context) {
     showDialog(
-      context: _context!,
+      context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Restart aplikace'),
         content: const Text(
           'Pro vyřešení problému je nutné restartovat aplikaci. '
@@ -515,14 +561,17 @@ class GlobalErrorHandler {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Zrušit'),
           ),
           ElevatedButton(
             onPressed: () {
               // V produkční aplikaci by zde byl restart
               debugPrint('Restarting application...');
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pushNamedAndRemoveUntil(
+                '/',
+                (route) => false,
+              );
             },
             child: const Text('Restartovat'),
           ),
@@ -532,7 +581,7 @@ class GlobalErrorHandler {
   }
 
   /// Kopírování detailů chyby pro podporu
-  void _copyErrorForSupport(AppError error) {
+  void _copyErrorForSupport(AppError error, BuildContext context) {
     final details = StringBuffer();
     details.writeln('=== Detaily chyby pro podporu ===');
     details.writeln('Čas: ${error.timestamp}');
@@ -544,28 +593,26 @@ class GlobalErrorHandler {
 
     Clipboard.setData(ClipboardData(text: details.toString()));
     
-    if (_context != null) {
-      ScaffoldMessenger.of(_context!).showSnackBar(
-        const SnackBar(
-          content: Text('Detaily chyby zkopírovány do schránky'),
-          duration: Duration(seconds: 3),
-        ),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Detaily chyby zkopírovány do schránky'),
+        duration: Duration(seconds: 3),
+      ),
+    );
   }
 
   /// Získání SnackBar akce
-  SnackBarAction? _getSnackBarAction(AppError error) {
+  SnackBarAction? _getSnackBarAction(AppError error, BuildContext context) {
     switch (error.type) {
       case ErrorType.network:
         return SnackBarAction(
           label: 'Opakovat',
-          onPressed: () => _handleRecoveryAction(RecoveryAction.retry, error),
+          onPressed: () => _handleRecoveryAction(RecoveryAction.retry, error, context),
         );
       case ErrorType.auth:
         return SnackBarAction(
           label: 'Přihlásit',
-          onPressed: () => _handleRecoveryAction(RecoveryAction.login, error),
+          onPressed: () => _handleRecoveryAction(RecoveryAction.login, error, context),
         );
       default:
         return null;
@@ -589,6 +636,12 @@ class GlobalErrorHandler {
         return Colors.indigo;
       case ErrorType.critical:
         return Colors.red[700]!;
+      case ErrorType.warning:
+        return Colors.orange[700]!;
+      case ErrorType.info:
+        return Colors.blue;
+      case ErrorType.timeout:
+        return Colors.grey[700]!;
       case ErrorType.unknown:
       default:
         return Colors.grey;
@@ -603,6 +656,8 @@ class GlobalErrorHandler {
       case ErrorType.auth:
       case ErrorType.permission:
         return const Duration(seconds: 6);
+      case ErrorType.info:
+        return const Duration(seconds: 3);
       default:
         return const Duration(seconds: 4);
     }
@@ -619,6 +674,10 @@ class GlobalErrorHandler {
       case ErrorType.network:
       case ErrorType.server:
         return 800; // INFO
+      case ErrorType.warning:
+        return 700; // CONFIG
+      case ErrorType.info:
+        return 500; // FINE
       default:
         return 700; // CONFIG
     }
@@ -635,7 +694,10 @@ class GlobalErrorHandler {
         return LogLevel.error;
       case ErrorType.network:
       case ErrorType.storage:
+      case ErrorType.timeout:
         return LogLevel.warning;
+      case ErrorType.info:
+        return LogLevel.info;
       default:
         return LogLevel.info;
     }
@@ -698,16 +760,18 @@ class ErrorBoundary extends StatefulWidget {
 
 class _ErrorBoundaryState extends State<ErrorBoundary> {
   Object? _error;
+  bool _hasError = false;
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) {
+    if (_hasError && _error != null) {
       return widget.errorBuilder?.call(_error!) ?? 
              CustomErrorWidget(
                message: 'Nastala chyba v této části aplikace',
                errorType: ErrorWidgetType.unknown,
                onRetry: () {
                  setState(() {
+                   _hasError = false;
                    _error = null;
                  });
                },
@@ -717,18 +781,22 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
     return widget.child;
   }
 
-  @override
-  void initState() {
-    super.initState();
-    
-    // Zachycení chyb v tomto widgetu
-    FlutterError.onError = (details) {
-      if (mounted) {
-        setState(() {
-          _error = details.exception;
-        });
-        widget.onError?.call(details.exception, details.stack!);
-      }
-    };
+  void _handleError(FlutterErrorDetails details) {
+    if (mounted) {
+      setState(() {
+        _hasError = true;
+        _error = details.exception;
+      });
+      widget.onError?.call(details.exception, details.stack ?? StackTrace.current);
+      
+      // Reportuj chybu také do GlobalErrorHandler
+      GlobalErrorHandler.instance.handleError(
+        details.exception,
+        stackTrace: details.stack,
+        type: ErrorType.unknown,
+        userMessage: 'Chyba v komponentě',
+        showToUser: false, // Už zobrazujeme custom widget
+      );
+    }
   }
 }

@@ -1,4 +1,4 @@
-// lib/services/local_storage_service.dart - OPRAVENÁ VERZE
+// lib/services/local_storage_service.dart
 
 import 'dart:convert';
 import 'package:flutter/material.dart';

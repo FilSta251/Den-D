@@ -1,3 +1,5 @@
+// lib/utils/logger.dart
+
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
@@ -236,7 +238,10 @@ class Logger {
   // Singleton instance
   static final Logger _instance = Logger._internal();
   factory Logger() => _instance;
-  Logger._internal();
+  Logger._internal() {
+    // Inicializace s výchozím console outputem
+    _outputs.add(ConsoleLogOutput());
+  }
 
   /// Minimální úroveň logování
   LogLevel minLevel = kDebugMode ? LogLevel.trace : LogLevel.info;
@@ -277,17 +282,16 @@ class Logger {
       _outputs.add(AnalyticsLogOutput(analyticsProvider));
     }
 
-    info('Logger initialized with ${_outputs.length} outputs');
+    // Nelogovat info o inicializaci, aby nedošlo k rekurzi
+    debugPrint('[Logger] Initialized with ${_outputs.length} outputs');
   }
 
   /// Nastavení uživatelských informací
   void setUserInfo({String? userId, String? sessionId}) {
     _userId = userId;
     _sessionId = sessionId;
-    debug('User info updated', extra: {
-      'userId': userId,
-      'sessionId': sessionId,
-    });
+    // Použít přímý výstup místo rekurzivního volání
+    debugPrint('[Logger] User info updated - userId: $userId, sessionId: $sessionId');
   }
 
   /// Obecná metoda pro logování
@@ -472,13 +476,24 @@ class Logger {
     );
   }
 
-  /// Zapsat do všech výstupů
+  /// Zapsat do všech výstupů - OPRAVENO
   Future<void> _writeToOutputs(LogEntry entry) async {
+    // Pokud nejsou žádné výstupy, použij fallback
+    if (_outputs.isEmpty) {
+      debugPrint(entry.toString());
+      return;
+    }
+
     _buffer.add(entry);
 
     // Okamžitě zapsat do konzole pro debug
-    if (kDebugMode) {
-      await _outputs.first.write(entry);
+    if (kDebugMode && _outputs.isNotEmpty) {
+      try {
+        await _outputs.first.write(entry);
+      } catch (e) {
+        debugPrint('Failed to write to console output: $e');
+        debugPrint(entry.toString()); // Fallback
+      }
     }
 
     // Batch zpracování pro ostatní výstupy
@@ -509,10 +524,10 @@ class Logger {
   /// Změna minimální úrovně logování
   void setMinLevel(LogLevel level) {
     minLevel = level;
-    debug('Logger min level changed to: ${level.name}');
+    debugPrint('[Logger] Min level changed to: ${level.name}');
   }
 
-  /// Backup pro původní API (zpětná kompatibilita) - OPRAVENO
+  /// Backup pro původní API (zpětná kompatibilita)
   void logDebug(String message, {String? category, Map<String, dynamic>? extra}) {
     debug(message, category: category, extra: extra);
   }
