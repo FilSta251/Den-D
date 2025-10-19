@@ -1,0 +1,366 @@
+{
+  "summary": {
+    "files_scanned": 104,
+    "files_changed": 8,
+    "converted_texts": 27,
+    "skipped_interpolations": 5
+  },
+  "suggested_keys": [
+    {
+      "key": "auto.main.na_t_n_slu_eb",
+      "value": "Načítání služeb...",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\main.dart",
+          "line": 967,
+          "context": "Text(...)",
+          "text": "Načítání služeb..."
+        }
+      ]
+    },
+    {
+      "key": "auto.main.nahl_sit_chybu",
+      "value": "Nahlásit chybu",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\main.dart",
+          "line": 1161,
+          "context": "namedParam",
+          "text": "Nahlásit chybu"
+        }
+      ]
+    },
+    {
+      "key": "auto.app_router.obrazovka_nedostupn",
+      "value": "Obrazovka nedostupnĂˇ",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\router\\app_router.dart",
+          "line": 401,
+          "context": "Text(...)",
+          "text": "Obrazovka nedostupnĂˇ"
+        }
+      ]
+    },
+    {
+      "key": "auto.app_router.nahl_sit_probl_m",
+      "value": "NahlĂˇsit problĂ©m",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\router\\app_router.dart",
+          "line": 427,
+          "context": "namedParam",
+          "text": "NahlĂˇsit problĂ©m"
+        }
+      ]
+    },
+    {
+      "key": "auto.app_router.chyba_navigace",
+      "value": "Chyba navigace",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\router\\app_router.dart",
+          "line": 454,
+          "context": "Text(...)",
+          "text": "Chyba navigace"
+        }
+      ]
+    },
+    {
+      "key": "auto.app_router.nahl_sit_chybu_navigace",
+      "value": "NahlĂˇsit chybu navigace",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\router\\app_router.dart",
+          "line": 477,
+          "context": "namedParam",
+          "text": "NahlĂˇsit chybu navigace"
+        }
+      ]
+    },
+    {
+      "key": "auto.home_screen.na_t_n_dat_z_cloudu",
+      "value": "Načítání dat z cloudu...",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\screens\\home_screen.dart",
+          "line": 227,
+          "context": "Text(...)",
+          "text": "Načítání dat z cloudu..."
+        }
+      ]
+    },
+    {
+      "key": "auto.home_screen.obnovit_data",
+      "value": "Obnovit data",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\screens\\home_screen.dart",
+          "line": 244,
+          "context": "namedParam",
+          "text": "Obnovit data"
+        }
+      ]
+    },
+    {
+      "key": "auto.home_screen.obnovit_data_ocaiw",
+      "value": "Obnovit data",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\screens\\home_screen.dart",
+          "line": 264,
+          "context": "Text(...)",
+          "text": "Obnovit data"
+        }
+      ]
+    },
+    {
+      "key": "auto.legal_information_page.n_t_n_pr_vn_ch_informac",
+      "value": "Náčítání právních informací...",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\screens\\legal_information_page.dart",
+          "line": 253,
+          "context": "Text(...)",
+          "text": "Náčítání právních informací..."
+        }
+      ]
+    },
+    {
+      "key": "auto.legal_information_page.podm_nky",
+      "value": "Podmínky",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\screens\\legal_information_page.dart",
+          "line": 414,
+          "context": "Text(...)",
+          "text": "Podmínky"
+        }
+      ]
+    },
+    {
+      "key": "auto.legal_information_page.soukrom",
+      "value": "Soukromí",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\screens\\legal_information_page.dart",
+          "line": 425,
+          "context": "Text(...)",
+          "text": "Soukromí"
+        }
+      ]
+    },
+    {
+      "key": "auto.suppliers_list_page.v_e",
+      "value": "VĹˇe",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\screens\\suppliers_list_page.dart",
+          "line": 326,
+          "context": "Text(...)",
+          "text": "VĹˇe"
+        }
+      ]
+    },
+    {
+      "key": "auto.suppliers_list_page.v_e_63bwfi",
+      "value": "VĹˇe",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\screens\\suppliers_list_page.dart",
+          "line": 366,
+          "context": "Text(...)",
+          "text": "VĹˇe"
+        }
+      ]
+    },
+    {
+      "key": "auto.suppliers_list_page.v_e_1rb6i9",
+      "value": "VĹˇe",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\screens\\suppliers_list_page.dart",
+          "line": 410,
+          "context": "Text(...)",
+          "text": "VĹˇe"
+        }
+      ]
+    },
+    {
+      "key": "auto.navigation_service.zp_t_na_domovskou_obrazovku",
+      "value": "Zpět na domovskou obrazovku",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\services\\navigation_service.dart",
+          "line": 159,
+          "context": "Text(...)",
+          "text": "Zpět na domovskou obrazovku"
+        }
+      ]
+    },
+    {
+      "key": "auto.error_handler.chyba_aplikace",
+      "value": "Chyba aplikace",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\utils\\error_handler.dart",
+          "line": 233,
+          "context": "Text(...)",
+          "text": "Chyba aplikace"
+        }
+      ]
+    },
+    {
+      "key": "auto.global_error_handler.kontaktovat_podporu",
+      "value": "Kontaktovat podporu",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\utils\\global_error_handler.dart",
+          "line": 509,
+          "context": "Text(...)",
+          "text": "Kontaktovat podporu"
+        }
+      ]
+    },
+    {
+      "key": "auto.global_error_handler.m_ete_n_s_kontaktovat_na",
+      "value": "Můťete nás kontaktovat na:",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\utils\\global_error_handler.dart",
+          "line": 514,
+          "context": "Text(...)",
+          "text": "Můťete nás kontaktovat na:"
+        }
+      ]
+    },
+    {
+      "key": "auto.global_error_handler.podpora_svatebni_planovac_cz",
+      "value": "đź“§ podpora@svatebni-planovac.cz",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\utils\\global_error_handler.dart",
+          "line": 516,
+          "context": "Text(...)",
+          "text": "đź“§ podpora@svatebni-planovac.cz"
+        }
+      ]
+    },
+    {
+      "key": "auto.global_error_handler.420_123_456_789",
+      "value": "đź“ž +420 123 456 789",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\utils\\global_error_handler.dart",
+          "line": 517,
+          "context": "Text(...)",
+          "text": "đź“ž +420 123 456 789"
+        }
+      ]
+    },
+    {
+      "key": "auto.global_error_handler.detaily_chyby",
+      "value": "Detaily chyby:",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\utils\\global_error_handler.dart",
+          "line": 519,
+          "context": "Text(...)",
+          "text": "Detaily chyby:"
+        }
+      ]
+    },
+    {
+      "key": "auto.global_error_handler.zav_t",
+      "value": "Zavřít",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\utils\\global_error_handler.dart",
+          "line": 540,
+          "context": "Text(...)",
+          "text": "Zavřít"
+        }
+      ]
+    },
+    {
+      "key": "auto.global_error_handler.kop_rovat_detaily",
+      "value": "Kopírovat detaily",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\utils\\global_error_handler.dart",
+          "line": 547,
+          "context": "Text(...)",
+          "text": "Kopírovat detaily"
+        }
+      ]
+    },
+    {
+      "key": "auto.global_error_handler.restart_aplikace",
+      "value": "Restart aplikace",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\utils\\global_error_handler.dart",
+          "line": 560,
+          "context": "Text(...)",
+          "text": "Restart aplikace"
+        }
+      ]
+    },
+    {
+      "key": "auto.global_error_handler.zru_it",
+      "value": "ZruĹˇit",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\utils\\global_error_handler.dart",
+          "line": 568,
+          "context": "Text(...)",
+          "text": "ZruĹˇit"
+        }
+      ]
+    },
+    {
+      "key": "auto.global_error_handler.detaily_chyby_zkop_rov_ny_do_schr_nky",
+      "value": "Detaily chyby zkopírovány do schránky",
+      "examples": [
+        {
+          "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\utils\\global_error_handler.dart",
+          "line": 601,
+          "context": "Text(...)",
+          "text": "Detaily chyby zkopírovány do schránky"
+        }
+      ]
+    }
+  ],
+  "skipped_interpolations": [
+    {
+      "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\screens\\guests_screen.dart",
+      "line": 1069,
+      "context": "Text(...)",
+      "text": "• ${g.name}"
+    },
+    {
+      "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\screens\\settings_page.dart",
+      "line": 467,
+      "context": "Text(...)",
+      "text": "UID: ${user.uid}"
+    },
+    {
+      "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\utils\\global_error_handler.dart",
+      "line": 529,
+      "context": "Text(...)",
+      "text": "Typ: ${error.type}"
+    },
+    {
+      "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\utils\\global_error_handler.dart",
+      "line": 530,
+      "context": "Text(...)",
+      "text": "KĂłd: ${error.errorCode}"
+    },
+    {
+      "file": "C:\\Users\\Phili\\Documents\\svatebni_planovac\\lib\\utils\\global_error_handler.dart",
+      "line": 531,
+      "context": "Text(...)",
+      "text": "ďŚas: ${error.timestamp}"
+    }
+  ]
+}

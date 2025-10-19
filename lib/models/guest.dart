@@ -1,6 +1,24 @@
-// lib/models/guest.dart
+/// lib/models/guest.dart
+library;
 
 import 'package:equatable/equatable.dart';
+import 'package:easy_localization/easy_localization.dart';
+
+/// Konstanty pro hodnoty v databázi - NEMĚNIT!
+class GuestConstants {
+  // Pohlaví
+  static const String genderMale = 'male';
+  static const String genderFemale = 'female';
+  static const String genderOther = 'other';
+
+  // Účast
+  static const String attendanceConfirmed = 'confirmed';
+  static const String attendanceDeclined = 'declined';
+  static const String attendancePending = 'pending';
+
+  // Stůl
+  static const String unassignedTable = 'unassigned';
+}
 
 /// Model reprezentující hosta svatby
 class Guest extends Equatable {
@@ -8,40 +26,122 @@ class Guest extends Equatable {
   final String name;
   final String group;
   final String? contact;
-  final String gender;
-  final String table;
-  final String attendance;
+  final String gender; // UKLÁDÁ SE: 'male', 'female', 'other'
+  final String table; // UKLÁDÁ SE: 'unassigned' nebo název stolu
+  final String attendance; // UKLÁDÁ SE: 'confirmed', 'declined', 'pending'
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  const Guest({
+  Guest({
     required this.id,
     required this.name,
     required this.group,
     this.contact,
     required this.gender,
-    this.table = 'Nepřiřazen',
-    this.attendance = 'Neodpovězeno',
+    this.table = GuestConstants.unassignedTable,
+    this.attendance = GuestConstants.attendancePending,
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) : createdAt = createdAt ?? const DateTime.now(),
-       updatedAt = updatedAt ?? const DateTime.now();
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
-  /// Vytvoří instanci Guest z JSON
+  /// HELPER: Zobrazitelný text pro pohlaví (přeložený)
+  String get genderDisplay {
+    switch (gender) {
+      case GuestConstants.genderMale:
+        return 'guest.gender_male'.tr();
+      case GuestConstants.genderFemale:
+        return 'guest.gender_female'.tr();
+      case GuestConstants.genderOther:
+        return 'guest.gender_other'.tr();
+      default:
+        return gender;
+    }
+  }
+
+  /// HELPER: Zobrazitelný text pro účast (přeložený)
+  String get attendanceDisplay {
+    switch (attendance) {
+      case GuestConstants.attendanceConfirmed:
+        return 'guest.attendance_confirmed'.tr();
+      case GuestConstants.attendanceDeclined:
+        return 'guest.attendance_declined'.tr();
+      case GuestConstants.attendancePending:
+        return 'guest.attendance_pending'.tr();
+      default:
+        return attendance;
+    }
+  }
+
+  /// HELPER: Zobrazitelný text pro stůl (přeložený)
+  String get tableDisplay {
+    return table == GuestConstants.unassignedTable
+        ? 'guest.unassigned_table'.tr()
+        : table;
+  }
+
+  /// Vytvoří instanci Guest z JSON - S AUTOMATICKOU MIGRACÍ
   factory Guest.fromJson(Map<String, dynamic> json) {
+    // Pomocná funkce pro migraci pohlaví
+    String migrateGender(String? value) {
+      if (value == null) return GuestConstants.genderMale;
+
+      switch (value) {
+        case 'Muž':
+          return GuestConstants.genderMale;
+        case 'Žena':
+          return GuestConstants.genderFemale;
+        case 'Jiné':
+          return GuestConstants.genderOther;
+        case GuestConstants.genderMale:
+        case GuestConstants.genderFemale:
+        case GuestConstants.genderOther:
+          return value;
+        default:
+          return GuestConstants.genderMale;
+      }
+    }
+
+    // Pomocná funkce pro migraci účasti
+    String migrateAttendance(String? value) {
+      if (value == null) return GuestConstants.attendancePending;
+
+      switch (value) {
+        case 'Potvrzená':
+          return GuestConstants.attendanceConfirmed;
+        case 'Neutvrzená':
+          return GuestConstants.attendanceDeclined;
+        case 'Neodpovězeno':
+          return GuestConstants.attendancePending;
+        case GuestConstants.attendanceConfirmed:
+        case GuestConstants.attendanceDeclined:
+        case GuestConstants.attendancePending:
+          return value;
+        default:
+          return GuestConstants.attendancePending;
+      }
+    }
+
+    // Pomocná funkce pro migraci stolu
+    String migrateTable(String? value) {
+      if (value == null) return GuestConstants.unassignedTable;
+      if (value == 'Nepřiřazen') return GuestConstants.unassignedTable;
+      return value;
+    }
+
     return Guest(
       id: json['id'] as String,
       name: json['name'] as String,
       group: json['group'] as String,
       contact: json['contact'] as String?,
-      gender: json['gender'] as String? ?? 'Muž',
-      table: json['table'] as String? ?? 'Nepřiřazen',
-      attendance: json['attendance'] as String? ?? 'Neodpovězeno',
-      createdAt: json['createdAt'] != null 
+      gender: migrateGender(json['gender'] as String?),
+      table: migrateTable(json['table'] as String?),
+      attendance: migrateAttendance(json['attendance'] as String?),
+      createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : DateTime.now(),
       updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'] as String) 
+          ? DateTime.parse(json['updatedAt'] as String)
           : DateTime.now(),
     );
   }
@@ -88,16 +188,16 @@ class Guest extends Equatable {
 
   @override
   List<Object?> get props => [
-    id, 
-    name, 
-    group, 
-    contact, 
-    gender, 
-    table, 
-    attendance,
-    createdAt,
-    updatedAt,
-  ];
+        id,
+        name,
+        group,
+        contact,
+        gender,
+        table,
+        attendance,
+        createdAt,
+        updatedAt,
+      ];
 
   @override
   String toString() {

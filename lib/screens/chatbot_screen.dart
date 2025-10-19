@@ -9,27 +9,27 @@ import '../repositories/wedding_repository.dart';
 import '../models/wedding_info.dart';
 import 'package:intl/intl.dart';
 import '../services/onboarding_manager.dart';
-import '../routes.dart'; // Změněno z '../router/app_router.dart' pro soulad s cestami
+import '../routes.dart';
 
 class ChatMessage {
-  final String sender; // 'bot' nebo 'user'
+  final String sender;
   final String message;
   ChatMessage({required this.sender, required this.message});
 }
 
 class ChatBotScreen extends StatefulWidget {
-  const ChatBotScreen({Key? key}) : super(key: key);
+  const ChatBotScreen({super.key});
 
   @override
   _ChatBotScreenState createState() => _ChatBotScreenState();
 }
 
-class _ChatBotScreenState extends State<ChatBotScreen> with TickerProviderStateMixin {
+class _ChatBotScreenState extends State<ChatBotScreen>
+    with TickerProviderStateMixin {
   final List<ChatMessage> _messages = [];
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  // Seznam otázek – klíče v translations
   late final List<String> _questions = [
     tr('chat_question_name'),
     tr('chat_question_partner'),
@@ -39,7 +39,6 @@ class _ChatBotScreenState extends State<ChatBotScreen> with TickerProviderStateM
   ];
   int _currentQuestionIndex = 0;
 
-  // Data pro WeddingInfo, která se budou postupně sestavovat
   final Map<String, String> _weddingInfo = {
     "your_name": "--",
     "partner_name": "--",
@@ -57,11 +56,11 @@ class _ChatBotScreenState extends State<ChatBotScreen> with TickerProviderStateM
     super.initState();
     debugPrint('[ChatBotScreen] Initializing ChatBotScreen');
     _weddingRepository = Provider.of<WeddingRepository>(context, listen: false);
-    
-    // Výpis aktuálního uživatele
+
     final currentUser = fb.FirebaseAuth.instance.currentUser;
-    debugPrint('[ChatBotScreen] Current user: ${currentUser?.uid}, Email: ${currentUser?.email}');
-    
+    debugPrint(
+        '[ChatBotScreen] Current user: ${currentUser?.uid}, Email: ${currentUser?.email}');
+
     _addBotMessage(tr('chatbot_greeting_1'));
     Future.delayed(const Duration(seconds: 1), () {
       _addBotMessage(tr('chatbot_greeting_2'));
@@ -99,33 +98,31 @@ class _ChatBotScreenState extends State<ChatBotScreen> with TickerProviderStateM
 
   Future<void> _finishChat() async {
     debugPrint('[ChatBotScreen] Finishing chat and marking as completed');
-    
-    // Stav dokončení – blokujeme vstup do textového pole
+
     setState(() => _isChatComplete = true);
 
-    // Označíme chatbot jako dokončený v OnboardingManager
     await OnboardingManager.markChatbotCompleted();
     debugPrint('[ChatBotScreen] Chatbot marked as completed');
 
-    // Testování Firestore oprávnění před navigací
     try {
-      debugPrint('[ChatBotScreen] Testing Firestore permissions before navigation');
+      debugPrint(
+          '[ChatBotScreen] Testing Firestore permissions before navigation');
       await _weddingRepository.testFirestorePermissions();
       debugPrint('[ChatBotScreen] Firestore permissions test passed');
     } catch (e) {
       debugPrint('[ChatBotScreen] Firestore permissions test failed: $e');
-      // Pokračujeme i když test selže
     }
 
-    // Navigujeme na obrazovku předplatného
-    debugPrint('[ChatBotScreen] Navigating to subscription screen: /subscription');
+    debugPrint(
+        '[ChatBotScreen] Navigating to subscription screen: /subscription');
     Navigator.pushReplacementNamed(context, '/subscription');
   }
 
   Future<void> _handleSubmitted(String text) async {
     if (text.trim().isEmpty || _isChatComplete) return;
-    
-    debugPrint('[ChatBotScreen] User submitted answer: "$text" for question ${_currentQuestionIndex}');
+
+    debugPrint(
+        '[ChatBotScreen] User submitted answer: "$text" for question $_currentQuestionIndex');
     _addUserMessage(text);
 
     String key;
@@ -149,7 +146,8 @@ class _ChatBotScreenState extends State<ChatBotScreen> with TickerProviderStateM
         return;
     }
     _weddingInfo[key] = text.trim().isEmpty ? "--" : text.trim();
-    debugPrint('[ChatBotScreen] Updated wedding info field "$key" with value "${_weddingInfo[key]}"');
+    debugPrint(
+        '[ChatBotScreen] Updated wedding info field "$key" with value "${_weddingInfo[key]}"');
 
     _controller.clear();
     _currentQuestionIndex++;
@@ -162,7 +160,8 @@ class _ChatBotScreenState extends State<ChatBotScreen> with TickerProviderStateM
       setState(() {
         _isBotTyping = false;
       });
-      debugPrint('[ChatBotScreen] Moving to next question: ${_questions[_currentQuestionIndex]}');
+      debugPrint(
+          '[ChatBotScreen] Moving to next question: ${_questions[_currentQuestionIndex]}');
       _addBotMessage(_questions[_currentQuestionIndex]);
     } else {
       debugPrint('[ChatBotScreen] All questions answered, saving data');
@@ -171,45 +170,56 @@ class _ChatBotScreenState extends State<ChatBotScreen> with TickerProviderStateM
         final fb.User? currentUser = fb.FirebaseAuth.instance.currentUser;
         if (currentUser == null) {
           debugPrint('[ChatBotScreen] Error: No authenticated user found');
-          throw Exception('Uživatel není přihlášen.');
+          throw Exception(tr('error_user_not_logged_in'));
         }
-        
-        debugPrint('[ChatBotScreen] Current Firebase Auth user UID: ${currentUser.uid}');
-        debugPrint('[ChatBotScreen] Current Firebase Auth user email: ${currentUser.email}');
-        debugPrint('[ChatBotScreen] Current Firebase Auth user email verified: ${currentUser.emailVerified}');
 
-        final weddingRepo = Provider.of<WeddingRepository>(context, listen: false);
+        debugPrint(
+            '[ChatBotScreen] Current Firebase Auth user UID: ${currentUser.uid}');
+        debugPrint(
+            '[ChatBotScreen] Current Firebase Auth user email: ${currentUser.email}');
+        debugPrint(
+            '[ChatBotScreen] Current Firebase Auth user email verified: ${currentUser.emailVerified}');
 
-        // Testovat oprávnění před ukládáním dat
-        debugPrint('[ChatBotScreen] Testing Firebase permissions before saving data');
+        final weddingRepo =
+            Provider.of<WeddingRepository>(context, listen: false);
+
+        debugPrint(
+            '[ChatBotScreen] Testing Firebase permissions before saving data');
         try {
           await weddingRepo.testFirestorePermissions();
           debugPrint('[ChatBotScreen] Firebase permissions test passed');
         } catch (e) {
           debugPrint('[ChatBotScreen] Firebase permissions test failed: $e');
-          // Pokračujeme i když test selže
         }
 
         DateTime weddingDate;
         try {
-          debugPrint('[ChatBotScreen] Parsing wedding date: ${_weddingInfo["wedding_date"]}');
-          weddingDate = DateFormat('dd.MM.yyyy').parse(_weddingInfo["wedding_date"]!);
-          debugPrint('[ChatBotScreen] Wedding date parsed successfully: $weddingDate');
+          debugPrint(
+              '[ChatBotScreen] Parsing wedding date: ${_weddingInfo["wedding_date"]}');
+          weddingDate =
+              DateFormat('dd.MM.yyyy').parse(_weddingInfo["wedding_date"]!);
+          debugPrint(
+              '[ChatBotScreen] Wedding date parsed successfully: $weddingDate');
         } catch (e) {
-          debugPrint('[ChatBotScreen] Error parsing wedding date with dd.MM.yyyy format: $e');
+          debugPrint(
+              '[ChatBotScreen] Error parsing wedding date with dd.MM.yyyy format: $e');
           try {
             weddingDate = DateTime.parse(_weddingInfo["wedding_date"]!);
-            debugPrint('[ChatBotScreen] Wedding date parsed with DateTime.parse: $weddingDate');
+            debugPrint(
+                '[ChatBotScreen] Wedding date parsed with DateTime.parse: $weddingDate');
           } catch (e) {
-            debugPrint('[ChatBotScreen] Error parsing wedding date with DateTime.parse: $e');
+            debugPrint(
+                '[ChatBotScreen] Error parsing wedding date with DateTime.parse: $e');
             weddingDate = DateTime.now();
-            debugPrint('[ChatBotScreen] Using current date as fallback: $weddingDate');
+            debugPrint(
+                '[ChatBotScreen] Using current date as fallback: $weddingDate');
           }
         }
-        
+
         double budget;
         try {
-          debugPrint('[ChatBotScreen] Parsing budget: ${_weddingInfo["wedding_budget"]}');
+          debugPrint(
+              '[ChatBotScreen] Parsing budget: ${_weddingInfo["wedding_budget"]}');
           budget = double.parse(_weddingInfo["wedding_budget"]!);
           debugPrint('[ChatBotScreen] Budget parsed successfully: $budget');
         } catch (e) {
@@ -228,30 +238,31 @@ class _ChatBotScreenState extends State<ChatBotScreen> with TickerProviderStateM
           notes: "--",
         );
 
-        // Debug výpis wedding info dat
-        debugPrint('[ChatBotScreen] Wedding info to save: ${updatedWeddingInfo.toJson()}');
+        debugPrint(
+            '[ChatBotScreen] Wedding info to save: ${updatedWeddingInfo.toJson()}');
 
-        // Ukládáme data do cloudu
-        debugPrint('[ChatBotScreen] Attempting to save wedding info to Firestore');
+        debugPrint(
+            '[ChatBotScreen] Attempting to save wedding info to Firestore');
         await weddingRepo.updateWeddingInfo(updatedWeddingInfo);
         debugPrint('[ChatBotScreen] Wedding info saved successfully');
       } catch (e, stackTrace) {
         debugPrint('[ChatBotScreen] Error updating wedding info: $e');
         debugPrint('[ChatBotScreen] Stack trace: $stackTrace');
-        
-        // Přidáme kontrolu aktuálních Firestore pravidel pokud je to možné
+
         try {
           final fb.User? currentUser = fb.FirebaseAuth.instance.currentUser;
           if (currentUser != null) {
-            debugPrint('[ChatBotScreen] Additional auth info - Email: ${currentUser.email}, EmailVerified: ${currentUser.emailVerified}');
-            debugPrint('[ChatBotScreen] User provider data: ${currentUser.providerData.map((p) => '${p.providerId}: ${p.uid}').join(', ')}');
+            debugPrint(
+                '[ChatBotScreen] Additional auth info - Email: ${currentUser.email}, EmailVerified: ${currentUser.emailVerified}');
+            debugPrint(
+                '[ChatBotScreen] User provider data: ${currentUser.providerData.map((p) => '${p.providerId}: ${p.uid}').join(', ')}');
           }
         } catch (authError) {
-          debugPrint('[ChatBotScreen] Error getting additional auth info: $authError');
+          debugPrint(
+              '[ChatBotScreen] Error getting additional auth info: $authError');
         }
       }
-      
-      // Krátká pauza před pokračováním - dáme uživateli čas přečíst poděkování
+
       await Future.delayed(const Duration(seconds: 2));
       await _finishChat();
     }
@@ -266,78 +277,85 @@ class _ChatBotScreenState extends State<ChatBotScreen> with TickerProviderStateM
   }
 
   Widget _buildBotTyping() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: const [
-        CircleAvatar(
-          backgroundImage: AssetImage('assets/images/chatbot.png'),
-        ),
-        SizedBox(width: 8),
-        TypingIndicator(),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: const [
+          CircleAvatar(
+            backgroundImage: AssetImage('assets/images/chatbot.png'),
+          ),
+          SizedBox(width: 8),
+          TypingIndicator(),
+        ],
+      ),
     );
   }
 
   Widget _buildMessage(ChatMessage message) {
     if (message.sender == 'bot') {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Pokud obrázek chybí, použijeme defaultní ikonu
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade400,
-              shape: BoxShape.circle,
-            ),
-            child: ClipOval(
-              child: Image.asset(
-                'assets/images/chatbot.png',
-                errorBuilder: (context, error, stackTrace) {
-                  // Pokud se obrázek nepodaří načíst, zobrazíme ikonu
-                  return const Icon(Icons.smart_toy, color: Colors.white);
-                },
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 4),
-              padding: const EdgeInsets.all(12),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(8),
+                color: Colors.grey.shade400,
+                shape: BoxShape.circle,
               ),
-              child: Text(
-                message.message,
-                style: const TextStyle(fontSize: 16),
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/images/chatbot.png',
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Icon(Icons.smart_toy, color: Colors.white);
+                  },
+                ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Flexible(
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  message.message,
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
+          ],
+        ),
       );
     } else {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Flexible(
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 4),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade200,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                message.message,
-                style: const TextStyle(fontSize: 16),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Flexible(
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade200,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  message.message,
+                  style: const TextStyle(fontSize: 16),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-        ],
+            const SizedBox(width: 8),
+          ],
+        ),
       );
     }
   }
@@ -347,69 +365,72 @@ class _ChatBotScreenState extends State<ChatBotScreen> with TickerProviderStateM
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('chatbot_title')),
-        // Přidáno tlačítko pro přeskočení chatbota
         actions: [
           TextButton(
             onPressed: _finishChat,
             child: Text(
-              tr('skip'), 
+              tr('skip'),
               style: const TextStyle(color: Colors.white),
             ),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              itemCount: _messages.length + (_isBotTyping ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (_isBotTyping && index == _messages.length) {
-                  return _buildBotTyping();
-                }
-                return _buildMessage(_messages[index]);
-              },
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                itemCount: _messages.length + (_isBotTyping ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (_isBotTyping && index == _messages.length) {
+                    return _buildBotTyping();
+                  }
+                  return _buildMessage(_messages[index]);
+                },
+              ),
             ),
-          ),
-          const Divider(height: 1),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: Theme.of(context).cardColor,
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    enabled: !_isChatComplete,
-                    decoration: InputDecoration(
-                      hintText: tr('chat_hint'),
-                      border: const OutlineInputBorder(),
+            const Divider(height: 1),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Theme.of(context).cardColor,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      enabled: !_isChatComplete,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: InputDecoration(
+                        hintText: tr('chat_hint'),
+                        border: const OutlineInputBorder(),
+                      ),
+                      onSubmitted: _handleSubmitted,
                     ),
-                    onSubmitted: _handleSubmitted,
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: () => _handleSubmitted(_controller.text),
-                )
-              ],
-            ),
-          )
-        ],
+                  IconButton(
+                    icon: const Icon(Icons.send),
+                    onPressed: () => _handleSubmitted(_controller.text),
+                  )
+                ],
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
 }
 
 class TypingIndicator extends StatefulWidget {
-  const TypingIndicator({Key? key}) : super(key: key);
+  const TypingIndicator({super.key});
 
   @override
   _TypingIndicatorState createState() => _TypingIndicatorState();
 }
 
-class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProviderStateMixin {
+class _TypingIndicatorState extends State<TypingIndicator>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
 

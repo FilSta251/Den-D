@@ -1,4 +1,5 @@
-// wedding_repository.dart - aktualizovaná verze bez isolates
+/// wedding_repository.dart - aktualizovaná verze bez isolates
+library;
 
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -25,77 +26,90 @@ class WeddingRepository {
     final user = _auth.currentUser;
     debugPrint('[WeddingRepository] Current user UID: ${user?.uid}');
     debugPrint('[WeddingRepository] Current user email: ${user?.email}');
-    debugPrint('[WeddingRepository] Current user email verified: ${user?.emailVerified}');
+    debugPrint(
+        '[WeddingRepository] Current user email verified: ${user?.emailVerified}');
     return user?.uid;
   }
 
   void _initializeListener() {
     final fb.User? currentUser = _auth.currentUser;
-    debugPrint('[WeddingRepository] Initializing listener for user: ${currentUser?.uid}');
-    
+    debugPrint(
+        '[WeddingRepository] Initializing listener for user: ${currentUser?.uid}');
+
     if (currentUser != null) {
       final docRef = _firestore.collection('wedding_info').doc(currentUser.uid);
-      debugPrint('[WeddingRepository] Setting up listener on Firestore path: wedding_info/${currentUser.uid}');
-      
+      debugPrint(
+          '[WeddingRepository] Setting up listener on Firestore path: wedding_info/${currentUser.uid}');
+
       docRef.snapshots().listen(
         (snapshot) async {
           if (snapshot.exists && snapshot.data() != null) {
             try {
               final data = snapshot.data()!;
-              debugPrint('[WeddingRepository] Received data from Firestore: $data');
-              
+              debugPrint(
+                  '[WeddingRepository] Received data from Firestore: $data');
+
               // Zpracování dat přímo v hlavním vlákně
               final info = WeddingInfo.fromJson(data);
-              
+
               _cachedWeddingInfo = info;
               _weddingStreamController.add(info);
-              debugPrint('[WeddingRepository] Received wedding info update: $info');
+              debugPrint(
+                  '[WeddingRepository] Received wedding info update: $info');
             } catch (e, stack) {
-              debugPrint('[WeddingRepository] Error parsing wedding info snapshot: $e');
+              debugPrint(
+                  '[WeddingRepository] Error parsing wedding info snapshot: $e');
               debugPrintStack(label: 'StackTrace', stackTrace: stack);
               _weddingStreamController.addError(e);
             }
           } else {
-            debugPrint('[WeddingRepository] Wedding info document not found or empty.');
+            debugPrint(
+                '[WeddingRepository] Wedding info document not found or empty.');
             _weddingStreamController.add(null);
           }
         },
         onError: (error, stack) {
-          debugPrint('[WeddingRepository] Error listening to wedding info: $error');
+          debugPrint(
+              '[WeddingRepository] Error listening to wedding info: $error');
           debugPrintStack(label: 'StackTrace', stackTrace: stack);
           _weddingStreamController.addError(error);
         },
       );
     } else {
-      debugPrint('[WeddingRepository] No authenticated user found; listener not initialized.');
+      debugPrint(
+          '[WeddingRepository] No authenticated user found; listener not initialized.');
     }
   }
 
-  // Implementace bez použití compute/isolate
+  // Implementace bez pouťití compute/isolate
   Future<WeddingInfo> fetchWeddingInfo() async {
     final fb.User? currentUser = _auth.currentUser;
-    debugPrint('[WeddingRepository] Fetching wedding info for user: ${currentUser?.uid}');
-    
+    debugPrint(
+        '[WeddingRepository] Fetching wedding info for user: ${currentUser?.uid}');
+
     if (currentUser == null) {
-      debugPrint('[WeddingRepository] No authenticated user found; cannot fetch wedding info.');
-      throw Exception('Uživatel není přihlášen.');
+      debugPrint(
+          '[WeddingRepository] No authenticated user found; cannot fetch wedding info.');
+      throw Exception('Uťivatel není přihláĹˇen.');
     }
-    
+
     final docRef = _firestore.collection('wedding_info').doc(currentUser.uid);
-    debugPrint('[WeddingRepository] Fetching from Firestore path: wedding_info/${currentUser.uid}');
-    
+    debugPrint(
+        '[WeddingRepository] Fetching from Firestore path: wedding_info/${currentUser.uid}');
+
     try {
-      // Načítání přímo v hlavním vlákně místo compute
+      // Náčítání přímo v hlavním vlákně místo compute
       final snapshot = await docRef.get();
-      
+
       if (snapshot.exists && snapshot.data() != null) {
         final data = snapshot.data()!;
         final result = WeddingInfo.fromJson(data);
-        
+
         _cachedWeddingInfo = result;
         _weddingStreamController.add(result);
-        
-        debugPrint('[WeddingRepository] Wedding info fetched successfully: ${result.toJson()}');
+
+        debugPrint(
+            '[WeddingRepository] Wedding info fetched successfully: ${result.toJson()}');
         return result;
       } else {
         // Vytvoření defaultní instance
@@ -108,14 +122,15 @@ class WeddingRepository {
           budget: 0.0,
           notes: '--',
         );
-        
-        // Uložení defaultní instance do Firestore
+
+        // Uloťení defaultní instance do Firestore
         await docRef.set(defaultInfo.toJson());
-        
+
         _cachedWeddingInfo = defaultInfo;
         _weddingStreamController.add(defaultInfo);
-        
-        debugPrint('[WeddingRepository] Created default wedding info: ${defaultInfo.toJson()}');
+
+        debugPrint(
+            '[WeddingRepository] Created default wedding info: ${defaultInfo.toJson()}');
         return defaultInfo;
       }
     } catch (e, stack) {
@@ -127,33 +142,37 @@ class WeddingRepository {
 
   Future<void> updateWeddingInfo(WeddingInfo updatedInfo) async {
     final fb.User? currentUser = _auth.currentUser;
-    debugPrint('[WeddingRepository] Updating wedding info for user: ${currentUser?.uid}');
+    debugPrint(
+        '[WeddingRepository] Updating wedding info for user: ${currentUser?.uid}');
     debugPrint('[WeddingRepository] Updated info: ${updatedInfo.toJson()}');
-    
+
     if (currentUser == null) {
-      debugPrint('[WeddingRepository] No authenticated user found; cannot update wedding info.');
-      throw Exception('Uživatel není přihlášen.');
+      debugPrint(
+          '[WeddingRepository] No authenticated user found; cannot update wedding info.');
+      throw Exception('Uťivatel není přihláĹˇen.');
     }
-    
-    // Ujistíme se, že userId je správné
+
+    // Ujistíme se, ťe userId je správnĂ©
     if (updatedInfo.userId != currentUser.uid) {
-      debugPrint('[WeddingRepository] Warning: updatedInfo.userId (${updatedInfo.userId}) does not match currentUser.uid (${currentUser.uid})');
+      debugPrint(
+          '[WeddingRepository] Warning: updatedInfo.userId (${updatedInfo.userId}) does not match currentUser.uid (${currentUser.uid})');
       // Opravíme userId
       updatedInfo = updatedInfo.copyWith(userId: currentUser.uid);
       debugPrint('[WeddingRepository] UserId corrected in wedding info');
     }
-    
+
     final docRef = _firestore.collection('wedding_info').doc(currentUser.uid);
-    debugPrint('[WeddingRepository] Updating Firestore document: wedding_info/${currentUser.uid}');
-    
+    debugPrint(
+        '[WeddingRepository] Updating Firestore document: wedding_info/${currentUser.uid}');
+
     try {
       // Aktualizace přímo v hlavním vlákně místo compute
       final updatedJson = updatedInfo.toJson();
-      
+
       // Provedeme kontrolu změn pokud máme cache
       Map<String, dynamic> dataToUpdate = {};
       bool isModified = false;
-      
+
       if (_cachedWeddingInfo != null) {
         final cachedJson = _cachedWeddingInfo!.toJson();
         updatedJson.forEach((key, newValue) {
@@ -166,18 +185,20 @@ class WeddingRepository {
         dataToUpdate = updatedJson;
         isModified = true;
       }
-      
+
       if (dataToUpdate.isNotEmpty) {
         await docRef.set(dataToUpdate, SetOptions(merge: true));
-        debugPrint('[WeddingRepository] Updated fields in Firestore: ${dataToUpdate.keys.join(', ')}');
-        
+        debugPrint(
+            '[WeddingRepository] Updated fields in Firestore: ${dataToUpdate.keys.join(', ')}');
+
         // Aktualizace lokální instance
         if (_cachedWeddingInfo != null) {
-          _cachedWeddingInfo = _mergeInfoLocally(_cachedWeddingInfo!, dataToUpdate);
+          _cachedWeddingInfo =
+              _mergeInfoLocally(_cachedWeddingInfo!, dataToUpdate);
         } else {
           _cachedWeddingInfo = updatedInfo;
         }
-        
+
         if (isModified) {
           _weddingStreamController.add(_cachedWeddingInfo);
         }
@@ -192,43 +213,57 @@ class WeddingRepository {
   }
 
   // Pomocná metoda pro lokální sloučení dat
-  static WeddingInfo _mergeInfoLocally(WeddingInfo current, Map<String, dynamic> diff) {
+  static WeddingInfo _mergeInfoLocally(
+      WeddingInfo current, Map<String, dynamic> diff) {
     return current.copyWith(
       userId: diff.containsKey('userId') ? diff['userId'] : current.userId,
-      weddingDate: diff.containsKey('weddingDate') ? DateTime.parse(diff['weddingDate'] as String) : current.weddingDate,
-      yourName: diff.containsKey('yourName') ? diff['yourName'] : current.yourName,
-      partnerName: diff.containsKey('partnerName') ? diff['partnerName'] : current.partnerName,
-      weddingVenue: diff.containsKey('weddingVenue') ? diff['weddingVenue'] : current.weddingVenue,
-      budget: diff.containsKey('budget') ? (diff['budget'] as num).toDouble() : current.budget,
+      weddingDate: diff.containsKey('weddingDate')
+          ? DateTime.parse(diff['weddingDate'] as String)
+          : current.weddingDate,
+      yourName:
+          diff.containsKey('yourName') ? diff['yourName'] : current.yourName,
+      partnerName: diff.containsKey('partnerName')
+          ? diff['partnerName']
+          : current.partnerName,
+      weddingVenue: diff.containsKey('weddingVenue')
+          ? diff['weddingVenue']
+          : current.weddingVenue,
+      budget: diff.containsKey('budget')
+          ? (diff['budget'] as num).toDouble()
+          : current.budget,
       notes: diff.containsKey('notes') ? diff['notes'] : current.notes,
     );
   }
 
   Future<void> createWeddingInfo(WeddingInfo info) async {
     final fb.User? currentUser = _auth.currentUser;
-    debugPrint('[WeddingRepository] Creating wedding info for user: ${currentUser?.uid}');
+    debugPrint(
+        '[WeddingRepository] Creating wedding info for user: ${currentUser?.uid}');
     debugPrint('[WeddingRepository] Info to create: ${info.toJson()}');
-    
+
     if (currentUser == null) {
-      debugPrint('[WeddingRepository] No authenticated user found; cannot create wedding info.');
-      throw Exception('Uživatel není přihlášen.');
+      debugPrint(
+          '[WeddingRepository] No authenticated user found; cannot create wedding info.');
+      throw Exception('Uťivatel není přihláĹˇen.');
     }
-    
-    // Ujistíme se, že userId je správné
+
+    // Ujistíme se, ťe userId je správnĂ©
     if (info.userId != currentUser.uid) {
-      debugPrint('[WeddingRepository] Warning: info.userId (${info.userId}) does not match currentUser.uid (${currentUser.uid})');
+      debugPrint(
+          '[WeddingRepository] Warning: info.userId (${info.userId}) does not match currentUser.uid (${currentUser.uid})');
       // Opravíme userId
       info = info.copyWith(userId: currentUser.uid);
       debugPrint('[WeddingRepository] UserId corrected in wedding info');
     }
-    
+
     final docRef = _firestore.collection('wedding_info').doc(currentUser.uid);
-    debugPrint('[WeddingRepository] Creating Firestore document: wedding_info/${currentUser.uid}');
-    
+    debugPrint(
+        '[WeddingRepository] Creating Firestore document: wedding_info/${currentUser.uid}');
+
     try {
       // Vytvoření přímo v hlavním vlákně místo compute
       await docRef.set(info.toJson());
-      
+
       _cachedWeddingInfo = info;
       _weddingStreamController.add(info);
       debugPrint('[WeddingRepository] Wedding info created successfully');
@@ -242,8 +277,9 @@ class WeddingRepository {
   // Testovací metoda pro ověření oprávnění
   Future<void> testFirestorePermissions() async {
     final userId = getCurrentUserId();
-    debugPrint('[WeddingRepository] Testing Firestore permissions for user ID: $userId');
-    
+    debugPrint(
+        '[WeddingRepository] Testing Firestore permissions for user ID: $userId');
+
     if (userId == null) {
       debugPrint('[WeddingRepository] No user logged in!');
       return;
@@ -254,12 +290,14 @@ class WeddingRepository {
       debugPrint('[WeddingRepository] Testing READ permission...');
       final docRef = _firestore.collection('wedding_info').doc(userId);
       final docSnapshot = await docRef.get();
-      
+
       if (docSnapshot.exists) {
-        debugPrint('[WeddingRepository] READ permission SUCCESS - Document exists');
+        debugPrint(
+            '[WeddingRepository] READ permission SUCCESS - Document exists');
         debugPrint('[WeddingRepository] Document data: ${docSnapshot.data()}');
       } else {
-        debugPrint('[WeddingRepository] READ permission SUCCESS - Document does not exist');
+        debugPrint(
+            '[WeddingRepository] READ permission SUCCESS - Document does not exist');
       }
 
       // Test zápisu
@@ -278,14 +316,13 @@ class WeddingRepository {
 
       // Test odstranění testovacího pole
       debugPrint('[WeddingRepository] Testing DELETE permission...');
-      await docRef.update({
-        'test_field': FieldValue.delete()
-      });
+      await docRef.update({'test_field': FieldValue.delete()});
       debugPrint('[WeddingRepository] DELETE permission SUCCESS');
 
       // Závěrečný test čtení
       final finalDoc = await docRef.get();
-      debugPrint('[WeddingRepository] Final document state: ${finalDoc.data()}');
+      debugPrint(
+          '[WeddingRepository] Final document state: ${finalDoc.data()}');
       debugPrint('[WeddingRepository] All Firebase permission tests PASSED');
     } catch (e, stack) {
       debugPrint('[WeddingRepository] Permission test error: $e');

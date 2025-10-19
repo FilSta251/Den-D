@@ -1,4 +1,5 @@
-// lib/screens/suppliers_list_page.dart
+/// lib/screens/suppliers_list_page.dart
+library;
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -11,21 +12,21 @@ import '../models/supplier.dart';
 import 'supplier_profile_page.dart';
 
 class SuppliersListPage extends StatefulWidget {
-  const SuppliersListPage({Key? key}) : super(key: key);
+  const SuppliersListPage({super.key});
 
   @override
   _SuppliersListPageState createState() => _SuppliersListPageState();
 }
 
 class _SuppliersListPageState extends State<SuppliersListPage> {
-  // Filtrační proměnné – pokud není filtr nastaven, zůstávají null nebo ve výchozím rozpětí.
+  // Filtráční proměnnĂ© "“ pokud není filtr nastaven, zůstávají null nebo ve výchozím rozpětí.
   String? _selectedProfession;
   String? _selectedRegion;
   String? _selectedDistrict;
   RangeValues _priceRange = const RangeValues(0, 100000);
   DateTime? _selectedWeddingDate;
 
-  // Seznam možností pro filtry.
+  // Seznam moťností pro filtry.
   final List<String> _professions = [
     'Foto',
     'Video',
@@ -37,18 +38,18 @@ class _SuppliersListPageState extends State<SuppliersListPage> {
     'Koordinátor',
     'Hotel',
     'Cukrář',
-    'Jiné'
+    'JinĂ©'
   ];
 
   final List<String> _regions = [
     'Hlavní město Praha',
     'Středočeský kraj',
     'Jihočeský kraj',
-    'Plzeňský kraj',
+    'PlzeĹský kraj',
     'Karlovarský kraj',
-    'Ústecký kraj',
+    'Ăšstecký kraj',
     'Liberecký kraj',
-    'Královéhradecký kraj',
+    'KrálovĂ©hradecký kraj',
     'Pardubický kraj',
     'Kraj Vysočina',
     'Jihomoravský kraj',
@@ -60,7 +61,7 @@ class _SuppliersListPageState extends State<SuppliersListPage> {
   final Map<String, List<String>> _districtsByRegion = {
     'Hlavní město Praha': ['Praha (hl. m.)'],
     'Středočeský kraj': [
-      'Benešov',
+      'BeneĹˇov',
       'Beroun',
       'Kladno',
       'Kolín',
@@ -74,48 +75,53 @@ class _SuppliersListPageState extends State<SuppliersListPage> {
       'Rakovník'
     ],
     'Jihočeský kraj': [
-      'České Budějovice',
-      'Český Krumlov',
+      'ďŚeskĂ© Budějovice',
+      'ďŚeský Krumlov',
       'Jindřichův Hradec',
       'Písek',
       'Prachatice',
       'Strakonice',
       'Tábor'
     ],
-    'Plzeňský kraj': [
-      'Domažlice',
+    'PlzeĹský kraj': [
+      'Domaťlice',
       'Klatovy',
-      'Plzeň-město',
-      'Plzeň-jih',
-      'Plzeň-sever',
+      'PlzeĹ-město',
+      'PlzeĹ-jih',
+      'PlzeĹ-sever',
       'Rokycany',
       'Tachov'
     ],
     'Karlovarský kraj': ['Cheb', 'Karlovy Vary', 'Sokolov'],
-    'Ústecký kraj': [
+    'Ăšstecký kraj': [
       'Děčín',
       'Chomutov',
       'Litoměřice',
       'Louny',
       'Most',
       'Teplice',
-      'Ústí nad Labem'
+      'Ăšstí nad Labem'
     ],
-    'Liberecký kraj': ['Česká Lípa', 'Jablonec nad Nisou', 'Liberec', 'Semily'],
-    'Královéhradecký kraj': [
-      'Hradec Králové',
+    'Liberecký kraj': [
+      'ďŚeská Lípa',
+      'Jablonec nad Nisou',
+      'Liberec',
+      'Semily'
+    ],
+    'KrálovĂ©hradecký kraj': [
+      'Hradec KrálovĂ©',
       'Jičín',
       'Náchod',
-      'Rychnov nad Kněžnou',
+      'Rychnov nad Kněťnou',
       'Trutnov'
     ],
-    'Pardubický kraj': ['Chrudim', 'Pardubice', 'Svitavy', 'Ústí nad Orlicí'],
+    'Pardubický kraj': ['Chrudim', 'Pardubice', 'Svitavy', 'Ăšstí nad Orlicí'],
     'Kraj Vysočina': [
       'Havlíčkův Brod',
       'Jihlava',
       'Pelhřimov',
       'Třebíč',
-      'Žďár nad Sázavou'
+      'Ĺ˝ďŹár nad Sázavou'
     ],
     'Jihomoravský kraj': [
       'Blansko',
@@ -123,11 +129,11 @@ class _SuppliersListPageState extends State<SuppliersListPage> {
       'Brno-venkov',
       'Břeclav',
       'Hodonín',
-      'Vyškov',
+      'VyĹˇkov',
       'Znojmo'
     ],
-    'Olomoucký kraj': ['Jeseník', 'Olomouc', 'Prostějov', 'Přerov', 'Šumperk'],
-    'Zlínský kraj': ['Kroměříž', 'Uherské Hradiště', 'Vsetín', 'Zlín'],
+    'Olomoucký kraj': ['Jeseník', 'Olomouc', 'Prostějov', 'Přerov', 'Ĺ umperk'],
+    'Zlínský kraj': ['Kroměříť', 'UherskĂ© HradiĹˇtě', 'Vsetín', 'Zlín'],
     'Moravskoslezský kraj': [
       'Bruntál',
       'Frýdek-Místek',
@@ -138,7 +144,7 @@ class _SuppliersListPageState extends State<SuppliersListPage> {
     ],
   };
 
-  // Ukázková data dodavatelů; v produkci budou data načítána z backendu.
+  // Ukázková data dodavatelů; v produkci budou data náčítána z backendu.
   final List<Supplier> _allSuppliers = [
     Supplier(
       id: '1',
@@ -151,11 +157,14 @@ class _SuppliersListPageState extends State<SuppliersListPage> {
       contact: '+420123456789',
       profileImageUrl: 'https://via.placeholder.com/150',
       bio: 'Profesionální fotograf se specializací na svatební focení.',
-      portfolioImages: ['https://via.placeholder.com/150', 'https://via.placeholder.com/150'],
+      portfolioImages: [
+        'https://via.placeholder.com/150',
+        'https://via.placeholder.com/150'
+      ],
     ),
     Supplier(
       id: '2',
-      name: 'Sladké Dobroty',
+      name: 'SladkĂ© Dobroty',
       profession: 'Cukrář',
       region: 'Jihomoravský kraj',
       district: 'Brno-město',
@@ -176,7 +185,7 @@ class _SuppliersListPageState extends State<SuppliersListPage> {
       website: 'https://kvetinovysen.cz',
       contact: '+420555123456',
       profileImageUrl: 'https://via.placeholder.com/150',
-      bio: 'Květinář s vášní pro svatební dekorace a aranžmá.',
+      bio: 'Květinář s váĹˇní pro svatební dekorace a aranťmá.',
       portfolioImages: [],
     ),
   ];
@@ -208,13 +217,18 @@ class _SuppliersListPageState extends State<SuppliersListPage> {
     setState(() {
       _filteredSuppliers = _allSuppliers.where((supplier) {
         final matchesProfession = _selectedProfession == null ||
-            supplier.profession.toLowerCase() == _selectedProfession!.toLowerCase();
+            supplier.profession.toLowerCase() ==
+                _selectedProfession!.toLowerCase();
         final matchesRegion = _selectedRegion == null ||
             supplier.region.toLowerCase() == _selectedRegion!.toLowerCase();
         final matchesDistrict = _selectedDistrict == null ||
             supplier.district.toLowerCase() == _selectedDistrict!.toLowerCase();
-        final matchesPrice = supplier.price >= _priceRange.start && supplier.price <= _priceRange.end;
-        return matchesProfession && matchesRegion && matchesDistrict && matchesPrice;
+        final matchesPrice = supplier.price >= _priceRange.start &&
+            supplier.price <= _priceRange.end;
+        return matchesProfession &&
+            matchesRegion &&
+            matchesDistrict &&
+            matchesPrice;
       }).toList();
     });
   }
@@ -250,7 +264,8 @@ class _SuppliersListPageState extends State<SuppliersListPage> {
         _selectedWeddingDate = picked;
       });
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('wedding_date', DateFormat('dd.MM.yyyy').format(picked));
+      await prefs.setString(
+          'wedding_date', DateFormat('dd.MM.yyyy').format(picked));
       _applyFilters();
     }
   }
@@ -279,13 +294,14 @@ class _SuppliersListPageState extends State<SuppliersListPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header s tlačítkem pro zavření
+                      // Header s tláčítkem pro zavření
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
                             tr('filter_suppliers'),
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.bold),
                           ),
                           IconButton(
                             icon: const Icon(Icons.close),
@@ -305,14 +321,16 @@ class _SuppliersListPageState extends State<SuppliersListPage> {
                               ),
                               value: _selectedProfession,
                               items: [
-                                const DropdownMenuItem<String>(
+                                DropdownMenuItem<String>(
                                   value: null,
-                                  child: Text("Vše"),
+                                  child:
+                                      Text("auto.suppliers_list_page.v_e".tr()),
                                 ),
-                                ..._professions.map((prof) => DropdownMenuItem<String>(
-                                      value: prof,
-                                      child: Text(prof),
-                                    ))
+                                ..._professions
+                                    .map((prof) => DropdownMenuItem<String>(
+                                          value: prof,
+                                          child: Text(prof),
+                                        ))
                               ],
                               onChanged: (value) {
                                 setState(() {
@@ -344,14 +362,17 @@ class _SuppliersListPageState extends State<SuppliersListPage> {
                               ),
                               value: _selectedRegion,
                               items: [
-                                const DropdownMenuItem<String>(
+                                DropdownMenuItem<String>(
                                   value: null,
-                                  child: Text("Vše"),
+                                  child: Text(
+                                      "auto.suppliers_list_page.v_e_63bwfi"
+                                          .tr()),
                                 ),
-                                ..._regions.map((region) => DropdownMenuItem<String>(
-                                      value: region,
-                                      child: Text(region),
-                                    ))
+                                ..._regions
+                                    .map((region) => DropdownMenuItem<String>(
+                                          value: region,
+                                          child: Text(region),
+                                        ))
                               ],
                               onChanged: (value) {
                                 setState(() {
@@ -383,18 +404,22 @@ class _SuppliersListPageState extends State<SuppliersListPage> {
                                 border: const OutlineInputBorder(),
                               ),
                               value: _selectedDistrict,
-                              items: (_selectedRegion != null && _districtsByRegion.containsKey(_selectedRegion))
+                              items: (_selectedRegion != null &&
+                                      _districtsByRegion
+                                          .containsKey(_selectedRegion))
                                   ? [
-                                      const DropdownMenuItem<String>(
+                                      DropdownMenuItem<String>(
                                         value: null,
-                                        child: Text("Vše"),
+                                        child: Text(
+                                            "auto.suppliers_list_page.v_e_1rb6i9"
+                                                .tr()),
                                       ),
                                       ..._districtsByRegion[_selectedRegion]!
-                                          .map((district) => DropdownMenuItem<String>(
+                                          .map((district) =>
+                                              DropdownMenuItem<String>(
                                                 value: district,
                                                 child: Text(district),
                                               ))
-                                          .toList()
                                     ]
                                   : [],
                               onChanged: (value) {
@@ -416,14 +441,15 @@ class _SuppliersListPageState extends State<SuppliersListPage> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      // Filtr: Cenové rozpětí
+                      // Filtr: CenovĂ© rozpětí
                       Row(
                         children: [
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(tr('price_range'), style: const TextStyle(fontSize: 16)),
+                                Text(tr('price_range'),
+                                    style: const TextStyle(fontSize: 16)),
                                 RangeSlider(
                                   values: _priceRange,
                                   min: 0,
@@ -460,7 +486,8 @@ class _SuppliersListPageState extends State<SuppliersListPage> {
                           Expanded(
                             child: Text(
                               _selectedWeddingDate != null
-                                  ? DateFormat('dd.MM.yyyy').format(_selectedWeddingDate!)
+                                  ? DateFormat('dd.MM.yyyy')
+                                      .format(_selectedWeddingDate!)
                                   : tr('home_no_wedding_date'),
                               style: const TextStyle(fontSize: 16),
                             ),
@@ -528,8 +555,10 @@ class _SuppliersListPageState extends State<SuppliersListPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text("${tr('profession')}: ${supplier.profession}"),
-                        Text("${tr('region')}: ${supplier.region} - ${supplier.district}"),
-                        Text("${tr('price')}: ${supplier.price.toStringAsFixed(0)} Kč"),
+                        Text(
+                            "${tr('region')}: ${supplier.region} - ${supplier.district}"),
+                        Text(
+                            "${tr('price')}: ${supplier.price.toStringAsFixed(0)} Kč"),
                         Text("${tr('website')}: ${supplier.website}"),
                         Text("${tr('contact')}: ${supplier.contact}"),
                       ],

@@ -1,4 +1,5 @@
-// This is a basic Flutter widget test.
+/// This is a basic Flutter widget test.
+library;
 //
 // To perform an interaction with a widget in your test, use the WidgetTester
 // utility in the flutter_test package. For example, you can send tap and scroll
@@ -8,7 +9,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:svatebni_planovac/main.dart';
+import 'package:den_d/main.dart';
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {

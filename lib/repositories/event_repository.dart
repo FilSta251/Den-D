@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/event.dart';
 
-/// EventRepository zajišťuje načítání, ukládání a aktualizaci událostí z Firestore.
+/// EventRepository zajiĹˇšuje náčítání, ukládání a aktualizaci událostí z Firestore.
 /// Podporuje operace CRUD, lokální cachování, filtrování a řazení událostí.
 class EventRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -14,7 +14,7 @@ class EventRepository {
   final StreamController<List<Event>> _eventsStreamController =
       StreamController<List<Event>>.broadcast();
 
-  /// Vrací stream událostí, který se aktualizuje při každé změně v kolekci 'events'.
+  /// Vrací stream událostí, který se aktualizuje při kaťdĂ© změně v kolekci 'events'.
   Stream<List<Event>> get eventsStream => _eventsStreamController.stream;
 
   /// Konstruktor: nastavuje real-time listener na kolekci 'events' v Firestore.
@@ -23,7 +23,7 @@ class EventRepository {
       try {
         _cachedEvents = snapshot.docs.map((doc) {
           final data = doc.data();
-          // Ujistíme se, že id dokumentu je součástí dat.
+          // Ujistíme se, ťe id dokumentu je součástí dat.
           data['id'] = doc.id;
           return Event.fromJson(data);
         }).toList();
@@ -37,7 +37,7 @@ class EventRepository {
     });
   }
 
-  /// Načte a vrátí všechny události z Firestore.
+  /// Náčte a vrátí vĹˇechny události z Firestore.
   Future<List<Event>> fetchEvents() async {
     try {
       final QuerySnapshot<Map<String, dynamic>> snapshot =
@@ -59,7 +59,7 @@ class EventRepository {
   /// Přidá novou událost do Firestore a aktualizuje cache.
   Future<void> addEvent(Event event) async {
     try {
-      // Použijeme event.id, pokud je již definováno.
+      // Pouťijeme event.id, pokud je jiť definováno.
       await _firestore.collection('events').doc(event.id).set(event.toJson());
       // Cache a stream se aktualizují díky real-time listeneru.
     } catch (e, stackTrace) {
@@ -100,7 +100,7 @@ class EventRepository {
     }
   }
 
-  /// Smaže událost s daným ID z Firestore.
+  /// Smaťe událost s daným ID z Firestore.
   Future<void> deleteEvent(String eventId) async {
     try {
       await _firestore.collection('events').doc(eventId).delete();
@@ -112,18 +112,24 @@ class EventRepository {
     }
   }
 
-  /// Vrací filtrovaný seznam událostí podle zadaných kritérií.
-  List<Event> getFilteredEvents({String? category, DateTime? fromDate, DateTime? toDate}) {
+  /// Vrací filtrovaný seznam událostí podle zadaných kritĂ©rií.
+  List<Event> getFilteredEvents(
+      {String? category, DateTime? fromDate, DateTime? toDate}) {
     return _cachedEvents.where((event) {
       bool matches = true;
       if (category != null && category.isNotEmpty) {
-        matches = matches && (event.category?.toLowerCase() == category.toLowerCase());
+        matches = matches &&
+            (event.category?.toLowerCase() == category.toLowerCase());
       }
       if (fromDate != null) {
-        matches = matches && (event.startTime.isAfter(fromDate) || event.startTime.isAtSameMomentAs(fromDate));
+        matches = matches &&
+            (event.startTime.isAfter(fromDate) ||
+                event.startTime.isAtSameMomentAs(fromDate));
       }
       if (toDate != null) {
-        matches = matches && (event.startTime.isBefore(toDate) || event.startTime.isAtSameMomentAs(toDate));
+        matches = matches &&
+            (event.startTime.isBefore(toDate) ||
+                event.startTime.isAtSameMomentAs(toDate));
       }
       return matches;
     }).toList();
@@ -132,8 +138,9 @@ class EventRepository {
   /// Vrací řazený seznam událostí podle data (vzestupně nebo sestupně).
   List<Event> getSortedEvents({bool ascending = true}) {
     final List<Event> sorted = List.from(_cachedEvents);
-    sorted.sort((a, b) =>
-        ascending ? a.startTime.compareTo(b.startTime) : b.startTime.compareTo(a.startTime));
+    sorted.sort((a, b) => ascending
+        ? a.startTime.compareTo(b.startTime)
+        : b.startTime.compareTo(a.startTime));
     return sorted;
   }
 

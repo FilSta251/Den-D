@@ -1,4 +1,5 @@
-// lib/models/task.dart
+/// lib/models/task.dart
+library;
 
 import 'package:equatable/equatable.dart';
 
@@ -14,7 +15,7 @@ class Task extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  const Task({
+  Task({
     required this.id,
     required this.title,
     required this.category,
@@ -24,8 +25,8 @@ class Task extends Equatable {
     this.priority = 2,
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) : createdAt = createdAt ?? const DateTime.now(),
-       updatedAt = updatedAt ?? const DateTime.now();
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   /// Vytvoří instanci Task z JSON
   factory Task.fromJson(Map<String, dynamic> json) {
@@ -34,16 +35,16 @@ class Task extends Equatable {
       title: json['title'] as String,
       category: json['category'] as String,
       isDone: json['isDone'] as bool? ?? false,
-      dueDate: json['dueDate'] != null 
+      dueDate: json['dueDate'] != null
           ? DateTime.parse(json['dueDate'] as String)
           : null,
       note: json['note'] as String?,
       priority: json['priority'] as int? ?? 2,
-      createdAt: json['createdAt'] != null 
+      createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : DateTime.now(),
       updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'] as String) 
+          ? DateTime.parse(json['updatedAt'] as String)
           : DateTime.now(),
     );
   }
@@ -90,16 +91,16 @@ class Task extends Equatable {
 
   @override
   List<Object?> get props => [
-    id, 
-    title, 
-    category, 
-    isDone, 
-    dueDate, 
-    note, 
-    priority,
-    createdAt,
-    updatedAt,
-  ];
+        id,
+        title,
+        category,
+        isDone,
+        dueDate,
+        note,
+        priority,
+        createdAt,
+        updatedAt,
+      ];
 
   @override
   String toString() {
@@ -116,15 +117,15 @@ class TaskCategory extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  const TaskCategory({
+  TaskCategory({
     required this.id,
     required this.name,
     required this.description,
     this.sortOrder = 0,
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) : createdAt = createdAt ?? const DateTime.now(),
-       updatedAt = updatedAt ?? const DateTime.now();
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   /// Vytvoří instanci TaskCategory z JSON
   factory TaskCategory.fromJson(Map<String, dynamic> json) {
@@ -133,11 +134,11 @@ class TaskCategory extends Equatable {
       name: json['name'] as String,
       description: json['description'] as String,
       sortOrder: json['sortOrder'] as int? ?? 0,
-      createdAt: json['createdAt'] != null 
+      createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : DateTime.now(),
       updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'] as String) 
+          ? DateTime.parse(json['updatedAt'] as String)
           : DateTime.now(),
     );
   }
@@ -174,8 +175,10 @@ class TaskCategory extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, name, description, sortOrder, createdAt, updatedAt];
+  List<Object?> get props =>
+      [id, name, description, sortOrder, createdAt, updatedAt];
 
   @override
-  String toString() => 'TaskCategory(id: $id, name: $name, sortOrder: $sortOrder)';
+  String toString() =>
+      'TaskCategory(id: $id, name: $name, sortOrder: $sortOrder)';
 }

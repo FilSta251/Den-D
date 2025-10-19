@@ -3,9 +3,9 @@ import 'package:flutter/foundation.dart';
 import '../models/wedding_info.dart';
 import '../repositories/wedding_repository.dart';
 
-/// WeddingInfoNotifier slouží jako most mezi daty z Firestore (prostřednictvím WeddingRepository)
+/// WeddingInfoNotifier slouťí jako most mezi daty z Firestore (prostřednictvím WeddingRepository)
 /// a UI. Notifier naslouchá změnám v informacích o svatbě, ukládá aktuální stav do lokální cache,
-/// a při každé změně vyvolá [notifyListeners()] pro aktualizaci UI.
+/// a při kaťdĂ© změně vyvolá [notifyListeners()] pro aktualizaci UI.
 class WeddingInfoNotifier extends ChangeNotifier {
   final WeddingRepository _weddingRepository;
 
@@ -26,7 +26,7 @@ class WeddingInfoNotifier extends ChangeNotifier {
   }
 
   /// Inicializace notifieru: Naslouchá real-time streamu z repository
-  /// a loguje případné chyby.
+  /// a loguje případnĂ© chyby.
   void _init() {
     _setLoading(true);
     _subscription = _weddingRepository.weddingInfoStream.listen(
@@ -46,7 +46,7 @@ class WeddingInfoNotifier extends ChangeNotifier {
     );
   }
 
-  /// Načte informace o svatbě pomocí repository.
+  /// Náčte informace o svatbě pomocí repository.
   /// Při úspěchu aktualizuje lokální stav a vyvolá notifikaci.
   Future<void> fetchWeddingInfo() async {
     _setLoading(true);
@@ -84,7 +84,7 @@ class WeddingInfoNotifier extends ChangeNotifier {
     }
   }
 
-  /// Vytvoří nové informace o svatbě, pokud ještě neexistují.
+  /// Vytvoří novĂ© informace o svatbě, pokud jeĹˇtě neexistují.
   Future<void> createWeddingInfo(WeddingInfo info) async {
     _setLoading(true);
     try {

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Password Reset - Wedding Planner</title>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      max-width: 400px;
+      width: 90%;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 10px;
+    }
+    button:hover {
+      background: #5568d3;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .message {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 5px;
+      text-align: center;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .info {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+    .loading {
+      display: none;
+      text-align: center;
+      margin-top: 10px;
+    }
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 10px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🌸 Password Reset</h1>
+    <div id="content">
+      <input type="password" id="newPassword" placeholder="Enter new password (min. 6 characters)" />
+      <button onclick="handleResetPassword()">Set New Password</button>
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+      </div>
+    </div>
+    <div id="message"></div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyA9ZQyrnconAW98RLSto3SH2XZm3LMf9Qs",
+      authDomain: "svatba-f3e9b.firebaseapp.com",
+      projectId: "svatba-f3e9b",
+      storageBucket: "svatba-f3e9b.firebasestorage.app",
+      messagingSenderId: "163734675450",
+      appId: "1:163734675450:android:b366542a4ee3cbf0f70e43"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+
+    function getParameterByName(name) {
+      const url = window.location.href;
+      name = name.replace(/[\[\]]/g, '\\$&');
+      const regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)');
+      const results = regex.exec(url);
+      if (!results) return null;
+      if (!results[2]) return '';
+      return decodeURIComponent(results[2].replace(/\+/g, ' '));
+    }
+
+    function handleResetPassword() {
+      const oobCode = getParameterByName('oobCode');
+      const newPassword = document.getElementById('newPassword').value;
+      const messageDiv = document.getElementById('message');
+      const loadingDiv = document.getElementById('loading');
+      const button = document.querySelector('button');
+
+      messageDiv.innerHTML = '';
+
+      if (!newPassword) {
+        messageDiv.innerHTML = '<div class="message error">⚠️ Please enter a new password</div>';
+        return;
+      }
+
+      if (newPassword.length < 6) {
+        messageDiv.innerHTML = '<div class="message error">⚠️ Password must be at least 6 characters</div>';
+        return;
+      }
+
+      button.disabled = true;
+      loadingDiv.style.display = 'block';
+
+      firebase.auth().confirmPasswordReset(oobCode, newPassword)
+        .then(() => {
+          loadingDiv.style.display = 'none';
+          document.getElementById('content').innerHTML = '';
+          messageDiv.innerHTML = '<div class="message success">✅ Password successfully changed!<br><br>You can now sign in to the app with your new password.</div>';
+        })
+        .catch((error) => {
+          loadingDiv.style.display = 'none';
+          button.disabled = false;
+          let errorMessage = 'An error occurred while changing your password.';
+
+          if (error.code === 'auth/invalid-action-code') {
+            errorMessage = 'The password reset link has expired or has already been used. Please request a new one.';
+          } else if (error.code === 'auth/weak-password') {
+            errorMessage = 'Password is too weak. Please use at least 6 characters.';
+          }
+
+          messageDiv.innerHTML = '<div class="message error">❌ ' + errorMessage + '</div>';
+        });
+    }
+
+    function handleEmailVerification() {
+      const oobCode = getParameterByName('oobCode');
+      const messageDiv = document.getElementById('message');
+      const loadingDiv = document.getElementById('loading');
+
+      loadingDiv.style.display = 'block';
+      document.getElementById('content').innerHTML = '';
+
+      firebase.auth().applyActionCode(oobCode)
+        .then(() => {
+          loadingDiv.style.display = 'none';
+          messageDiv.innerHTML = '<div class="message success">✅ Email successfully verified!<br><br>You can now sign in to the app.</div>';
+        })
+        .catch((error) => {
+          loadingDiv.style.display = 'none';
+          let errorMessage = 'An error occurred while verifying your email.';
+
+          if (error.code === 'auth/invalid-action-code') {
+            errorMessage = 'The email verification link has expired or has already been used. Please request a new one.';
+          }
+
+          messageDiv.innerHTML = '<div class="message error">❌ ' + errorMessage + '</div>';
+        });
+    }
+
+    window.onload = function() {
+      const mode = getParameterByName('mode');
+      const oobCode = getParameterByName('oobCode');
+      const messageDiv = document.getElementById('message');
+
+      if (!mode) {
+        document.querySelector('.container').innerHTML = '<h1>❌ Invalid Link</h1><p style="text-align: center;">This link is not valid.</p>';
+        return;
+      }
+
+      if (!oobCode) {
+        document.querySelector('.container').innerHTML = '<h1>❌ Missing Code</h1><p style="text-align: center;">The link is incomplete.</p>';
+        return;
+      }
+
+      if (mode === 'resetPassword') {
+        document.querySelector('h1').textContent = '🌸 Password Reset';
+        messageDiv.innerHTML = '<div class="message info">ℹ️ Enter a new password for your account</div>';
+      } else if (mode === 'verifyEmail') {
+        document.querySelector('h1').textContent = '✉️ Email Verification';
+        handleEmailVerification();
+      } else {
+        document.querySelector('.container').innerHTML = '<h1>❌ Unsupported Action</h1><p style="text-align: center;">This type of link is not supported.</p>';
+      }
+    };
+
+    document.getElementById('newPassword').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        handleResetPassword();
+      }
+    });
+  </script>
+</body>
+</html>

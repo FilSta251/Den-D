@@ -1,264 +1,362 @@
-// lib/providers/subscription_provider.dart - vylepšená verze s PermissionHandler
+﻿/// lib/providers/subscription_provider.dart
+library;
 
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/subscription.dart';
 import '../repositories/subscription_repository.dart';
-import '../services/permission_handler.dart';
+import '../services/local_storage_service.dart';
 
-/// ChangeNotifier pro správu stavu předplatného.
-///
-/// Obaluje SubscriptionRepository a poskytuje pohodlnou možnost
-/// sledovat a upravovat stav předplatného v celé aplikaci.
-/// Obsahuje také záložní mechanismy pro případ, kdy Firestore není dostupný.
+/// Enum pro typy interakcí v free verzi
+enum InteractionType {
+  addChecklistItem,
+  addScheduleItem,
+  addGuest,
+  addExpense,
+  // Další typy můžeš přidat podle potřeby
+  addNote,
+  uploadPhoto,
+}
+
+/// Provider pro správu předplatného a free limit logiky
 class SubscriptionProvider extends ChangeNotifier {
-  final SubscriptionRepository _subscriptionRepo;
-  Subscription? _subscription;
-  bool _loading = false;
+  final SubscriptionRepository _subscriptionRepository;
+  final LocalStorageService _localStorage;
+  final FirebaseAuth _auth;
+
+  // Stav předplatného
+  Subscription? _sub;
+  bool _isLoading = false;
   String? _errorMessage;
-  bool _hasPermissionError = false;
-  
-  // Odkaz na aktuálního uživatele pro případy, kdy potřebujeme vytvořit lokální Subscription
-  fb.User? get currentUser => fb.FirebaseAuth.instance.currentUser;
 
-  SubscriptionProvider({required SubscriptionRepository subscriptionRepo})
-      : _subscriptionRepo = subscriptionRepo {
-    // Kontrola, zda mají být při inicializaci použita uložená oprávnění
-    _checkStoredPermissions();
-    
-    // Připojení se ke streamu předplatného
-    _subscriptionRepo.subscriptionStream.listen(
-      (subscription) {
-        _subscription = subscription;
-        notifyListeners();
-      },
-      onError: (error) {
-        // Nastavíme příznak, že máme problém s oprávněními
-        if (PermissionHandler.isPermissionError(error)) {
-          _setPermissionError(error.toString());
-        }
-        _errorMessage = error.toString();
-        debugPrint("Chyba v SubscriptionProvider: $_errorMessage");
-        notifyListeners();
-      }
-    );
+  // Free limit logika - celkové počty interakcí pro každý typ
+  Map<String, int> _counters = {};
+  String? _currentUserId;
 
-    // Počáteční načtení předplatného
-    _fetchSubscription();
-  }
-  
-  // Zkontroluje, zda jsou uloženy informace o oprávněních pro aktuálního uživatele
-  Future<void> _checkStoredPermissions() async {
-    final user = currentUser;
-    if (user != null) {
-      final hasError = await PermissionHandler.hasPermissionError(
-        user.uid, 
-        'subscriptions'
-      );
-      
-      if (hasError) {
-        _hasPermissionError = true;
-        _errorMessage = "Nedostatečná oprávnění pro kolekci 'subscriptions'";
-        debugPrint("Použita uložená informace o oprávněních: $_errorMessage");
-      }
-    }
-  }
-  
-  // Nastaví příznak problému s oprávněními a uloží informaci
-  Future<void> _setPermissionError(String errorMessage) async {
-    _hasPermissionError = true;
-    debugPrint("Detekován problém s oprávněními při načítání předplatného");
-    
-    // Uložení informace o problému pro budoucí použití
-    final user = currentUser;
-    if (user != null) {
-      await PermissionHandler.savePermissionError(
-        user.uid, 
-        'subscriptions', 
-        true
-      );
-    }
-  }
+  // Klíče pro LocalStorage
+  static const String _countersKey = 'interaction_counters';
 
-  /// Aktuální předplatné.
-  Subscription? get subscription => _subscription;
+  // ZMĚNA: Celkový limit na funkci místo denního
+  static const int FREE_INTERACTION_LIMIT = 3;
 
-  /// Indikátor načítání.
-  bool get isLoading => _loading;
+  SubscriptionProvider({
+    required SubscriptionRepository subscriptionRepository,
+    required LocalStorageService localStorage,
+    FirebaseAuth? auth,
+  })  : _subscriptionRepository = subscriptionRepository,
+        _localStorage = localStorage,
+        _auth = auth ?? FirebaseAuth.instance;
 
-  /// Případná chybová hláška.
+  /// Gettery
+  Subscription? get subscription => _sub;
+  bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  
-  /// Příznak, zda máme problém s oprávněními
-  bool get hasPermissionError => _hasPermissionError;
 
-  /// Načte předplatné z repozitáře.
-  Future<void> _fetchSubscription() async {
-    // Pokud již víme, že máme problém s oprávněními, nesnažíme se načítat ze serveru
-    if (_hasPermissionError) {
-      notifyListeners();
-      return;
-    }
-    
-    _loading = true;
-    _errorMessage = null;
-    notifyListeners();
+  /// Getter pro současného uživatele
+  User? get currentUser => _auth.currentUser;
 
-    try {
-      await _subscriptionRepo.fetchSubscription();
-    } catch (e) {
-      _errorMessage = e.toString();
-      if (PermissionHandler.isPermissionError(e)) {
-        _setPermissionError(e.toString());
-      }
-    } finally {
-      _loading = false;
-      notifyListeners();
-    }
+  /// Zda má uživatel aktivní Premium předplatné
+  bool get isPremium {
+    return _sub?.isActivePremium ?? false;
   }
 
-  /// Zakoupí měsíční předplatné.
-  Future<void> purchaseMonthly() async {
-    _loading = true;
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
-      if (_hasPermissionError) {
-        throw Exception("Nedostatečná oprávnění pro operaci s předplatným");
-      }
-      
-      await _subscriptionRepo.purchaseMonthlySubscription();
-    } catch (e) {
-      _errorMessage = e.toString();
-      if (PermissionHandler.isPermissionError(e)) {
-        await _setPermissionError(e.toString());
-      }
-      rethrow; // Chybu předáme dál, aby ji mohla obrazovka zpracovat
-    } finally {
-      _loading = false;
-      notifyListeners();
-    }
+  /// Getter pro zbývající free pokusy pro daný typ
+  int getRemainingTriesForType(InteractionType type) {
+    final count = _counters[type.toString()] ?? 0;
+    return math.max(0, FREE_INTERACTION_LIMIT - count);
   }
 
-  /// Zakoupí roční předplatné s možností zkušební doby.
-  Future<void> purchaseYearly({bool withTrial = false, int trialDays = 7}) async {
-    _loading = true;
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
-      if (_hasPermissionError) {
-        throw Exception("Nedostatečná oprávnění pro operaci s předplatným");
-      }
-      
-      await _subscriptionRepo.purchaseYearlySubscription(
-        withTrial: withTrial,
-        trialDays: trialDays,
-      );
-    } catch (e) {
-      _errorMessage = e.toString();
-      if (PermissionHandler.isPermissionError(e)) {
-        await _setPermissionError(e.toString());
-      }
-      rethrow;
-    } finally {
-      _loading = false;
-      notifyListeners();
-    }
+  /// Metoda pro kontrolu a konzumaci akce (pro zpětnou kompatibilitu)
+  Future<bool> checkAndConsumeAction() async {
+    return await registerInteraction(InteractionType.addChecklistItem);
   }
 
-  /// Prodlouží roční předplatné o zadaný počet dní.
-  Future<void> extendSubscription({int extraDays = 365}) async {
-    _loading = true;
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
-      if (_hasPermissionError) {
-        throw Exception("Nedostatečná oprávnění pro operaci s předplatným");
-      }
-      
-      await _subscriptionRepo.extendYearlySubscription(extraDays: extraDays);
-    } catch (e) {
-      _errorMessage = e.toString();
-      if (PermissionHandler.isPermissionError(e)) {
-        await _setPermissionError(e.toString());
-      }
-      rethrow;
-    } finally {
-      _loading = false;
-      notifyListeners();
-    }
-  }
-
-  /// Zruší předplatné.
-  Future<void> cancelSubscription() async {
-    _loading = true;
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
-      if (_hasPermissionError) {
-        throw Exception("Nedostatečná oprávnění pro operaci s předplatným");
-      }
-      
-      await _subscriptionRepo.cancelSubscription();
-    } catch (e) {
-      _errorMessage = e.toString();
-      if (PermissionHandler.isPermissionError(e)) {
-        await _setPermissionError(e.toString());
-      }
-      rethrow;
-    } finally {
-      _loading = false;
-      notifyListeners();
-    }
-  }
-
-  /// Obnoví načtení předplatného.
-  Future<void> refreshSubscription() async {
-    await _fetchSubscription();
-  }
-  
-  /// Vytvoří a vrátí základní (free) předplatné pro aktuálního uživatele
-  Subscription? createBasicSubscription() {
-    final user = currentUser;
-    if (user == null) return null;
-    
-    return Subscription(
-      id: user.uid,
-      userId: user.uid,
-      isActive: false,
-      subscriptionType: SubscriptionType.free,
-      expirationDate: null,
-      isTrial: false,
-      gracePeriodDays: 3,
-    );
-  }
-  
-  /// Resetuje příznak problému s oprávněními - užitečné po opětovném přihlášení
+  /// Metoda pro reset permission error
   Future<void> resetPermissionError() async {
-    final user = currentUser;
-    if (user != null) {
-      await PermissionHandler.savePermissionError(
-        user.uid, 
-        'subscriptions', 
-        false
+    notifyListeners();
+  }
+
+  /// Přihlásí se na sledování předplatného konkrétního uživatele
+  Future<void> bindUser(String uid) async {
+    try {
+      if (uid.isEmpty) {
+        throw ArgumentError('UID nesmí být prázdné');
+      }
+
+      _isLoading = true;
+      _currentUserId = uid;
+      notifyListeners();
+
+      debugPrint('[SubscriptionProvider] Bindování uživatele: $uid');
+
+      // Načíst lokální čítáče
+      await _loadLocalCounters();
+
+      // Přihlásit se na stream z repository
+      _subscriptionRepository.watch(uid).listen(
+        (subscription) {
+          _sub = subscription;
+          _isLoading = false;
+          _errorMessage = null;
+          notifyListeners();
+          debugPrint(
+              '[SubscriptionProvider] Předplatné aktualizováno: ${subscription?.tier}');
+        },
+        onError: (error) {
+          _errorMessage = error.toString();
+          _isLoading = false;
+          notifyListeners();
+          debugPrint('[SubscriptionProvider] Chyba ve stream: $error');
+        },
       );
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      debugPrint('[SubscriptionProvider] Chyba při bindování uživatele: $e');
     }
-    
-    _hasPermissionError = false;
+  }
+
+  /// Načte lokální čítáče z LocalStorage
+  Future<void> _loadLocalCounters() async {
+    try {
+      final Map<String, int>? savedCounters =
+          await _localStorage.getJsonMap(_countersKey);
+
+      if (savedCounters != null) {
+        _counters = Map<String, int>.from(savedCounters);
+      } else {
+        // Inicializace výchozích čítáčů
+        _counters = {
+          for (var type in InteractionType.values) type.toString(): 0
+        };
+      }
+
+      debugPrint('[SubscriptionProvider] Načteny čítáče: $_counters');
+    } catch (e) {
+      debugPrint('[SubscriptionProvider] Chyba při načítání čítáčů: $e');
+      _counters = {for (var type in InteractionType.values) type.toString(): 0};
+    }
+  }
+
+  /// Uloží čítáče do LocalStorage
+  Future<void> _saveLocalCounters() async {
+    try {
+      await _localStorage.setJsonMap(_countersKey, _counters);
+      debugPrint('[SubscriptionProvider] Čítáče uloženy: $_counters');
+    } catch (e) {
+      debugPrint('[SubscriptionProvider] Chyba při ukládání čítáčů: $e');
+    }
+  }
+
+  /// Kontrola, zda může uživatel provést free interakci
+  bool canUseFreeInteraction(InteractionType type) {
+    // Premium uživatelé mohou vše
+    if (isPremium) {
+      return true;
+    }
+
+    // Kontrola free limitu - celkový počet interakcí
+    final currentCount = _counters[type.toString()] ?? 0;
+    return currentCount < FREE_INTERACTION_LIMIT;
+  }
+
+  /// Registruje použití free interakce
+  Future<bool> registerInteraction(InteractionType type) async {
+    try {
+      // Premium uživatelé mohou vše
+      if (isPremium) {
+        return true;
+      }
+
+      // Kontrola limitu
+      if (!canUseFreeInteraction(type)) {
+        debugPrint(
+            '[SubscriptionProvider] Dosažen limit pro ${type.toString()}: ${_counters[type.toString()]}/$FREE_INTERACTION_LIMIT');
+        return false;
+      }
+
+      // Zvýšit čítač
+      final currentCount = _counters[type.toString()] ?? 0;
+      _counters[type.toString()] = currentCount + 1;
+
+      // Uložit do LocalStorage
+      await _saveLocalCounters();
+
+      notifyListeners();
+
+      debugPrint(
+          '[SubscriptionProvider] Registrována interakce ${type.toString()}: ${_counters[type.toString()]}/$FREE_INTERACTION_LIMIT');
+
+      return true;
+    } catch (e) {
+      debugPrint('[SubscriptionProvider] Chyba při registraci interakce: $e');
+      return false;
+    }
+  }
+
+  /// Vrací počet zbývajících free interakcí pro daný typ
+  int remaining(InteractionType type) {
+    if (isPremium) {
+      return 999; // Neomezené pro Premium
+    }
+
+    final currentCount = _counters[type.toString()] ?? 0;
+    final remaining = FREE_INTERACTION_LIMIT - currentCount;
+    return remaining > 0 ? remaining : 0;
+  }
+
+  /// Vrací celkový počet použitých interakcí pro daný typ
+  int getUsedCount(InteractionType type) {
+    return _counters[type.toString()] ?? 0;
+  }
+
+  /// Resetuje čítáče (užitečné pro testování nebo po upgrade na Premium)
+  Future<void> resetCounters() async {
+    try {
+      _counters = {for (var type in InteractionType.values) type.toString(): 0};
+
+      await _saveLocalCounters();
+      notifyListeners();
+
+      debugPrint('[SubscriptionProvider] Čítáče resetovány');
+    } catch (e) {
+      debugPrint('[SubscriptionProvider] Chyba při resetování čítáčů: $e');
+    }
+  }
+
+  /// Zahájí nákup Premium předplatného
+  Future<void> startPremiumPurchase() async {
+    if (_currentUserId == null) {
+      throw Exception('Uživatel není přihlášen');
+    }
+
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      await _subscriptionRepository.startPremiumPurchase(_currentUserId!);
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      debugPrint('[SubscriptionProvider] Chyba při zahájení nákupu: $e');
+      rethrow;
+    }
+  }
+
+  /// Obnoví předchozí nákupy
+  Future<void> restorePurchases() async {
+    if (_currentUserId == null) {
+      throw Exception('Uživatel není přihlášen');
+    }
+
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      await _subscriptionRepository.restorePurchases(_currentUserId!);
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      debugPrint('[SubscriptionProvider] Chyba při obnově nákupů: $e');
+      rethrow;
+    }
+  }
+
+  /// Otevře správu předplatného
+  Future<void> openManageSubscriptions() async {
+    try {
+      await _subscriptionRepository.openManageSubscriptions();
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+      debugPrint('[SubscriptionProvider] Chyba při otevírání správy: $e');
+      rethrow;
+    }
+  }
+
+  /// Nastaví Free tier pro aktuálního uživatele
+  Future<void> setFreeTier() async {
+    if (_currentUserId == null) {
+      throw Exception('Uživatel není přihlášen');
+    }
+
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      debugPrint(
+          '[SubscriptionProvider] Nastavuji Free tier pro: $_currentUserId');
+
+      await _subscriptionRepository.downgradeToFree(_currentUserId!);
+
+      debugPrint('[SubscriptionProvider] Free tier nastaven úspěšně');
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      debugPrint('[SubscriptionProvider] Chyba při nastavování Free tier: $e');
+      rethrow;
+    }
+  }
+
+  /// Vymaže chybovou zprávu
+  void clearError() {
     _errorMessage = null;
     notifyListeners();
-    _fetchSubscription();
   }
-  
-  /// Vrátí seznam všech kolekcí, u kterých má aktuální uživatel problém s oprávněními
-  Future<List<String>> getPermissionErrorCollections() async {
-    final user = currentUser;
-    if (user == null) return [];
-    
-    return PermissionHandler.getErrorCollections(user.uid);
+
+  /// Vrací textový popis pro daný typ interakce
+  String getInteractionTypeText(InteractionType type) {
+    switch (type) {
+      case InteractionType.addChecklistItem:
+        return tr('interaction.add_checklist_item');
+      case InteractionType.addGuest:
+        return tr('interaction.add_guest');
+      case InteractionType.addScheduleItem:
+        return tr('interaction.add_schedule_item');
+      case InteractionType.addExpense:
+        return tr('interaction.add_expense');
+      case InteractionType.addNote:
+        return tr('interaction.add_note');
+      case InteractionType.uploadPhoto:
+        return tr('interaction.upload_photo');
+    }
+  }
+
+  /// Vrací souhrn všech čítáčů pro UI
+  Map<String, dynamic> getCountersSummary() {
+    final summary = <String, dynamic>{};
+
+    for (var type in InteractionType.values) {
+      final typeKey = type.toString();
+      summary[typeKey] = {
+        'used': getUsedCount(type),
+        'remaining': remaining(type),
+        'limit': FREE_INTERACTION_LIMIT,
+        'canUse': canUseFreeInteraction(type),
+        'displayName': getInteractionTypeText(type),
+      };
+    }
+
+    return summary;
+  }
+
+  /// Kontrola dostupnosti platebního systému
+  Future<bool> isPaymentAvailable() async {
+    return await _subscriptionRepository.isPaymentAvailable();
+  }
+
+  @override
+  void dispose() {
+    _subscriptionRepository.dispose();
+    super.dispose();
   }
 }

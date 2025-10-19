@@ -1,0 +1,84 @@
+📁 Source: lib
+🗂  Files scanned: 104
+→ Found 531 used tr() keys in source.
+→ Found 600 keys in JSON: assets\translations\cs.json
+
+✅ No missing translation keys.
+
+⚠️ Unused keys (69):
+  • auto.legal_information_page.legal_info_error
+  • auto.legal_information_page.loading_legal_info
+  • auto.legal_information_page.n_t_n_pr_vn_ch_informac
+  • calendar_export_text
+  • calendar_statistics
+  • category_12_6_months
+  • category_3_1_months
+  • category_6_3_months
+  • category_wedding_day
+  • category_week_before
+  • delete_account_reauth_required
+  • error.server
+  • event_category
+  • export_error
+  • pdf_creation_failed
+  • pdf_share_error
+  • refresh
+  • settings.subscription.details
+  • settings.subscription.upgrade
+  • share_pdf
+  • share_text
+  • stats_by_category
+  • stats_ongoing
+  • stats_total_events
+  • stats_upcoming
+  • subs.comparison.premium_title
+  • subs.free.limited_interactions
+  • subs.free.with_ads
+  • subs.paywall.benefits_title
+  • subs.paywall.buy_now
+  • subs.paywall.limit_badge
+  • subs.paywall.subtitle
+  • subs.paywall.title
+  • subs.premium.per_year
+  • subs.premium.priority_support
+  • task_arrange_accommodation
+  • task_arrange_seating
+  • task_arrange_transport
+  • task_book_catering
+  • task_check_preparations
+  • task_check_weather
+  • task_choose_dress_suit
+  • task_choose_photographer
+  • task_choose_rings
+  • task_choose_theme
+  • task_confirm_guests
+  • task_confirm_vendors
+  • task_consider_coordinator
+  • task_create_guest_list
+  • task_enjoy_day
+  • task_finish_decoration
+  • task_finish_payments
+  • task_order_cake
+  • task_pack_honeymoon
+  • task_plan_schedule
+  • task_prepare_emergency_kit
+  • task_prepare_program
+  • task_prepare_timeline
+  • task_rehearse_ceremony
+  • task_reserve_band
+  • task_reserve_flowers
+  • task_reserve_venue
+  • task_send_invitations
+  • task_set_budget
+  • task_thank_vendors
+  • task_try_dress_suit
+  • task_welcome_guests
+  • text_share_error
+  • wedding_calendar
+
+🔎 Hardcoded UI texts to replace with translation keys (5):
+  • lib\screens\guests_screen.dart:1069  [Text(...)]  "• ${g.name}"
+  • lib\screens\settings_page.dart:467  [Text(...)]  "UID: ${user.uid}"
+  • lib\utils\global_error_handler.dart:559  [Text(...)]  "Typ: ${error.type}"
+  • lib\utils\global_error_handler.dart:560  [Text(...)]  "Kód: ${error.errorCode}"
+  • lib\utils\global_error_handler.dart:561  [Text(...)]  "Čas: ${error.timestamp}"

@@ -1,21 +1,22 @@
-// lib/widgets/global_widgets.dart
+/// lib/widgets/global_widgets.dart
+library;
 
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 /// Třída s globálními widgety pro sjednocený vzhled aplikace.
-/// 
-/// Poskytuje předdefinované komponenty, které lze použít v celé aplikaci:
-/// - Tlačítka
+///
+/// poskytuje předdefinovanĂ© komponenty, kterĂ© lze pouťít v celĂ© aplikaci:
+/// - Tláčítka
 /// - Loadery
-/// - Chybové stavy
-/// - Prázdné stavy
+/// - ChybovĂ© stavy
+/// - PrázdnĂ© stavy
 /// - Dialogy
 class GlobalWidgets {
-  // Privátní konstruktor znemožní vytvoření instance
+  // Privátní konstruktor znemoťní vytvoření instance
   GlobalWidgets._();
-  
-  /// Primární tlačítko aplikace s konzistentním vzhledem.
+
+  /// Primární tláčítko aplikace s konzistentním vzhledem.
   static Widget primaryButton({
     required String text,
     required VoidCallback onPressed,
@@ -40,13 +41,16 @@ class GlobalWidgets {
               children: [
                 if (icon != null) Icon(icon),
                 if (icon != null) const SizedBox(width: 8),
-                Text(text, style: const TextStyle(fontSize: 16)),
+                Text(
+                  tr(text),
+                  style: const TextStyle(fontSize: 16),
+                ),
               ],
             ),
     );
   }
-  
-  /// Sekundární (méně výrazné) tlačítko aplikace.
+
+  /// Sekundární (mĂ©ně výraznĂ©) tláčítko aplikace.
   static Widget secondaryButton({
     required String text,
     required VoidCallback onPressed,
@@ -71,13 +75,16 @@ class GlobalWidgets {
               children: [
                 if (icon != null) Icon(icon),
                 if (icon != null) const SizedBox(width: 8),
-                Text(text, style: const TextStyle(fontSize: 16)),
+                Text(
+                  tr(text),
+                  style: const TextStyle(fontSize: 16),
+                ),
               ],
             ),
     );
   }
-  
-  /// Widget pro stav načítání.
+
+  /// Widget pro stav náčítání.
   static Widget loadingIndicator({String? message}) {
     return Center(
       child: Column(
@@ -86,14 +93,17 @@ class GlobalWidgets {
           const CircularProgressIndicator(),
           if (message != null) ...[
             const SizedBox(height: 16),
-            Text(message, style: const TextStyle(fontSize: 16)),
+            Text(
+              tr(message),
+              style: const TextStyle(fontSize: 16),
+            ),
           ],
         ],
       ),
     );
   }
-  
-  /// Widget pro zobrazení chybového stavu.
+
+  /// Widget pro zobrazení chybovĂ©ho stavu.
   static Widget errorIndicator({
     required String message,
     VoidCallback? onRetry,
@@ -111,7 +121,7 @@ class GlobalWidgets {
             ),
             const SizedBox(height: 16),
             Text(
-              message,
+              tr(message),
               style: const TextStyle(fontSize: 16),
               textAlign: TextAlign.center,
             ),
@@ -128,8 +138,8 @@ class GlobalWidgets {
       ),
     );
   }
-  
-  /// Widget pro zobrazení prázdného stavu.
+
+  /// Widget pro zobrazení prázdnĂ©ho stavu.
   static Widget emptyState({
     required String message,
     IconData icon = Icons.inbox,
@@ -149,7 +159,7 @@ class GlobalWidgets {
             ),
             const SizedBox(height: 16),
             Text(
-              message,
+              tr(message),
               style: const TextStyle(fontSize: 16),
               textAlign: TextAlign.center,
             ),
@@ -158,7 +168,7 @@ class GlobalWidgets {
               TextButton.icon(
                 onPressed: onAction,
                 icon: const Icon(Icons.add),
-                label: Text(actionLabel),
+                label: Text(tr(actionLabel)),
               ),
             ],
           ],
@@ -166,8 +176,8 @@ class GlobalWidgets {
       ),
     );
   }
-  
-  /// Zobrazí dialogové okno pro potvrzení akce.
+
+  /// Zobrazí dialogovĂ© okno pro potvrzení akce.
   static Future<bool?> showConfirmationDialog({
     required BuildContext context,
     required String title,
@@ -179,8 +189,8 @@ class GlobalWidgets {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
+        title: Text(tr(title)),
+        content: Text(tr(message)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),

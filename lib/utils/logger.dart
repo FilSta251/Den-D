@@ -1,11 +1,12 @@
-// lib/utils/logger.dart
+/// lib/utils/logger.dart
+library;
 
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'dart:io';
 
-/// Enum pro různé úrovně logování
+/// Enum pro různĂ© úrovně logování
 enum LogLevel {
   trace(0, 'TRACE'),
   debug(1, 'DEBUG'),
@@ -66,19 +67,19 @@ class LogEntry {
       buffer.write('[$category] ');
     }
     buffer.write('- $message');
-    
+
     if (extra != null && extra!.isNotEmpty) {
       buffer.write(' | Extra: ${jsonEncode(extra)}');
     }
-    
+
     if (error != null) {
       buffer.write('\nError: $error');
     }
-    
+
     if (stackTrace != null) {
       buffer.write('\nStackTrace: $stackTrace');
     }
-    
+
     return buffer.toString();
   }
 }
@@ -145,7 +146,7 @@ class FileLogOutput implements LogOutput {
 
   Future<void> _rotateIfNeeded() async {
     if (_currentFile == null) return;
-    
+
     final stat = await _currentFile!.stat();
     if (stat.size > maxFileSize) {
       await _rotateFiles();
@@ -209,7 +210,7 @@ class AnalyticsLogOutput implements LogOutput {
           },
         );
       } else if (entry.category != null) {
-        // Trackovat obecné eventy
+        // Trackovat obecnĂ© eventy
         await analyticsProvider.trackEvent(
           'log_${entry.category}',
           {
@@ -233,7 +234,7 @@ class AnalyticsLogOutput implements LogOutput {
   }
 }
 
-/// Pokročilý Logger s podporou strukturovaného logování a analytics
+/// Pokročilý Logger s podporou strukturovanĂ©ho logování a analytics
 class Logger {
   // Singleton instance
   static final Logger _instance = Logger._internal();
@@ -243,13 +244,13 @@ class Logger {
     _outputs.add(ConsoleLogOutput());
   }
 
-  /// Minimální úroveň logování
+  /// Minimální úroveĹ logování
   LogLevel minLevel = kDebugMode ? LogLevel.trace : LogLevel.info;
 
   /// Seznam výstupů pro logy
   final List<LogOutput> _outputs = [];
 
-  /// Informace o uživateli a session
+  /// Informace o uťivateli a session
   String? _userId;
   String? _sessionId;
 
@@ -268,7 +269,7 @@ class Logger {
     }
 
     _outputs.clear();
-    
+
     // Přidat výchozí konzolový output
     _outputs.add(ConsoleLogOutput());
 
@@ -282,16 +283,17 @@ class Logger {
       _outputs.add(AnalyticsLogOutput(analyticsProvider));
     }
 
-    // Nelogovat info o inicializaci, aby nedošlo k rekurzi
+    // Nelogovat info o inicializaci, aby nedoĹˇlo k rekurzi
     debugPrint('[Logger] Initialized with ${_outputs.length} outputs');
   }
 
-  /// Nastavení uživatelských informací
+  /// Nastavení uťivatelských informací
   void setUserInfo({String? userId, String? sessionId}) {
     _userId = userId;
     _sessionId = sessionId;
-    // Použít přímý výstup místo rekurzivního volání
-    debugPrint('[Logger] User info updated - userId: $userId, sessionId: $sessionId');
+    // Pouťít přímý výstup místo rekurzivního volání
+    debugPrint(
+        '[Logger] User info updated - userId: $userId, sessionId: $sessionId');
   }
 
   /// Obecná metoda pro logování
@@ -356,9 +358,9 @@ class Logger {
     StackTrace? stackTrace,
   }) {
     log(
-      LogLevel.warning, 
-      message, 
-      category: category, 
+      LogLevel.warning,
+      message,
+      category: category,
       extra: extra,
       error: exception,
       stackTrace: stackTrace,
@@ -476,9 +478,9 @@ class Logger {
     );
   }
 
-  /// Zapsat do všech výstupů - OPRAVENO
+  /// Zapsat do vĹˇech výstupů - OPRAVENO
   Future<void> _writeToOutputs(LogEntry entry) async {
-    // Pokud nejsou žádné výstupy, použij fallback
+    // Pokud nejsou ťádnĂ© výstupy, pouťij fallback
     if (_outputs.isEmpty) {
       debugPrint(entry.toString());
       return;
@@ -486,7 +488,7 @@ class Logger {
 
     _buffer.add(entry);
 
-    // Okamžitě zapsat do konzole pro debug
+    // Okamťitě zapsat do konzole pro debug
     if (kDebugMode && _outputs.isNotEmpty) {
       try {
         await _outputs.first.write(entry);
@@ -502,7 +504,7 @@ class Logger {
     }
   }
 
-  /// Vyprázdnit buffer a zapsat všechny čekající logy
+  /// Vyprázdnit buffer a zapsat vĹˇechny čekající logy
   Future<void> flush() async {
     if (_buffer.isEmpty) return;
 
@@ -528,40 +530,50 @@ class Logger {
   }
 
   /// Backup pro původní API (zpětná kompatibilita)
-  void logDebug(String message, {String? category, Map<String, dynamic>? extra}) {
+  void logDebug(String message,
+      {String? category, Map<String, dynamic>? extra}) {
     debug(message, category: category, extra: extra);
   }
-  
-  void logInfo(String message, {String? category, Map<String, dynamic>? extra}) {
+
+  void logInfo(String message,
+      {String? category, Map<String, dynamic>? extra}) {
     info(message, category: category, extra: extra);
   }
-  
-  void logWarning(String message, {String? category, Map<String, dynamic>? extra}) {
+
+  void logWarning(String message,
+      {String? category, Map<String, dynamic>? extra}) {
     warning(message, category: category, extra: extra);
   }
-  
-  void logError(String message, {
+
+  void logError(
+    String message, {
     dynamic exception,
     StackTrace? stackTrace,
     String? category,
     Map<String, dynamic>? extra,
   }) {
-    error(message, exception: exception, stackTrace: stackTrace, category: category, extra: extra);
+    error(message,
+        exception: exception,
+        stackTrace: stackTrace,
+        category: category,
+        extra: extra);
   }
-  
-  void logException(Exception exception, {
+
+  void logException(
+    Exception exception, {
     StackTrace? stackTrace,
     String? category,
     Map<String, dynamic>? extra,
   }) {
-    this.exception(exception, stackTrace: stackTrace, category: category, extra: extra);
+    this.exception(exception,
+        stackTrace: stackTrace, category: category, extra: extra);
   }
-  
+
   void setEnabled(bool enabled) {
     setMinLevel(enabled ? LogLevel.trace : LogLevel.fatal);
   }
 
-  /// Convenience metody pro strukturované logování
+  /// Convenience metody pro strukturovanĂ© logování
   void logApiRequest({
     required String method,
     required String url,
@@ -634,7 +646,7 @@ class Logger {
     for (final entry in _buffer) {
       levelCounts[entry.level.name] = (levelCounts[entry.level.name] ?? 0) + 1;
     }
-    
+
     return {
       'bufferSize': _buffer.length,
       'outputs': _outputs.length,

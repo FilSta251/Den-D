@@ -1,4 +1,5 @@
-// lib/di/service_locator.dart
+/// lib/di/service_locator.dart
+library;
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -10,7 +11,7 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
-// Služby
+// Services
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../services/crash_reporting_service.dart';
@@ -25,6 +26,9 @@ import '../services/budget_manager.dart';
 import '../services/environment_config.dart';
 import '../services/connectivity_manager.dart';
 import '../services/security_service.dart';
+import '../services/firestore_subscription_service.dart';
+import '../services/payment_service.dart';
+import '../services/analytics_service.dart'; // PŘIDÁNO
 import '../utils/error_handler.dart';
 
 // Repositories
@@ -34,9 +38,10 @@ import '../repositories/subscription_repository.dart';
 
 // Providers
 import '../providers/subscription_provider.dart';
+import '../providers/theme_manager.dart';
 
 // Singleton instance
-final locator = GetIt.instance;
+final GetIt locator = GetIt.instance;
 
 /// Fáze inicializace DI
 enum InitializationPhase {
@@ -68,156 +73,219 @@ const int _serviceTimeoutMs = 5000;
 /// Inicializace service locatoru (dependency injection) s pořadím
 Future<void> init() async {
   _setPhase(InitializationPhase.notStarted);
-  
+
   try {
     debugPrint('[DI] Zahájení inicializace service locatoru...');
-    
+
     // ===== FÁZE 1: Základní služby =====
     _setPhase(InitializationPhase.coreServices);
-    
+
     // Environment konfigurace - první, aby byla dostupná pro ostatní služby
     final environmentConfig = EnvironmentConfig();
     await environmentConfig.initialize();
     locator.registerSingleton<EnvironmentConfig>(environmentConfig);
-    
+
     // Firebase instance
     locator.registerSingleton<FirebaseAuth>(FirebaseAuth.instance);
     locator.registerSingleton<FirebaseFirestore>(FirebaseFirestore.instance);
-    locator.registerSingleton<FirebaseCrashlytics>(FirebaseCrashlytics.instance);
+    locator
+        .registerSingleton<FirebaseCrashlytics>(FirebaseCrashlytics.instance);
     locator.registerSingleton<FirebaseAnalytics>(FirebaseAnalytics.instance);
-    
+
     // Connectivity pro sledování síťového připojení
     locator.registerSingleton<Connectivity>(Connectivity());
 
     // Inicializace SharedPreferences pro LocalStorageService
     final sharedPreferences = await SharedPreferences.getInstance();
     locator.registerSingleton<SharedPreferences>(sharedPreferences);
-    
+
     // NavigationService MUSÍ být zaregistrován PŘED ErrorHandler
     locator.registerLazySingleton<NavigationService>(() => NavigationService());
-    
+
     // CrashReportingService MUSÍ být zaregistrován PŘED ErrorHandler
-    locator.registerLazySingleton<CrashReportingService>(() => CrashReportingService.create());
-    
+    locator.registerLazySingleton<CrashReportingService>(
+        () => CrashReportingService.create());
+
     // Inicializace CrashReportingService
-    final crashService = locator<CrashReportingService>();
-    await crashService.initialize().timeout(Duration(milliseconds: _serviceTimeoutMs));
-    
+    try {
+      final crashService = locator<CrashReportingService>();
+      await crashService
+          .initialize()
+          .timeout(Duration(milliseconds: _serviceTimeoutMs));
+    } catch (e) {
+      debugPrint('[DI] CrashReportingService timeout nebo chyba: $e');
+      // Pokráčujeme bez crashe aplikace
+    }
+
     // Error handler - NYNÍ může používat CrashReportingService a NavigationService
     final errorHandler = ErrorHandler();
     await errorHandler.initialize();
     locator.registerSingleton<ErrorHandler>(errorHandler);
-    
+
     // Security service
     final securityService = SecurityService();
     await securityService.initialize();
     locator.registerSingleton<SecurityService>(securityService);
-    
+
     // Connectivity manager
     final connectivityManager = ConnectivityManager();
     await connectivityManager.initialize();
     locator.registerSingleton<ConnectivityManager>(connectivityManager);
-    
+
     // ===== FÁZE 2: Datové služby =====
     _setPhase(InitializationPhase.dataServices);
 
     // LocalStorageService - práce s lokálním úložištěm
-    locator.registerLazySingleton<LocalStorageService>(() => LocalStorageService(
-      sharedPreferences: locator<SharedPreferences>(),
-    ));
-    
+    locator
+        .registerLazySingleton<LocalStorageService>(() => LocalStorageService(
+              sharedPreferences: locator<SharedPreferences>(),
+            ));
+
+    // PaymentService - správa in-app nákupů
+    locator.registerLazySingleton<PaymentService>(() => PaymentService());
+
+    // FirestoreSubscriptionService - správa předplatného ve Firestore
+    locator.registerLazySingleton<FirestoreSubscriptionService>(
+        () => FirestoreSubscriptionService(locator<FirebaseFirestore>()));
+
     // AuthService - používá FirebaseAuth pro přihlašování
     locator.registerLazySingleton<AuthService>(() => AuthService());
-    
+
     // NotificationService - správa notifikací
-    locator.registerLazySingleton<NotificationService>(() => NotificationService());
-    
+    locator.registerLazySingleton<NotificationService>(
+        () => NotificationService());
+
+    // AnalyticsService - analytika a metriky (PŘIDÁNO)
+    locator.registerLazySingleton<AnalyticsService>(() => AnalyticsService(
+          analytics: locator<FirebaseAnalytics>(),
+          auth: locator<FirebaseAuth>(),
+        ));
+
     // Lokální služby (musí být inicializovány před managery)
-    
+
     // LocalScheduleService - lokální správa harmonogramu
-    locator.registerLazySingleton<LocalScheduleService>(() => LocalScheduleService());
-    
+    locator.registerLazySingleton<LocalScheduleService>(
+        () => LocalScheduleService());
+
     // LocalBudgetService - lokální správa rozpočtu
-    locator.registerLazySingleton<LocalBudgetService>(() => LocalBudgetService());
-    
+    locator
+        .registerLazySingleton<LocalBudgetService>(() => LocalBudgetService());
+
     // Cloud služby
-    
+
     // CloudScheduleService - cloudová synchronizace harmonogramu
-    locator.registerLazySingleton<CloudScheduleService>(() => CloudScheduleService(
-      firestore: locator<FirebaseFirestore>(),
-      auth: locator<FirebaseAuth>(),
-    ));
-    
+    locator
+        .registerLazySingleton<CloudScheduleService>(() => CloudScheduleService(
+              firestore: locator<FirebaseFirestore>(),
+              auth: locator<FirebaseAuth>(),
+            ));
+
     // CloudBudgetService - cloudová synchronizace rozpočtu
     locator.registerLazySingleton<CloudBudgetService>(() => CloudBudgetService(
-      firestore: locator<FirebaseFirestore>(),
-      auth: locator<FirebaseAuth>(),
-    ));
-    
+          firestore: locator<FirebaseFirestore>(),
+          auth: locator<FirebaseAuth>(),
+        ));
+
     // ===== FÁZE 3: Repositories =====
     _setPhase(InitializationPhase.repositories);
 
     // UserRepository - práce s uživatelskými údaji
     locator.registerLazySingleton<UserRepository>(() => UserRepository(
-      firestore: locator<FirebaseFirestore>(),
-      auth: locator<FirebaseAuth>(),
-    ));
+          firestore: locator<FirebaseFirestore>(),
+          auth: locator<FirebaseAuth>(),
+        ));
 
     // WeddingRepository - práce s údaji o svatbě
     locator.registerLazySingleton<WeddingRepository>(() => WeddingRepository());
 
-    // SubscriptionRepository - práce s předplatným
-    locator.registerLazySingleton<SubscriptionRepository>(() => SubscriptionRepository(
-      firestore: locator<FirebaseFirestore>(),
-      firebaseAuth: locator<FirebaseAuth>(),
-    ));
-    
+    // SubscriptionRepository - práce s předplatným (propojuje PaymentService + FirestoreSubscriptionService)
+    locator.registerLazySingleton<SubscriptionRepository>(
+        () => SubscriptionRepository(
+              paymentService: locator<PaymentService>(),
+              firestoreService: locator<FirestoreSubscriptionService>(),
+            ));
+
     // ===== FÁZE 4: Managery =====
     _setPhase(InitializationPhase.managers);
-    
+
     // ScheduleManager - správa harmonogramu a synchronizace
     locator.registerLazySingleton<ScheduleManager>(() => ScheduleManager(
-      localService: locator<LocalScheduleService>(),
-      cloudService: locator<CloudScheduleService>(),
-      auth: locator<FirebaseAuth>(),
-    ));
-    
+          localService: locator<LocalScheduleService>(),
+          cloudService: locator<CloudScheduleService>(),
+          auth: locator<FirebaseAuth>(),
+        ));
+
     // BudgetManager - správa rozpočtu a synchronizace
     locator.registerLazySingleton<BudgetManager>(() => BudgetManager(
-      localService: locator<LocalBudgetService>(),
-      cloudService: locator<CloudBudgetService>(),
-      auth: locator<FirebaseAuth>(),
-    ));
-    
+          localService: locator<LocalBudgetService>(),
+          cloudService: locator<CloudBudgetService>(),
+          auth: locator<FirebaseAuth>(),
+        ));
+
     // ===== FÁZE 5: Providers =====
     _setPhase(InitializationPhase.providers);
-    
-    // SubscriptionProvider
-    locator.registerLazySingleton<SubscriptionProvider>(() => SubscriptionProvider(
-      subscriptionRepo: locator<SubscriptionRepository>(),
-    ));
+
+    // ThemeManager
+    locator.registerLazySingleton<ThemeManager>(() => ThemeManager(
+          localStorage: locator<LocalStorageService>(),
+        ));
+
+    // SubscriptionProvider - používá SubscriptionRepository a LocalStorageService
+    locator
+        .registerLazySingleton<SubscriptionProvider>(() => SubscriptionProvider(
+              subscriptionRepository: locator<SubscriptionRepository>(),
+              localStorage: locator<LocalStorageService>(),
+            ));
+
+    // ===== INICIALIZACE SLUŽEB =====
+
+    // Inicializace PaymentService
+    try {
+      final paymentService = locator<PaymentService>();
+      await paymentService
+          .initialize()
+          .timeout(Duration(milliseconds: _serviceTimeoutMs));
+      debugPrint('[DI] PaymentService úspěšně inicializován');
+    } catch (e) {
+      debugPrint('[DI] Chyba při inicializaci PaymentService: $e');
+      // PaymentService je kritický pro předplatné, ale necháme aplikaci běžet
+    }
 
     // Inicializace NotificationService
     try {
       final notificationService = locator<NotificationService>();
-      await notificationService.initialize().timeout(Duration(milliseconds: _serviceTimeoutMs));
+      await notificationService
+          .initialize()
+          .timeout(Duration(milliseconds: _serviceTimeoutMs));
     } catch (e) {
       debugPrint('[DI] Chyba při inicializaci NotificationService: $e');
-      // Pokračujeme dál, notifikace nejsou kritické
+      // Pokráčujeme dál, notifikace nejsou kritické
     }
-    
+
+    // Inicializace AnalyticsService (PŘIDÁNO)
+    try {
+      final analyticsService = locator<AnalyticsService>();
+      await analyticsService
+          .initialize()
+          .timeout(Duration(milliseconds: _serviceTimeoutMs));
+      debugPrint('[DI] AnalyticsService úspěšně inicializován');
+    } catch (e) {
+      debugPrint('[DI] Chyba při inicializaci AnalyticsService: $e');
+      // Pokráčujeme dál, analytics není kritická
+    }
+
     _setPhase(InitializationPhase.completed);
     debugPrint('[DI] Service locator úspěšně inicializován');
-    
   } catch (e, stack) {
     _setPhase(InitializationPhase.error);
     debugPrint('[DI] Chyba při inicializaci service locatoru: $e');
     debugPrintStack(label: 'Stack trace', stackTrace: stack);
-    
+
     // Pokusíme se zaznamenat chybu do Crashlytics, pokud je dostupné
     try {
       if (locator.isRegistered<FirebaseCrashlytics>()) {
-        FirebaseCrashlytics.instance.recordError(e, stack, reason: 'DI initialization failed');
+        FirebaseCrashlytics.instance
+            .recordError(e, stack, reason: 'DI initialization failed');
       }
     } catch (_) {
       // Ignorujeme chybu Crashlytics, protože DI selhal
@@ -227,13 +295,14 @@ Future<void> init() async {
 }
 
 /// Metoda pro bezpečné získání služby s timeoutem
-Future<T?> getServiceSafely<T extends Object>(Duration timeout, {bool required = true}) async {
+Future<T?> getServiceSafely<T extends Object>(Duration timeout,
+    {bool required = true}) async {
   try {
     // Pokud je služba už zaregistrovaná a inicializovaná, vrátíme ji hned
     if (locator.isRegistered<T>() && locator.isReadySync<T>()) {
       return locator<T>();
     }
-    
+
     // Jinak počkáme na inicializaci
     return await Future(() => locator<T>()).timeout(timeout);
   } catch (e) {

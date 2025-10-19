@@ -1,4 +1,5 @@
-// lib/models/calendar_event.dart
+/// lib/models/calendar_event.dart
+library;
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
@@ -14,12 +15,16 @@ class CalendarEvent extends Equatable {
   final bool allDay;
   final int color;
   final EventReminder? reminder;
-  final String? category;
+  final String? category; // Zachováno pro zpětnou kompatibilitu
   final List<String> attendees;
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  const CalendarEvent({
+  // NOVÉ VLASTNOSTI PRO NOTIFIKACE
+  final bool notificationEnabled;
+  final int notificationMinutesBefore; // Počet minut před událostí
+
+  CalendarEvent({
     required this.id,
     required this.title,
     this.description,
@@ -33,8 +38,10 @@ class CalendarEvent extends Equatable {
     this.attendees = const [],
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) : createdAt = createdAt ?? const DateTime.now(),
-       updatedAt = updatedAt ?? const DateTime.now();
+    this.notificationEnabled = false,
+    this.notificationMinutesBefore = 30,
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   /// Vytvoří instanci CalendarEvent z JSON
   factory CalendarEvent.fromJson(Map<String, dynamic> json) {
@@ -44,7 +51,7 @@ class CalendarEvent extends Equatable {
       description: json['description'] as String?,
       location: json['location'] as String?,
       startTime: DateTime.parse(json['startTime'] as String),
-      endTime: json['endTime'] != null 
+      endTime: json['endTime'] != null
           ? DateTime.parse(json['endTime'] as String)
           : null,
       allDay: json['allDay'] as bool? ?? false,
@@ -54,14 +61,18 @@ class CalendarEvent extends Equatable {
           : null,
       category: json['category'] as String?,
       attendees: (json['attendees'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList() ?? [],
-      createdAt: json['createdAt'] != null 
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
+      createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : DateTime.now(),
       updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'] as String) 
+          ? DateTime.parse(json['updatedAt'] as String)
           : DateTime.now(),
+      notificationEnabled: json['notificationEnabled'] as bool? ?? false,
+      notificationMinutesBefore:
+          json['notificationMinutesBefore'] as int? ?? 30,
     );
   }
 
@@ -81,6 +92,8 @@ class CalendarEvent extends Equatable {
       'attendees': attendees,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'notificationEnabled': notificationEnabled,
+      'notificationMinutesBefore': notificationMinutesBefore,
     };
   }
 
@@ -99,6 +112,8 @@ class CalendarEvent extends Equatable {
     List<String>? attendees,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? notificationEnabled,
+    int? notificationMinutesBefore,
   }) {
     return CalendarEvent(
       id: id ?? this.id,
@@ -114,6 +129,9 @@ class CalendarEvent extends Equatable {
       attendees: attendees ?? this.attendees,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? DateTime.now(),
+      notificationEnabled: notificationEnabled ?? this.notificationEnabled,
+      notificationMinutesBefore:
+          notificationMinutesBefore ?? this.notificationMinutesBefore,
     );
   }
 
@@ -128,34 +146,36 @@ class CalendarEvent extends Equatable {
     if (allDay) {
       return DateUtils.isSameDay(dateTime, startTime);
     }
-    return dateTime.isAfter(startTime) && 
-           (endTime == null || dateTime.isBefore(endTime!));
+    return dateTime.isAfter(startTime) &&
+        (endTime == null || dateTime.isBefore(endTime!));
   }
 
   @override
   List<Object?> get props => [
-    id, 
-    title, 
-    description, 
-    location, 
-    startTime, 
-    endTime, 
-    allDay,
-    color,
-    reminder,
-    category,
-    attendees,
-    createdAt,
-    updatedAt,
-  ];
+        id,
+        title,
+        description,
+        location,
+        startTime,
+        endTime,
+        allDay,
+        color,
+        reminder,
+        category,
+        attendees,
+        createdAt,
+        updatedAt,
+        notificationEnabled,
+        notificationMinutesBefore,
+      ];
 
   @override
   String toString() {
-    return 'CalendarEvent(id: $id, title: $title, startTime: $startTime, allDay: $allDay)';
+    return 'CalendarEvent(id: $id, title: $title, startTime: $startTime, allDay: $allDay, notificationEnabled: $notificationEnabled)';
   }
 }
 
-/// Model pro připomenutí události
+/// Model pro připomenutí události (zachováno pro zpětnou kompatibilitu)
 class EventReminder extends Equatable {
   final String type; // minutes, hours, days
   final int value;
@@ -233,7 +253,7 @@ class EventReminder extends Equatable {
   List<Object?> get props => [type, value, scheduled, notificationId];
 }
 
-/// Kategorie událostí
+/// Kategorie událostí (zachováno pro zpětnou kompatibilitu, ale nepoužívá se v UI)
 class EventCategory {
   final String id;
   final String name;
@@ -250,43 +270,43 @@ class EventCategory {
   static const List<EventCategory> defaultCategories = [
     EventCategory(
       id: 'ceremony',
-      name: 'Obřad',
+      name: 'event_category_ceremony',
       icon: Icons.favorite,
       color: Colors.pink,
     ),
     EventCategory(
       id: 'preparation',
-      name: 'Přípravy',
+      name: 'event_category_preparation',
       icon: Icons.brush,
       color: Colors.purple,
     ),
     EventCategory(
       id: 'photo',
-      name: 'Focení',
+      name: 'event_category_photo',
       icon: Icons.camera_alt,
       color: Colors.blue,
     ),
     EventCategory(
       id: 'reception',
-      name: 'Hostina',
+      name: 'event_category_reception',
       icon: Icons.restaurant,
       color: Colors.orange,
     ),
     EventCategory(
       id: 'party',
-      name: 'Zábava',
+      name: 'event_category_party',
       icon: Icons.music_note,
       color: Colors.green,
     ),
     EventCategory(
       id: 'meeting',
-      name: 'Schůzka',
+      name: 'event_category_meeting',
       icon: Icons.people,
       color: Colors.teal,
     ),
     EventCategory(
       id: 'other',
-      name: 'Ostatní',
+      name: 'event_category_other',
       icon: Icons.event,
       color: Colors.grey,
     ),

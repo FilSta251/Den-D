@@ -5,7 +5,7 @@ import '../models/supplier.dart';
 class SupplierProfilePage extends StatelessWidget {
   final Supplier supplier;
 
-  const SupplierProfilePage({Key? key, required this.supplier}) : super(key: key);
+  const SupplierProfilePage({super.key, required this.supplier});
 
   Widget _buildProfileHeader(BuildContext context) {
     return Padding(
@@ -18,6 +18,7 @@ class SupplierProfilePage extends StatelessWidget {
                     supplier.profileImageUrl!.isNotEmpty)
                 ? NetworkImage(supplier.profileImageUrl!)
                 : null,
+            backgroundColor: Colors.grey,
             child: (supplier.profileImageUrl == null ||
                     supplier.profileImageUrl!.isEmpty)
                 ? Text(
@@ -25,7 +26,6 @@ class SupplierProfilePage extends StatelessWidget {
                     style: const TextStyle(fontSize: 40, color: Colors.white),
                   )
                 : null,
-            backgroundColor: Colors.grey,
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -50,7 +50,7 @@ class SupplierProfilePage extends StatelessWidget {
                     const Icon(Icons.attach_money, size: 16),
                     const SizedBox(width: 4),
                     Text(
-                      "${supplier.price.toStringAsFixed(0)} Kč",
+                      "${supplier.price.toStringAsFixed(0)} ${tr('currency')}",
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                   ],
@@ -134,7 +134,8 @@ class SupplierProfilePage extends StatelessWidget {
             _buildWebsiteSection(context),
             _buildContactSection(context),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
               child: Text(
                 tr('portfolio'),
                 style: Theme.of(context)

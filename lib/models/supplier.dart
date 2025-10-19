@@ -1,4 +1,5 @@
-// models/supplier.dart
+/// models/supplier.dart
+library;
 
 import 'dart:convert';
 
@@ -41,7 +42,8 @@ class Supplier {
       contact: json['contact'] as String? ?? '',
       profileImageUrl: json['profileImageUrl'] as String?,
       bio: json['bio'] as String? ?? '',
-      portfolioImages: List<String>.from(json['portfolioImages'] as List<dynamic>? ?? []),
+      portfolioImages:
+          List<String>.from(json['portfolioImages'] as List<dynamic>? ?? []),
     );
   }
 

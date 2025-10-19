@@ -1,10 +1,11 @@
-// test/services/local_storage_services_test.dart
+/// test/services/local_storage_services_test.dart
+library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:svatebni_planovac/services/local_schedule_service.dart';
-import 'package:svatebni_planovac/services/local_budget_service.dart';
-import 'package:svatebni_planovac/models/expense.dart';
+import 'package:den_d/services/local_schedule_service.dart';
+import 'package:den_d/services/local_budget_service.dart';
+import 'package:den_d/models/expense.dart';
 
 void main() {
   // Nastavení SharedPreferences pro testy
@@ -19,7 +20,7 @@ void main() {
       scheduleService = LocalScheduleService();
     });
 
-    test('Přidání nové položky harmonogramu', () {
+    test('Přidání novĂ© poloťky harmonogramu', () {
       // Arrange
       final item = LocalScheduleService.createScheduleItem(
         title: 'Příjezd hostů',
@@ -34,7 +35,7 @@ void main() {
       expect(scheduleService.scheduleItems.first.title, 'Příjezd hostů');
     });
 
-    test('Nalezení položek podle času', () {
+    test('Nalezení poloťek podle času', () {
       // Arrange
       final items = [
         LocalScheduleService.createScheduleItem(
@@ -85,7 +86,7 @@ void main() {
       expect(conflicts.first.title, 'Obřad');
     });
 
-    test('Seřazení položek podle času', () {
+    test('Seřazení poloťek podle času', () {
       // Arrange
       final items = [
         LocalScheduleService.createScheduleItem(
@@ -112,7 +113,7 @@ void main() {
       // Assert
       expect(sorted[0].title, 'Snídaně');
       expect(sorted[1].title, 'Večeře');
-      expect(sorted[2].title, 'Příprava'); // Položky bez času jsou na konci
+      expect(sorted[2].title, 'Příprava'); // Poloťky bez času jsou na konci
     });
   });
 
@@ -123,7 +124,7 @@ void main() {
       budgetService = LocalBudgetService();
     });
 
-    test('Přidání a výpočet celkové částky', () {
+    test('Přidání a výpočet celkovĂ© částky', () {
       // Arrange
       final expenses = [
         LocalBudgetService.createExpense(
@@ -173,7 +174,8 @@ void main() {
       }
 
       // Act
-      final decorationExpenses = budgetService.getExpensesByCategory('Dekorace');
+      final decorationExpenses =
+          budgetService.getExpensesByCategory('Dekorace');
       final decorationAmount = budgetService.getAmountByCategory('Dekorace');
 
       // Assert
@@ -229,7 +231,7 @@ void main() {
         LocalBudgetService.createExpense(
           title: 'Fotograf',
           amount: 15000,
-          category: 'Služby',
+          category: 'Sluťby',
           isPaid: true,
         ),
       ];
@@ -250,12 +252,12 @@ void main() {
     });
   });
 
-  group('Integrace mezi službami', () {
+  group('Integrace mezi sluťbami', () {
     test('Export a import dat', () async {
       // Arrange
       final scheduleService = LocalScheduleService();
       final item = LocalScheduleService.createScheduleItem(
-        title: 'Test položka',
+        title: 'Test poloťka',
         time: DateTime.now(),
       );
       scheduleService.addItem(item);
@@ -267,7 +269,7 @@ void main() {
 
       // Assert
       expect(newService.itemCount, 1);
-      expect(newService.scheduleItems.first.title, 'Test položka');
+      expect(newService.scheduleItems.first.title, 'Test poloťka');
     });
   });
 }

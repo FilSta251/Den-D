@@ -2,15 +2,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:easy_localization/easy_localization.dart';
 
 import '../models/user.dart';
 import '../repositories/user_repository.dart';
 
-/// ProfilePage slouží k zobrazení a úpravě uživatelských dat.
-/// Načítá data z UserRepository, umožňuje přepínání mezi režimem prohlížení a editačním režimem,
+/// ProfilePage slouťí k zobrazení a úpravě uťivatelských dat.
+/// Náčítá data z UserRepository, umoťĹuje přepínání mezi reťimem prohlíťení a editáčním reťimem,
 /// a poskytuje validaci a asynchronní aktualizaci profilu.
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({Key? key}) : super(key: key);
+  const ProfilePage({super.key});
 
   @override
   _ProfilePageState createState() => _ProfilePageState();
@@ -27,9 +28,9 @@ class _ProfilePageState extends State<ProfilePage> {
   late TextEditingController _nameController;
   late TextEditingController _emailController;
 
-  // Uloží aktuální data uživatele získaná z FutureBuilder.
+  // Uloťí aktuální data uťivatele získaná z FutureBuilder.
   User? _currentUser;
-  // Indikuje, zda již byly kontroléry naplněny hodnotami uživatele.
+  // Indikuje, zda jiť byly kontrolĂ©ry naplněny hodnotami uťivatele.
   bool _controllersInitialized = false;
 
   @override
@@ -44,13 +45,13 @@ class _ProfilePageState extends State<ProfilePage> {
     super.didChangeDependencies();
     // Získání instance UserRepository z Provideru.
     _userRepository = Provider.of<UserRepository>(context, listen: false);
-    // Získání aktuálního uživatelského ID z FirebaseAuth.
+    // Získání aktuálního uťivatelskĂ©ho ID z FirebaseAuth.
     final fb.User? fbUser = fb.FirebaseAuth.instance.currentUser;
     if (fbUser != null) {
       _userFuture = _userRepository.fetchUserProfile(userId: fbUser.uid);
     } else {
-      // Pokud uživatel není přihlášen, vrátíme Future s chybou.
-      _userFuture = Future.error('Uživatel není přihlášen.');
+      // Pokud uťivatel není přihláĹˇen, vrátíme Future s chybou.
+      _userFuture = Future.error(tr('error_user_not_logged_in'));
     }
   }
 
@@ -61,13 +62,13 @@ class _ProfilePageState extends State<ProfilePage> {
     super.dispose();
   }
 
-  /// Přepne zobrazení mezi režimem prohlížení a editačním režimem.
+  /// Přepne zobrazení mezi reťimem prohlíťení a editáčním reťimem.
   void _toggleEditMode() {
     setState(() {
       _isEditMode = !_isEditMode;
       _errorMessage = "";
     });
-    // Pokud přecházíme do editačního režimu, naplníme kontroléry hodnotami uživatele, ale pouze jednou.
+    // Pokud přecházíme do editáčního reťimu, naplníme kontrolĂ©ry hodnotami uťivatele, ale pouze jednou.
     if (_isEditMode && _currentUser != null && !_controllersInitialized) {
       _nameController.text = _currentUser!.name;
       _emailController.text = _currentUser!.email;
@@ -77,9 +78,11 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  /// Uloží změny profilu do repozitáře a vrátí se do režimu prohlížení.
+  /// Uloťí změny profilu do repozitáře a vrátí se do reťimu prohlíťení.
   Future<void> _saveProfile(User currentUser) async {
-    if (_formKey.currentState == null || !_formKey.currentState!.validate()) return;
+    if (_formKey.currentState == null || !_formKey.currentState!.validate()) {
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -95,7 +98,7 @@ class _ProfilePageState extends State<ProfilePage> {
         _errorMessage = "";
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil byl úspěšně aktualizován.')),
+        SnackBar(content: Text(tr('profile_update_success'))),
       );
     } catch (e, stackTrace) {
       debugPrint('Chyba při aktualizaci profilu: $e\n$stackTrace');
@@ -103,7 +106,8 @@ class _ProfilePageState extends State<ProfilePage> {
         _errorMessage = e.toString();
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Chyba při aktualizaci profilu: $_errorMessage')),
+        SnackBar(
+            content: Text(tr('profile_update_error', args: [_errorMessage]))),
       );
     } finally {
       setState(() {
@@ -112,7 +116,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  /// Vytvoří widget pro zobrazení profilu v režimu prohlížení.
+  /// Vytvoří widget pro zobrazení profilu v reťimu prohlíťení.
   Widget _buildProfileView(User user) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -140,7 +144,7 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _toggleEditMode,
-            child: const Text('Upravit profil'),
+            child: Text(tr('edit_profile')),
           ),
         ],
       ),
@@ -167,13 +171,13 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Jméno',
-                icon: Icon(Icons.person),
+              decoration: InputDecoration(
+                labelText: tr('name'),
+                icon: const Icon(Icons.person),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Jméno nesmí být prázdné';
+                  return tr('name_required');
                 }
                 return null;
               },
@@ -181,17 +185,17 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                icon: Icon(Icons.email),
+              decoration: InputDecoration(
+                labelText: tr('email'),
+                icon: const Icon(Icons.email),
               ),
               keyboardType: TextInputType.emailAddress,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Email nesmí být prázdný';
+                  return tr('email_required');
                 }
                 if (!value.contains('@')) {
-                  return 'Neplatný email';
+                  return tr('invalid_email');
                 }
                 return null;
               },
@@ -199,11 +203,11 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () => _saveProfile(user),
-              child: const Text('Uložit změny'),
+              child: Text(tr('save_changes')),
             ),
             TextButton(
               onPressed: _toggleEditMode,
-              child: const Text('Zrušit'),
+              child: Text(tr('cancel')),
             ),
           ],
         ),
@@ -215,7 +219,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profil a nastavení'),
+        title: Text(tr('profile_and_settings')),
       ),
       body: FutureBuilder<User>(
         future: _userFuture,
@@ -224,7 +228,9 @@ class _ProfilePageState extends State<ProfilePage> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Chyba: ${snapshot.error}'));
+            return Center(
+                child: Text(tr('error_loading_profile',
+                    args: [snapshot.error.toString()])));
           }
           if (snapshot.hasData) {
             final user = snapshot.data!;
@@ -240,7 +246,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             );
           }
-          return const Center(child: Text('Uživatel nebyl nalezen.'));
+          return Center(child: Text(tr('user_not_found')));
         },
       ),
     );

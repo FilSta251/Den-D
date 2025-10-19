@@ -1,4 +1,5 @@
-// lib/services/crash_reporting_service.dart
+/// lib/services/crash_reporting_service.dart
+library;
 
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
@@ -32,10 +33,9 @@ class Breadcrumb {
     required this.category,
     this.data,
     LogLevel? level,
-  }) : 
-    timestamp = DateTime.now(),
-    level = level ?? LogLevel.info;
-  
+  })  : timestamp = DateTime.now(),
+        level = level ?? LogLevel.info;
+
   Map<String, dynamic> toMap() {
     return {
       'message': message,
@@ -45,7 +45,7 @@ class Breadcrumb {
       'level': level.toString().split('.').last,
     };
   }
-  
+
   @override
   String toString() {
     final dataStr = data != null ? ', data: $data' : '';
@@ -53,76 +53,76 @@ class Breadcrumb {
   }
 }
 
-/// Služba pro pokročilé hlášení chyb
+/// Sluťba pro pokročilĂ© hláĹˇení chyb
 ///
-/// Tato služba rozšiřuje základní funkčnost Firebase Crashlytics o další
-/// užitečné možnosti pro diagnostiku chyb v produkci, včetně breadcrumbs,
-/// strukturovaného logování a detailních informací o prostředí aplikace.
+/// Tato sluťba rozĹˇiřuje základní funkčnost Firebase Crashlytics o dalĹˇí
+/// uťitečnĂ© moťnosti pro diagnostiku chyb v produkci, včetně breadcrumbs,
+/// strukturovanĂ©ho logování a detailních informací o prostředí aplikace.
 class CrashReportingService {
   final FirebaseCrashlytics _crashlytics;
   final fb.FirebaseAuth _auth;
   bool _initialized = false;
-  
+
   // Informace o aplikaci
   PackageInfo? _packageInfo;
   Map<String, dynamic> _deviceInfo = {};
-  
+
   // Seznam posledních chyb v paměti
   final List<Map<String, dynamic>> _errorLog = [];
   static const int _maxErrorLogSize = 50;
-  
-  // Breadcrumbs - sledování aktivit uživatele
+
+  // Breadcrumbs - sledování aktivit uťivatele
   final Queue<Breadcrumb> _breadcrumbs = Queue<Breadcrumb>();
   static const int _maxBreadcrumbsSize = 100;
-  
+
   // Historie logů
   final Queue<Map<String, dynamic>> _logHistory = Queue<Map<String, dynamic>>();
   static const int _maxLogHistorySize = 1000;
-  
+
   // Sledování výkonu
   final Map<String, Stopwatch> _performanceTrackers = {};
   final List<Map<String, dynamic>> _performanceMetrics = [];
-  
+
   // Session ID pro skupinu souvisejících operací
   String _sessionId = DateTime.now().millisecondsSinceEpoch.toString();
-  
+
   // Omezení odesílání podobných chyb
   final Map<String, DateTime> _errorThrottling = {};
   static const Duration _minErrorInterval = Duration(minutes: 5);
-  
+
   // Konstruktor s parametry
   CrashReportingService({
     required FirebaseCrashlytics crashlytics,
     required fb.FirebaseAuth auth,
-  }) : _crashlytics = crashlytics,
-       _auth = auth;
-       
+  })  : _crashlytics = crashlytics,
+        _auth = auth;
+
   // Alternativní konstruktor bez parametrů pro DI kompatibilitu
   CrashReportingService.create()
       : _crashlytics = FirebaseCrashlytics.instance,
         _auth = fb.FirebaseAuth.instance;
-  
-  /// Inicializace služby
+
+  /// Inicializace sluťby
   Future<void> initialize() async {
     if (_initialized) return;
-    
+
     try {
-      // Vytvoření nového session ID
+      // Vytvoření novĂ©ho session ID
       _generateNewSessionId();
-      
+
       // Získání informací o aplikaci
       _packageInfo = await PackageInfo.fromPlatform();
-      
+
       // Získání informací o zařízení
       await _gatherDeviceInfo();
-      
-      // Nastavení ID uživatele, pokud je přihlášen
+
+      // Nastavení ID uťivatele, pokud je přihláĹˇen
       final user = _auth.currentUser;
       if (user != null) {
         await setUserIdentifier(user.uid);
       }
-      
-      // Naslouchání na změny stavu přihlášení
+
+      // Naslouchání na změny stavu přihláĹˇení
       _auth.authStateChanges().listen((user) {
         if (user != null) {
           setUserIdentifier(user.uid);
@@ -139,16 +139,16 @@ class CrashReportingService {
           );
         }
       });
-      
+
       // Nastavení vlastních klíčů pro Crashlytics
       await _setCustomKeys();
-      
-      // Povolení Crashlytics v produkci, zakázání v debug módu
+
+      // Povolení Crashlytics v produkci, zakázání v debug mĂłdu
       await _crashlytics.setCrashlyticsCollectionEnabled(kReleaseMode);
-      
+
       // Přidání iniciálního breadcrumb
       addBreadcrumb(
-        message: 'App initialized', 
+        message: 'App initialized',
         category: 'lifecycle',
         data: {
           'appVersion': _packageInfo?.version,
@@ -157,33 +157,35 @@ class CrashReportingService {
           'platformVersion': Platform.operatingSystemVersion,
         },
       );
-      
+
       // Zaznamenání inicializace
       log(
         message: 'CrashReportingService initialized',
         level: LogLevel.info,
         category: 'system',
       );
-      
+
       _initialized = true;
     } catch (e, stack) {
       debugPrint('[CrashReportingService] Chyba při inicializaci: $e');
-      // Pokus o zaznamenání chyby i když celková inicializace selhala
+      // Pokus o zaznamenání chyby i kdyť celková inicializace selhala
       try {
-        _crashlytics.recordError(e, stack, reason: 'Error during initialization');
-      } catch (_) { /* Ignorujeme chybu při logování */ }
+        _crashlytics.recordError(e, stack,
+            reason: 'Error during initialization');
+      } catch (_) {/* Ignorujeme chybu při logování */}
     }
   }
-  
-  /// Generuje nové unikátní session ID
+
+  /// Generuje novĂ© unikátní session ID
   void _generateNewSessionId() {
-    _sessionId = '${DateTime.now().millisecondsSinceEpoch}_${_createRandomSuffix(4)}';
+    _sessionId =
+        '${DateTime.now().millisecondsSinceEpoch}_${_createRandomSuffix(4)}';
     try {
       _crashlytics.setCustomKey('session_id', _sessionId);
-    } catch (_) { /* Ignorujeme chybu */ }
+    } catch (_) {/* Ignorujeme chybu */}
   }
-  
-  /// Vytvoří náhodný řetězec pro použití v ID
+
+  /// Vytvoří náhodný řetězec pro pouťití v ID
   String _createRandomSuffix(int length) {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
     final buffer = StringBuffer();
@@ -192,8 +194,8 @@ class CrashReportingService {
     }
     return buffer.toString();
   }
-  
-  /// Nastavení ID uživatele
+
+  /// Nastavení ID uťivatele
   Future<void> setUserIdentifier(String uid) async {
     try {
       await _crashlytics.setUserIdentifier(uid);
@@ -201,7 +203,7 @@ class CrashReportingService {
       debugPrint('[CrashReportingService] Nepodařilo se nastavit userId: $e');
     }
   }
-  
+
   /// Zaznamenání chyby
   Future<void> recordError(
     dynamic exception,
@@ -213,12 +215,12 @@ class CrashReportingService {
   }) async {
     try {
       final errorKey = '${exception.toString()}_${reason ?? ''}';
-      
-      // Kontrola throttlingu - neodesílání stejných chyb příliš často
+
+      // Kontrola throttlingu - neodesílání stejných chyb příliĹˇ často
       if (_errorThrottling.containsKey(errorKey)) {
         final lastTime = _errorThrottling[errorKey]!;
         if (DateTime.now().difference(lastTime) < _minErrorInterval) {
-          // Ignorujeme tuto chybu, byla již nedávno odeslána
+          // Ignorujeme tuto chybu, byla jiť nedávno odeslána
           _addToLogHistory(
             message: 'Error throttled (duplicate): ${exception.toString()}',
             level: LogLevel.info,
@@ -227,13 +229,13 @@ class CrashReportingService {
           return;
         }
       }
-      
+
       // Aktualizace času poslední chyby tohoto typu
       _errorThrottling[errorKey] = DateTime.now();
-      
+
       // Zaznamenání do lokální paměti pro ladění
       _addToErrorLog(exception, stack, reason, customData);
-      
+
       // Přidání breadcrumb o chybě
       addBreadcrumb(
         message: 'Error occurred: ${exception.toString()}',
@@ -244,15 +246,15 @@ class CrashReportingService {
           'custom_data': customData,
         },
       );
-      
-      // Rozšíření customData o session a breadcrumbs
+
+      // RozĹˇíření customData o session a breadcrumbs
       final enhancedCustomData = <String, dynamic>{
         ...?customData,
         'session_id': _sessionId,
         'breadcrumbs': _getRecentBreadcrumbsAsString(),
         'timestamp': DateTime.now().toIso8601String(),
       };
-      
+
       // Zaznamenání do Crashlytics
       await _crashlytics.recordError(
         exception,
@@ -261,7 +263,7 @@ class CrashReportingService {
         fatal: fatal,
         information: _buildErrorInformation(enhancedCustomData),
       );
-      
+
       // Log o zaznamenání chyby
       _addToLogHistory(
         message: 'Error recorded: ${exception.toString()}',
@@ -269,7 +271,9 @@ class CrashReportingService {
         category: category ?? 'error',
         data: {
           'reason': reason,
-          'stack': stack.toString().substring(0, stack.toString().length.clamp(0, 200)),
+          'stack': stack
+              .toString()
+              .substring(0, stack.toString().length.clamp(0, 200)),
           'fatal': fatal,
         },
       );
@@ -277,7 +281,7 @@ class CrashReportingService {
       debugPrint('[CrashReportingService] Nepodařilo se zaznamenat chybu: $e');
     }
   }
-  
+
   /// Zaznamenání chyby s diagnostickými informacemi a kontextem
   Future<void> recordErrorWithContext(
     String errorMessage,
@@ -293,7 +297,7 @@ class CrashReportingService {
         'session_id': _sessionId,
         ...?additionalData,
       };
-      
+
       await recordError(
         Exception(errorMessage),
         stack,
@@ -306,13 +310,13 @@ class CrashReportingService {
       debugPrint('[CrashReportingService] Nepodařilo se zaznamenat chybu: $e');
     }
   }
-  
+
   /// Získání seznamu posledních chyb
   List<Map<String, dynamic>> getRecentErrors() {
     return List.from(_errorLog);
   }
-  
-  /// Přidání breadcrumb - sledování aktivity uživatele pro lepší pochopení
+
+  /// Přidání breadcrumb - sledování aktivity uťivatele pro lepĹˇí pochopení
   /// co vedlo k chybě
   void addBreadcrumb({
     required String message,
@@ -325,16 +329,16 @@ class CrashReportingService {
       while (_breadcrumbs.length >= _maxBreadcrumbsSize) {
         _breadcrumbs.removeFirst();
       }
-      
+
       final breadcrumb = Breadcrumb(
-        message: message, 
+        message: message,
         category: category,
         data: data,
         level: level,
       );
-      
+
       _breadcrumbs.add(breadcrumb);
-      
+
       // Přidání do log historie
       _addToLogHistory(
         message: message,
@@ -342,35 +346,34 @@ class CrashReportingService {
         category: category,
         data: data,
       );
-      
+
       // Zaznamenání breadcrumb i do Crashlytics logu
       try {
         _crashlytics.log(breadcrumb.toString());
-      } catch (_) { /* Ignorujeme chybu */ }
-      
+      } catch (_) {/* Ignorujeme chybu */}
     } catch (e) {
       debugPrint('[CrashReportingService] Chyba při přidávání breadcrumb: $e');
     }
   }
-  
+
   /// Získání nedávných breadcrumbs
   List<Breadcrumb> getRecentBreadcrumbs() {
     return List.from(_breadcrumbs);
   }
-  
+
   /// Získání nedávných breadcrumbs jako string
   String _getRecentBreadcrumbsAsString() {
     final int maxItems = 20;
     final recentBreadcrumbs = _breadcrumbs.toList().reversed.take(maxItems);
-    
+
     if (recentBreadcrumbs.isEmpty) {
       return 'No recent breadcrumbs';
     }
-    
+
     return recentBreadcrumbs.map((b) => b.toString()).join('\n');
   }
-  
-  /// Strukturované logování s více parametry
+
+  /// StrukturovanĂ© logování s více parametry
   void log({
     required String message,
     LogLevel level = LogLevel.info,
@@ -385,8 +388,8 @@ class CrashReportingService {
       category: category,
       data: data,
     );
-    
-    // Přidání jako breadcrumb, pokud je požadováno
+
+    // Přidání jako breadcrumb, pokud je poťadováno
     if (addBreadcrumbToo) {
       addBreadcrumb(
         message: message,
@@ -395,39 +398,39 @@ class CrashReportingService {
         level: level,
       );
     }
-    
-    // Logování do konzole v debug režimu
+
+    // Logování do konzole v debug reťimu
     if (kDebugMode) {
       final levelStr = '[${level.toString().split('.').last.toUpperCase()}]';
       final categoryStr = '[$category]';
       final dataStr = data != null ? ' | $data' : '';
-      
+
       switch (level) {
         case LogLevel.debug:
-          debugPrint('🟤 $levelStr $categoryStr $message$dataStr');
+          debugPrint('đźź¤ $levelStr $categoryStr $message$dataStr');
           break;
         case LogLevel.info:
-          debugPrint('🟢 $levelStr $categoryStr $message$dataStr');
+          debugPrint('đźź˘ $levelStr $categoryStr $message$dataStr');
           break;
         case LogLevel.warning:
-          debugPrint('🟠 $levelStr $categoryStr $message$dataStr');
+          debugPrint('đźź  $levelStr $categoryStr $message$dataStr');
           break;
         case LogLevel.error:
-          debugPrint('🔴 $levelStr $categoryStr $message$dataStr');
+          debugPrint('đź”´ $levelStr $categoryStr $message$dataStr');
           break;
         case LogLevel.fatal:
-          debugPrint('⚫ $levelStr $categoryStr $message$dataStr');
+          debugPrint('âš« $levelStr $categoryStr $message$dataStr');
           break;
       }
     }
-    
+
     // Zaznamenání do Crashlytics logu
     try {
       final logEntry = '${level.toString().split('.').last}|$category|$message';
       _crashlytics.log(logEntry);
-    } catch (_) { /* Ignorujeme chybu */ }
+    } catch (_) {/* Ignorujeme chybu */}
   }
-  
+
   /// Přidání záznamu do historie logů
   void _addToLogHistory({
     required String message,
@@ -440,7 +443,7 @@ class CrashReportingService {
       while (_logHistory.length >= _maxLogHistorySize) {
         _logHistory.removeFirst();
       }
-      
+
       _logHistory.add({
         'message': message,
         'level': level.toString().split('.').last,
@@ -449,15 +452,16 @@ class CrashReportingService {
         'timestamp': DateTime.now().toIso8601String(),
       });
     } catch (e) {
-      debugPrint('[CrashReportingService] Chyba při přidávání do log historie: $e');
+      debugPrint(
+          '[CrashReportingService] Chyba při přidávání do log historie: $e');
     }
   }
-  
+
   /// Získání log historie
   List<Map<String, dynamic>> getLogHistory() {
     return List.from(_logHistory);
   }
-  
+
   /// Exportuje logy do formátu JSON
   String exportLogHistoryAsJson() {
     try {
@@ -467,12 +471,12 @@ class CrashReportingService {
       return '{"error": "Failed to export logs"}';
     }
   }
-  
+
   /// Sledování výkonu - start trackeru
   void startPerformanceTracker(String name) {
     try {
       _performanceTrackers[name] = Stopwatch()..start();
-      
+
       addBreadcrumb(
         message: 'Performance tracking started',
         category: 'performance',
@@ -480,24 +484,26 @@ class CrashReportingService {
         level: LogLevel.debug,
       );
     } catch (e) {
-      debugPrint('[CrashReportingService] Chyba při spuštění performance trackeru: $e');
+      debugPrint(
+          '[CrashReportingService] Chyba při spuĹˇtění performance trackeru: $e');
     }
   }
-  
+
   /// Sledování výkonu - konec trackeru
   void stopPerformanceTracker(String name, {bool recordMetric = true}) {
     try {
       if (!_performanceTrackers.containsKey(name)) {
-        debugPrint('[CrashReportingService] Performance tracker "$name" není aktivní');
+        debugPrint(
+            '[CrashReportingService] Performance tracker "$name" není aktivní');
         return;
       }
-      
+
       final stopwatch = _performanceTrackers[name]!;
       stopwatch.stop();
-      
+
       final durationMs = stopwatch.elapsedMilliseconds;
       _performanceTrackers.remove(name);
-      
+
       if (recordMetric) {
         _performanceMetrics.add({
           'name': name,
@@ -505,7 +511,7 @@ class CrashReportingService {
           'timestamp': DateTime.now().toIso8601String(),
         });
       }
-      
+
       addBreadcrumb(
         message: 'Performance tracking completed',
         category: 'performance',
@@ -514,24 +520,25 @@ class CrashReportingService {
           'duration_ms': durationMs,
         },
       );
-      
+
       // Zaznamenat jako custom key
       if (durationMs > 100) {
-        // Ukládáme jen významné metriky
+        // Ukládáme jen významnĂ© metriky
         try {
           _crashlytics.setCustomKey('perf_$name', durationMs);
-        } catch (_) { /* Ignorujeme chybu */ }
+        } catch (_) {/* Ignorujeme chybu */}
       }
     } catch (e) {
-      debugPrint('[CrashReportingService] Chyba při ukončení performance trackeru: $e');
+      debugPrint(
+          '[CrashReportingService] Chyba při ukončení performance trackeru: $e');
     }
   }
-  
+
   /// Získání metrik výkonu
   List<Map<String, dynamic>> getPerformanceMetrics() {
     return List.from(_performanceMetrics);
   }
-  
+
   /// Nastavení atributu
   Future<void> setCustomKey(String key, dynamic value) async {
     try {
@@ -546,8 +553,8 @@ class CrashReportingService {
       } else {
         await _crashlytics.setCustomKey(key, value.toString());
       }
-      
-      // Přidání breadcrumb pouze pro důležité klíče
+
+      // Přidání breadcrumb pouze pro důleťitĂ© klíče
       if (!key.startsWith('_')) {
         addBreadcrumb(
           message: 'Custom key set',
@@ -557,44 +564,48 @@ class CrashReportingService {
         );
       }
     } catch (e) {
-      debugPrint('[CrashReportingService] Nepodařilo se nastavit custom key: $e');
+      debugPrint(
+          '[CrashReportingService] Nepodařilo se nastavit custom key: $e');
     }
   }
-  
+
   /// Nastavení atributů podle stavu aplikace
   Future<void> _setCustomKeys() async {
     try {
       if (_packageInfo != null) {
         await _crashlytics.setCustomKey('app_name', _packageInfo!.appName);
-        await _crashlytics.setCustomKey('package_name', _packageInfo!.packageName);
+        await _crashlytics.setCustomKey(
+            'package_name', _packageInfo!.packageName);
         await _crashlytics.setCustomKey('version', _packageInfo!.version);
-        await _crashlytics.setCustomKey('build_number', _packageInfo!.buildNumber);
+        await _crashlytics.setCustomKey(
+            'build_number', _packageInfo!.buildNumber);
       }
-      
+
       // Nastavení informací o zařízení
       for (final entry in _deviceInfo.entries) {
-        if (entry.value is String || 
-            entry.value is int || 
-            entry.value is double || 
+        if (entry.value is String ||
+            entry.value is int ||
+            entry.value is double ||
             entry.value is bool) {
           await _crashlytics.setCustomKey(entry.key, entry.value);
         }
       }
-      
-      // Přidání informace o režimu
+
+      // Přidání informace o reťimu
       await _crashlytics.setCustomKey('debug_mode', kDebugMode);
       await _crashlytics.setCustomKey('release_mode', kReleaseMode);
       await _crashlytics.setCustomKey('session_id', _sessionId);
     } catch (e) {
-      debugPrint('[CrashReportingService] Nepodařilo se nastavit custom keys: $e');
+      debugPrint(
+          '[CrashReportingService] Nepodařilo se nastavit custom keys: $e');
     }
   }
-  
+
   /// Získání informací o zařízení
   Future<void> _gatherDeviceInfo() async {
     try {
       final deviceInfoPlugin = DeviceInfoPlugin();
-      
+
       if (Platform.isAndroid) {
         final androidInfo = await deviceInfoPlugin.androidInfo;
         _deviceInfo = {
@@ -630,14 +641,15 @@ class CrashReportingService {
           'platform_version': Platform.operatingSystemVersion,
         };
       }
-      
+
       // Přidání obecných informací o zařízení
       _deviceInfo.addAll({
         'locale': Platform.localeName,
         'number_of_processors': Platform.numberOfProcessors.toString(),
       });
     } catch (e) {
-      debugPrint('[CrashReportingService] Nepodařilo se získat informace o zařízení: $e');
+      debugPrint(
+          '[CrashReportingService] Nepodařilo se získat informace o zařízení: $e');
       _deviceInfo = {
         'device_type': 'unknown',
         'device_info_error': e.toString(),
@@ -645,7 +657,7 @@ class CrashReportingService {
       };
     }
   }
-  
+
   /// Přidání chyby do lokálního logu
   void _addToErrorLog(
     dynamic exception,
@@ -657,7 +669,7 @@ class CrashReportingService {
       while (_errorLog.length >= _maxErrorLogSize) {
         _errorLog.removeAt(0);
       }
-      
+
       _errorLog.add({
         'error': exception.toString(),
         'stack': stack?.toString() ?? 'No stack trace available',
@@ -667,30 +679,34 @@ class CrashReportingService {
         'session_id': _sessionId,
       });
     } catch (e) {
-      debugPrint('[CrashReportingService] Chyba při záznamu do lokálního logu: $e');
+      debugPrint(
+          '[CrashReportingService] Chyba při záznamu do lokálního logu: $e');
     }
   }
-  
+
   /// Vytvoření seznamu informací pro Crashlytics
   List<String> _buildErrorInformation(Map<String, dynamic>? customData) {
     final List<String> info = [];
-    
+
     try {
       // Základní informace o aplikaci
       if (_packageInfo != null) {
-        info.add('App: ${_packageInfo!.appName} (${_packageInfo!.version}+${_packageInfo!.buildNumber})');
+        info.add(
+            'App: ${_packageInfo!.appName} (${_packageInfo!.version}+${_packageInfo!.buildNumber})');
       }
-      
+
       // Informace o zařízení
       if (_deviceInfo.isNotEmpty) {
         if (_deviceInfo['device_type'] == 'android') {
-          info.add('Device: ${_deviceInfo['device_manufacturer']} ${_deviceInfo['device_model']}, Android ${_deviceInfo['android_version']} (SDK ${_deviceInfo['android_sdk']})');
+          info.add(
+              'Device: ${_deviceInfo['device_manufacturer']} ${_deviceInfo['device_model']}, Android ${_deviceInfo['android_version']} (SDK ${_deviceInfo['android_sdk']})');
         } else if (_deviceInfo['device_type'] == 'ios') {
-          info.add('Device: ${_deviceInfo['device_model']}, iOS ${_deviceInfo['ios_version']}');
+          info.add(
+              'Device: ${_deviceInfo['device_model']}, iOS ${_deviceInfo['ios_version']}');
         }
       }
-      
-      // Přidání stavu přihlášení
+
+      // Přidání stavu přihláĹˇení
       final user = _auth.currentUser;
       if (user != null) {
         info.add('User: ${user.uid} (${user.email})');
@@ -698,46 +714,47 @@ class CrashReportingService {
       } else {
         info.add('User: Not logged in');
       }
-      
+
       // Přidání session ID
       info.add('Session ID: $_sessionId');
-      
+
       // Přidání vlastních dat
       if (customData != null && customData.isNotEmpty) {
         info.add('--- Custom Data ---');
         for (final entry in customData.entries) {
-          if (entry.key != 'breadcrumbs') { // Breadcrumbs zpracováváme zvlášť
+          if (entry.key != 'breadcrumbs') {
+            // Breadcrumbs zpracováváme zvláĹˇš
             info.add('${entry.key}: ${entry.value}');
           }
         }
       }
-      
+
       // Přidání poslední aktivity (breadcrumbs)
       if (customData != null && customData.containsKey('breadcrumbs')) {
         info.add('--- Recent Activity ---');
         info.add(customData['breadcrumbs'].toString());
       }
-      
+
       // Timestamp
       info.add('Timestamp: ${DateTime.now().toIso8601String()}');
     } catch (e) {
       info.add('Error while building error information: $e');
     }
-    
+
     return info;
   }
-  
+
   /// Vynucení test crash pro ověření funkčnosti
   Future<void> forceCrash() async {
     if (kReleaseMode) {
       return; // Neprovádíme v produkci
     }
-    
+
     try {
-      // Zaznamenání, že jde o testovací pád
+      // Zaznamenání, ťe jde o testovací pád
       await _crashlytics.log('Forcing a test crash...');
       await _crashlytics.setCustomKey('test_crash', true);
-      
+
       // Přidání několika breadcrumbs pro test
       for (int i = 5; i > 0; i--) {
         addBreadcrumb(
@@ -747,24 +764,25 @@ class CrashReportingService {
         );
         await Future.delayed(Duration(milliseconds: 100));
       }
-      
+
       // Vyvolání pádu
       FirebaseCrashlytics.instance.crash();
     } catch (e) {
-      debugPrint('[CrashReportingService] Nepodařilo se vyvolat test crash: $e');
+      debugPrint(
+          '[CrashReportingService] Nepodařilo se vyvolat test crash: $e');
     }
   }
-  
-  /// Začátek nové uživatelské session
+
+  /// Záčátek novĂ© uťivatelskĂ© session
   void startNewSession() {
     _generateNewSessionId();
-    
+
     addBreadcrumb(
       message: 'New session started',
       category: 'lifecycle',
       data: {'session_id': _sessionId},
     );
-    
+
     log(
       message: 'New user session started',
       category: 'session',

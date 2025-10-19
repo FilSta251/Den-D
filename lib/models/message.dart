@@ -6,7 +6,7 @@ class Message extends Equatable {
   /// Unikátní identifikátor zprávy.
   final String id;
 
-  /// Identifikátor konverzace, ke které zpráva patří.
+  /// Identifikátor konverzace, ke kterĂ© zpráva patří.
   final String conversationId;
 
   /// Identifikátor odesílatele zprávy.
@@ -15,7 +15,7 @@ class Message extends Equatable {
   /// Obsah zprávy.
   final String content;
 
-  /// Časové razítko, kdy byla zpráva odeslána.
+  /// ďŚasovĂ© razítko, kdy byla zpráva odeslána.
   final DateTime timestamp;
 
   /// Indikátor, zda byla zpráva přečtena.
@@ -57,7 +57,7 @@ class Message extends Equatable {
     };
   }
 
-  /// Vytvoří novou instanci [Message] s možností přepsat některé hodnoty.
+  /// Vytvoří novou instanci [Message] s moťností přepsat některĂ© hodnoty.
   Message copyWith({
     String? id,
     String? conversationId,
@@ -78,30 +78,32 @@ class Message extends Equatable {
 
   /// Vlastnosti pro porovnávání objektů pomocí Equatable.
   @override
-  List<Object?> get props => [id, conversationId, senderId, content, timestamp, isRead];
+  List<Object?> get props =>
+      [id, conversationId, senderId, content, timestamp, isRead];
 
   @override
   String toString() {
     return 'Message(id: $id, conversationId: $conversationId, senderId: $senderId, '
-           'content: $content, timestamp: $timestamp, isRead: $isRead)';
+        'content: $content, timestamp: $timestamp, isRead: $isRead)';
   }
 
-  /// Vrací formátované časové razítko zprávy.
+  /// Vrací formátovanĂ© časovĂ© razítko zprávy.
   /// Výchozí vzor je 'HH:mm, dd.MM.yyyy'.
   String formatTimestamp({String pattern = 'HH:mm, dd.MM.yyyy'}) {
     return DateFormat(pattern).format(timestamp);
   }
 
-  /// Metoda, která určuje, zda zpráva pochází od aktuálního uživatele.
-  /// Předáte aktuální uživatelské ID a porovná se s ID odesílatele.
+  /// Metoda, která určuje, zda zpráva pochází od aktuálního uťivatele.
+  /// Předáte aktuální uťivatelskĂ© ID a porovná se s ID odesílatele.
   bool isSentBy(String currentUserId) {
     return senderId == currentUserId;
   }
 
-  /// Statická proměnná, do které by se mělo uložit aktuální uživatelské ID.
-  /// Například při přihlášení uživatele.
+  /// Statická proměnná, do kterĂ© by se mělo uloťit aktuální uťivatelskĂ© ID.
+  /// Například při přihláĹˇení uťivatele.
   static String? currentUserId;
 
-  /// Getter, který vrací true, pokud zpráva pochází od aktuálního uživatele.
-  bool get isSentByCurrentUser => currentUserId != null && senderId == currentUserId;
+  /// Getter, který vrací true, pokud zpráva pochází od aktuálního uťivatele.
+  bool get isSentByCurrentUser =>
+      currentUserId != null && senderId == currentUserId;
 }

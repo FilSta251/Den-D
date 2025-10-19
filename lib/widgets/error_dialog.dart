@@ -1,81 +1,81 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../utils/global_error_handler.dart';
 export '../utils/global_error_handler.dart' show ErrorType;
 
-
 /// Typ chyby určující vzhled a chování dialogu
 //enum DialogErrorType {
- // network,      // Síťové chyby
- // validation,   // Validační chyby
- // auth,         // Autentizační chyby
- // server,       // Serverové chyby
- // critical,     // Kritické chyby
- // warning,      // Varování
- // info,         // Informační zprávy
- // permission,   // Chyby oprávnění
+// network,      // SíšovĂ© chyby
+// validation,   // Validáční chyby
+// auth,         // Autentizáční chyby
+// server,       // ServerovĂ© chyby
+// critical,     // KritickĂ© chyby
+// warning,      // Varování
+// info,         // Informáční zprávy
+// permission,   // Chyby oprávnění
 //timeout,      // Timeout chyby
- // unknown       // Neznámé chyby
+// unknown       // NeznámĂ© chyby
 //}
 
-/// Možnosti zotavení z chyby
+/// Moťnosti zotavení z chyby
 enum RecoveryAction {
-  retry,        // Zkusit znovu
-  goBack,       // Jít zpět
-  refresh,      // Obnovit
-  login,        // Přihlásit se
-  settings,     // Jít do nastavení
-  contact,      // Kontaktovat podporu
-  ignore,       // Ignorovat
-  restart       // Restartovat aplikaci
+  retry, // Zkusit znovu
+  goBack, // Jít zpět
+  refresh, // Obnovit
+  login, // Přihlásit se
+  settings, // Jít do nastavení
+  contact, // Kontaktovat podporu
+  ignore, // Ignorovat
+  restart // Restartovat aplikaci
 }
 
-/// ErrorDialog představuje univerzální chybový dialog pro zobrazení chybových hlášení
-/// v reálné, komerční aplikaci. Umožňuje přizpůsobení titulu, zprávy, ikony, stylů a akcí.
+/// ErrorDialog představuje univerzální chybový dialog pro zobrazení chybových hláĹˇení
+/// v reálnĂ©, komerční aplikaci. UmoťĹuje přizpůsobení titulu, zprávy, ikony, stylů a akcí.
 class ErrorDialog extends StatelessWidget {
   /// Titul dialogu.
   final String title;
-  
+
   /// Hlavní zpráva nebo popis chyby.
   final String message;
-  
+
   /// Typ chyby určující vzhled a výchozí akce
   final ErrorType errorType;
-  
+
   /// Volitelná ikona, která se zobrazí před titulem.
   final IconData? icon;
-  
-  /// Barva ikony. Pokud není zadána, použije se barva podle typu chyby.
+
+  /// Barva ikony. Pokud není zadána, pouťije se barva podle typu chyby.
   final Color? iconColor;
-  
+
   /// Vlastní textový styl pro titulek.
   final TextStyle? titleTextStyle;
-  
+
   /// Vlastní textový styl pro chybovou zprávu.
   final TextStyle? messageTextStyle;
-  
-  /// Akce, které se zobrazí v dolní části dialogu (tlačítka).
+
+  /// Akce, kterĂ© se zobrazí v dolní části dialogu (tláčítka).
   final List<Widget>? actions;
-  
-  /// Možnosti zotavení z chyby
+
+  /// Moťnosti zotavení z chyby
   final List<RecoveryAction> recoveryActions;
-  
+
   /// Callback funkce pro handling akcí zotavení
   final Function(RecoveryAction)? onRecoveryAction;
-  
-  /// Zobrazit technické detaily chyby
+
+  /// Zobrazit technickĂ© detaily chyby
   final String? technicalDetails;
-  
-  /// Kód chyby pro podporu
+
+  /// KĂłd chyby pro podporu
   final String? errorCode;
-  
-  /// Zda umožnit kopírování chybových detailů
+
+  /// Zda umoťnit kopírování chybových detailů
   final bool allowCopyDetails;
 
   /// Konstruktor pro ErrorDialog.
   const ErrorDialog({
-    Key? key,
-    this.title = 'Chyba',
+    super.key,
+    this.title = '',
     required this.message,
     this.errorType = ErrorType.unknown,
     this.icon,
@@ -88,10 +88,10 @@ class ErrorDialog extends StatelessWidget {
     this.technicalDetails,
     this.errorCode,
     this.allowCopyDetails = true,
-  }) : super(key: key);
+  });
 
-  /// Statická metoda usnadňující zobrazení chybového dialogu.
-  /// [barrierDismissible] určuje, zda se dialog může zavřít klepnutím mimo něj.
+  /// Statická metoda usnadĹující zobrazení chybovĂ©ho dialogu.
+  /// [barrierDismissible] určuje, zda se dialog můťe zavřít klepnutím mimo něj.
   static Future<T?> show<T>(
     BuildContext context, {
     String? title,
@@ -113,7 +113,7 @@ class ErrorDialog extends StatelessWidget {
       context: context,
       barrierDismissible: barrierDismissible,
       builder: (context) => ErrorDialog(
-        title: title ?? _getDefaultTitle(errorType),
+        title: title ?? _getDefaultTitle(context, errorType),
         message: message,
         errorType: errorType,
         icon: icon,
@@ -131,36 +131,36 @@ class ErrorDialog extends StatelessWidget {
   }
 
   /// Vrací výchozí titul podle typu chyby
-  static String _getDefaultTitle(ErrorType errorType) {
+  static String _getDefaultTitle(BuildContext context, ErrorType errorType) {
     switch (errorType) {
       case ErrorType.network:
-        return 'Chyba sítě';
+        return tr('error_network_title');
       case ErrorType.validation:
-        return 'Neplatné údaje';
+        return tr('error_validation_title');
       case ErrorType.auth:
-        return 'Chyba autentizace';
+        return tr('error_auth_title');
       case ErrorType.server:
-        return 'Chyba serveru';
+        return tr('error_server_title');
       case ErrorType.critical:
-        return 'Kritická chyba';
+        return tr('error_critical_title');
       case ErrorType.warning:
-        return 'Upozornění';
+        return tr('error_warning_title');
       case ErrorType.info:
-        return 'Informace';
+        return tr('error_info_title');
       case ErrorType.permission:
-        return 'Nedostatečná oprávnění';
+        return tr('error_permission_title');
       case ErrorType.timeout:
-        return 'Vypršel časový limit';
+        return tr('error_timeout_title');
       case ErrorType.unknown:
       default:
-        return 'Chyba';
+        return tr('error_title');
     }
   }
 
   /// Vrací výchozí ikonu podle typu chyby
   IconData _getDefaultIcon() {
     if (icon != null) return icon!;
-    
+
     switch (errorType) {
       case ErrorType.network:
         return Icons.wifi_off;
@@ -189,7 +189,7 @@ class ErrorDialog extends StatelessWidget {
   /// Vrací barvu podle typu chyby
   Color _getErrorColor(BuildContext context) {
     if (iconColor != null) return iconColor!;
-    
+
     switch (errorType) {
       case ErrorType.network:
         return Colors.orange;
@@ -215,7 +215,7 @@ class ErrorDialog extends StatelessWidget {
     }
   }
 
-  /// Vytvoří tlačítko pro akci zotavení
+  /// Vytvoří tláčítko pro akci zotavení
   Widget _buildRecoveryButton(BuildContext context, RecoveryAction action) {
     String text;
     IconData iconData;
@@ -223,11 +223,11 @@ class ErrorDialog extends StatelessWidget {
 
     switch (action) {
       case RecoveryAction.retry:
-        text = 'Zkusit znovu';
+        text = tr('action_retry');
         iconData = Icons.refresh;
         break;
       case RecoveryAction.goBack:
-        text = 'Zpět';
+        text = tr('action_go_back');
         iconData = Icons.arrow_back;
         onPressed = () {
           Navigator.of(context).pop();
@@ -235,28 +235,28 @@ class ErrorDialog extends StatelessWidget {
         };
         break;
       case RecoveryAction.refresh:
-        text = 'Obnovit';
+        text = tr('action_refresh');
         iconData = Icons.refresh;
         break;
       case RecoveryAction.login:
-        text = 'Přihlásit se';
+        text = tr('action_login');
         iconData = Icons.login;
         break;
       case RecoveryAction.settings:
-        text = 'Nastavení';
+        text = tr('action_settings');
         iconData = Icons.settings;
         break;
       case RecoveryAction.contact:
-        text = 'Kontakt';
+        text = tr('action_contact');
         iconData = Icons.support_agent;
         break;
       case RecoveryAction.ignore:
-        text = 'Ignorovat';
+        text = tr('action_ignore');
         iconData = Icons.close;
         onPressed = () => Navigator.of(context).pop();
         break;
       case RecoveryAction.restart:
-        text = 'Restartovat';
+        text = tr('action_restart');
         iconData = Icons.restart_alt;
         break;
     }
@@ -273,21 +273,24 @@ class ErrorDialog extends StatelessWidget {
     );
   }
 
-  /// Kopíruje chybové detaily do schránky
+  /// Kopíruje chybovĂ© detaily do schránky
   void _copyErrorDetails(BuildContext context) {
     final details = StringBuffer();
-    details.writeln('Chyba: $title');
-    details.writeln('Zpráva: $message');
-    if (errorCode != null) details.writeln('Kód: $errorCode');
-    if (technicalDetails != null) details.writeln('Detaily: $technicalDetails');
-    details.writeln('Čas: ${DateTime.now()}');
+    details.writeln(
+        '${tr('error')}: ${title.isEmpty ? _getDefaultTitle(context, errorType) : title}');
+    details.writeln('${tr('message')}: $message');
+    if (errorCode != null) details.writeln('${tr('error_code')}: $errorCode');
+    if (technicalDetails != null) {
+      details.writeln('${tr('details')}: $technicalDetails');
+    }
+    details.writeln('${tr('time')}: ${DateTime.now()}');
 
     Clipboard.setData(ClipboardData(text: details.toString()));
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Detaily chyby zkopírovány do schránky'),
-        duration: Duration(seconds: 2),
+      SnackBar(
+        content: Text(tr('error_details_copied')),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -296,6 +299,8 @@ class ErrorDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final errorColor = _getErrorColor(context);
+    final effectiveTitle =
+        title.isEmpty ? _getDefaultTitle(context, errorType) : title;
 
     return AlertDialog(
       backgroundColor: theme.dialogBackgroundColor,
@@ -313,7 +318,7 @@ class ErrorDialog extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              title,
+              effectiveTitle,
               style: titleTextStyle ??
                   theme.textTheme.titleLarge?.copyWith(
                     color: errorColor,
@@ -345,7 +350,7 @@ class ErrorDialog extends StatelessWidget {
                   Icon(Icons.code, size: 16, color: Colors.grey.shade600),
                   const SizedBox(width: 4),
                   Text(
-                    'Kód: $errorCode',
+                    '${tr('error_code')}: $errorCode',
                     style: TextStyle(
                       fontSize: 12,
                       fontFamily: 'monospace',
@@ -359,9 +364,9 @@ class ErrorDialog extends StatelessWidget {
           if (technicalDetails != null && allowCopyDetails) ...[
             const SizedBox(height: 8),
             ExpansionTile(
-              title: const Text(
-                'Technické detaily',
-                style: TextStyle(fontSize: 14),
+              title: Text(
+                tr('technical_details'),
+                style: const TextStyle(fontSize: 14),
               ),
               children: [
                 Container(
@@ -383,7 +388,7 @@ class ErrorDialog extends StatelessWidget {
                 TextButton.icon(
                   onPressed: () => _copyErrorDetails(context),
                   icon: const Icon(Icons.copy, size: 16),
-                  label: const Text('Kopírovat detaily'),
+                  label: Text(tr('copy_details')),
                 ),
               ],
             ),
@@ -392,11 +397,12 @@ class ErrorDialog extends StatelessWidget {
       ),
       actions: actions ??
           [
-            ...recoveryActions.map((action) => _buildRecoveryButton(context, action)),
+            ...recoveryActions
+                .map((action) => _buildRecoveryButton(context, action)),
             if (!recoveryActions.contains(RecoveryAction.ignore))
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Zavřít'),
+                child: Text(tr('close')),
               ),
           ],
     );

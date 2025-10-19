@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-/// AppConfig slouží k ukládání konfiguračních hodnot pro různá prostředí
+/// AppConfig slouťí k ukládání konfiguráčních hodnot pro různá prostředí
 /// (např. vývoj, staging, produkce). Obsahuje hodnoty jako název aplikace,
 /// základní URL pro API, příznak ladění, DSN pro Sentry, Firebase konfiguraci
-/// a další vlastní nastavení.
+/// a dalĹˇí vlastní nastavení.
 @immutable
 class AppConfig {
   /// Název aplikace.
@@ -17,16 +17,16 @@ class AppConfig {
   /// Název prostředí (např. 'development', 'staging', 'production').
   final String environment;
 
-  /// Příznak, zda je zapnutý debug mód.
+  /// Příznak, zda je zapnutý debug mĂłd.
   final bool debugMode;
 
-  /// DSN pro Sentry (pro hlášení chyb), volitelné.
+  /// DSN pro Sentry (pro hláĹˇení chyb), volitelnĂ©.
   final String? sentryDsn;
 
   /// Volitelná konfigurace pro Firebase.
   final Map<String, dynamic>? firebaseOptions;
 
-  /// Další vlastní nastavení, např. feature flagy, výchozí jazyk apod.
+  /// DalĹˇí vlastní nastavení, např. feature flagy, výchozí jazyk apod.
   final Map<String, dynamic> extraConfig;
 
   /// Primární konstruktor.
@@ -70,7 +70,7 @@ class AppConfig {
     };
   }
 
-  /// Vytvoří kopii této konfigurace s případnými upravenými hodnotami.
+  /// Vytvoří kopii tĂ©to konfigurace s případnými upravenými hodnotami.
   AppConfig copyWith({
     String? appName,
     String? apiBaseUrl,
@@ -98,7 +98,7 @@ class AppConfig {
         'extraConfig: $extraConfig)';
   }
 
-  /// Načte konfigurační data ze souboru (např. "assets/config.json").
+  /// Náčte konfiguráční data ze souboru (např. "assets/config.json").
   /// Soubor musí být deklarován v sekci assets v pubspec.yaml.
   static Future<AppConfig> loadFromAsset(String assetPath) async {
     try {
@@ -111,3 +111,4 @@ class AppConfig {
     }
   }
 }
+

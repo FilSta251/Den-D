@@ -1,14 +1,14 @@
 buildscript {
-    ext.kotlin_version = '2.1.0' // ✅ Aktualizovaná verze Kotlinu
+    ext.kotlin_version = '2.1.0'
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://jitpack.io' } // Podpora pro knihovny z JitPack
+        maven { url 'https://jitpack.io' }
     }
     dependencies {
-        classpath "com.android.tools.build:gradle:8.3.0" // ✅ Nejnovější Gradle plugin
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version" // ✅ Kotlin plugin
-        classpath "com.google.gms:google-services:4.3.15" // ✅ Google Services plugin pro Firebase
+        classpath "com.android.tools.build:gradle:8.5.2"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "com.google.gms:google-services:4.4.2"
     }
 }
 
@@ -16,7 +16,7 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://jitpack.io' } // Podpora pro JitPack
+        maven { url 'https://jitpack.io' }
     }
 }
 
@@ -29,15 +29,4 @@ subprojects {
 
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
-}
-
-// ✅ Nastavení minSdk na 24 v celém projektu pro Android projekty
-subprojects {
-    plugins.withType(com.android.build.gradle.BasePlugin) {
-        android {
-            defaultConfig {
-                minSdkVersion 24 // ✅ Zvýšeno pro kompatibilitu s Firebase a Kotlin
-            }
-        }
-    }
 }

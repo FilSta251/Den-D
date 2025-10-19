@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:svatebni_planovac/services/analytics_service.dart';
-import 'package:svatebni_planovac/services/local_storage_service.dart';
+import 'package:den_d/services/analytics_service.dart';
+import 'package:den_d/services/local_storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -8,9 +8,9 @@ void main() {
     final analyticsService = AnalyticsService();
 
     test('initialize completes successfully', () async {
-      // Testujeme, zda inicializace služby proběhne bez chyb
+      // Testujeme, zda inicializace sluťby proběhne bez chyb
       await analyticsService.initialize();
-      // Pokud by došlo k chybě, test selže.
+      // Pokud by doĹˇlo k chybě, test selťe.
     });
 
     test('logEvent completes without error', () async {
@@ -19,12 +19,12 @@ void main() {
     });
 
     test('setUserId completes without error', () async {
-      // Test nastavování uživatelského ID
+      // Test nastavování uťivatelskĂ©ho ID
       await analyticsService.setUserId('test_user');
     });
 
     test('resetAnalyticsData completes without error', () async {
-      // Test resetu analytických dat (užitečné pro testovací účely)
+      // Test resetu analytických dat (uťitečnĂ© pro testovací účely)
       await analyticsService.resetAnalyticsData();
     });
   });
@@ -103,3 +103,4 @@ void main() {
     });
   });
 }
+

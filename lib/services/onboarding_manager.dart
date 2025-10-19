@@ -19,7 +19,7 @@ class OnboardingManager {
     }
   }
 
-  /// Uloží stav dokončeného onboardingu.
+  /// Uloťí stav dokončenĂ©ho onboardingu.
   static Future<void> markOnboardingCompleted() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -41,7 +41,7 @@ class OnboardingManager {
     }
   }
 
-  /// Uloží stav dokončeného intra.
+  /// Uloťí stav dokončenĂ©ho intra.
   static Future<void> markIntroCompleted() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -63,7 +63,7 @@ class OnboardingManager {
     }
   }
 
-  /// Uloží stav dokončeného chatbota.
+  /// Uloťí stav dokončenĂ©ho chatbota.
   static Future<void> markChatbotCompleted() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -74,7 +74,7 @@ class OnboardingManager {
     }
   }
 
-  /// Kontroluje, zda byla zobrazena nabídka předplatného.
+  /// Kontroluje, zda byla zobrazena nabídka předplatnĂ©ho.
   static Future<bool> isSubscriptionShown() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -85,7 +85,7 @@ class OnboardingManager {
     }
   }
 
-  /// Uloží stav zobrazené nabídky předplatného.
+  /// Uloťí stav zobrazenĂ© nabídky předplatnĂ©ho.
   static Future<void> markSubscriptionShown() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -96,7 +96,7 @@ class OnboardingManager {
     }
   }
 
-  /// Resetuje všechny stavy onboardingu (např. pro testování).
+  /// Resetuje vĹˇechny stavy onboardingu (např. pro testování).
   static Future<void> resetOnboarding() async {
     try {
       final prefs = await SharedPreferences.getInstance();

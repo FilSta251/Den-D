@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AIChatService {
-  // Zadej URL API služby (uprav podle dokumentace poskytovatele)
+  // Zadej URL API sluťby (uprav podle dokumentace poskytovatele)
   final String apiUrl;
   // Tvůj API klíč
   final String apiKey;
@@ -21,9 +21,10 @@ class AIChatService {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      return data['reply'] ?? "Odpověď není k dispozici.";
+      return data['reply'] ?? "OdpověďŹ není k dispozici.";
     } else {
       throw Exception("Chyba při komunikaci s AI API: ${response.statusCode}");
     }
   }
 }
+

@@ -1,11 +1,16 @@
-// lib/services/schedule_manager.dart
+/// lib/services/schedule_manager.dart
+library;
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:provider/provider.dart';
 import '../services/local_schedule_service.dart';
 import '../services/cloud_schedule_service.dart';
+import '../providers/subscription_provider.dart';
+import '../widgets/subscription_offer_dialog.dart';
 
 /// Enum pro sledování stavu synchronizace
 enum SyncState {
@@ -15,25 +20,25 @@ enum SyncState {
   offline,
 }
 
-/// Manager pro synchronizaci harmonogramu mezi lokálním úložištěm a cloudem.
+/// Manager pro synchronizaci harmonogramu mezi lokálním úloťiĹˇtěm a cloudem.
 class ScheduleManager extends ChangeNotifier {
   final LocalScheduleService _localService;
   final CloudScheduleService _cloudService;
   final fb.FirebaseAuth _auth;
-  
-  // Synchronizační stav
+
+  // Synchronizáční stav
   SyncState _syncState = SyncState.idle;
   SyncState get syncState => _syncState;
   String? _syncError;
   String? get syncError => _syncError;
   DateTime? _lastSyncTime;
   DateTime? get lastSyncTime => _lastSyncTime;
-  
+
   // Sledování připojení k internetu
   bool _isOnline = true;
   bool get isOnline => _isOnline;
   StreamSubscription? _connectivitySubscription;
-  
+
   // Interní stav
   StreamSubscription? _cloudSubscription;
   StreamSubscription? _authSubscription;
@@ -43,111 +48,93 @@ class ScheduleManager extends ChangeNotifier {
   Timer? _debounceTimer;
   String? _currentUserId;
   int _pendingSyncOperations = 0;
-  
+
   // Nastavení
   bool _cloudSyncEnabled = true;
   bool get cloudSyncEnabled => _cloudSyncEnabled;
-  
+
   // Stav změn
   final List<Map<String, dynamic>> _pendingChanges = [];
   bool get hasPendingChanges => _pendingChanges.isNotEmpty;
   int get pendingChangesCount => _pendingChanges.length;
-  
+
   ScheduleManager({
     required LocalScheduleService localService,
     required CloudScheduleService cloudService,
     required fb.FirebaseAuth auth,
-  }) : 
-    _localService = localService,
-    _cloudService = cloudService,
-    _auth = auth {
-    // Okamžitá inicializace při vytvoření instance
+  })  : _localService = localService,
+        _cloudService = cloudService,
+        _auth = auth {
     _init();
   }
-  
+
   Future<void> _init() async {
     _setSyncState(SyncState.idle);
-    
-    // Inicializace sledování připojení k internetu
+
     _setupConnectivityMonitoring();
-    
-    // DŮLEŽITÉ: Nejprve se přihlašujeme na stream událostí autentizace
+
     _authSubscription = _auth.authStateChanges().listen((user) async {
       if (user != null) {
         final newUserId = user.uid;
-        // Pokud se přihlásil jiný uživatel než dříve nebo jsme jen teď detekovali přihlášení
         if (_currentUserId != newUserId) {
-          debugPrint("Nový uživatel přihlášen: ${user.uid}");
-          
-          // Uložíme ID aktuálního uživatele
+          debugPrint("ScheduleManager: Nový uťivatel přihláĹˇen: ${user.uid}");
+
           _currentUserId = newUserId;
-          
-          // Vyčistíme lokální data před načtením dat nového uživatele
+
           _localService.removeListener(_handleLocalChanges);
           _localService.clearAllItems();
-          
-          // Provedeme kompletní synchronizaci z cloudu
+
           await _forceInitialSync();
-          
-          // Znovu napojíme posluchače změn
+
           _localService.addListener(_handleLocalChanges);
         } else {
           await _refreshFromCloud();
         }
       } else {
-        // Uživatel odhlášen
         _currentUserId = null;
-        
-        // Vyčistíme lokální data při odhlášení
+
         _localService.removeListener(_handleLocalChanges);
         _localService.clearAllItems();
-        
-        // Vypneme synchronizaci s cloudem
+
         _disableCloudSync();
-        
-        // Znovu aktivujeme lokální změny pro nepřihlášeného uživatele
+
         _localService.addListener(_handleLocalChanges);
       }
     });
-    
-    // Pokud je uživatel již přihlášen, okamžitě zahájíme synchronizaci
+
     if (_auth.currentUser != null) {
       _currentUserId = _auth.currentUser!.uid;
       await _forceInitialSync();
     } else {
       await _loadLocalData();
     }
-    
-    // Pravidelná synchronizace pro udržení aktuálních dat
+
     _syncTimer = Timer.periodic(const Duration(minutes: 10), (_) {
       _attemptSynchronization();
     });
-    
-    // Registrace posluchače lokálních změn
+
     _localService.addListener(_handleLocalChanges);
   }
-  
-  // Nastavení sledování připojení k internetu
+
   void _setupConnectivityMonitoring() {
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((result) async {
-      final isConnected = result.isNotEmpty && result.first != ConnectivityResult.none;
-      
+    _connectivitySubscription =
+        Connectivity().onConnectivityChanged.listen((result) async {
+      final isConnected =
+          result.isNotEmpty && result.first != ConnectivityResult.none;
+
       if (isConnected && !_isOnline) {
-        // Přechod z offline do online stavu
-        debugPrint("Připojení k internetu obnoveno, zahajuji synchronizaci");
+        debugPrint("ScheduleManager: Připojení obnoveno");
         _isOnline = true;
         await _syncPendingChanges();
       } else if (!isConnected && _isOnline) {
-        // Přechod z online do offline stavu
-        debugPrint("Připojení k internetu ztraceno, přepínám do offline režimu");
+        debugPrint("ScheduleManager: Offline reťim");
         _isOnline = false;
         _setSyncState(SyncState.offline);
       }
-      
+
       notifyListeners();
     });
-    
-    // Inicializace počátečního stavu připojení
+
     Connectivity().checkConnectivity().then((result) {
       _isOnline = result.isNotEmpty && result.first != ConnectivityResult.none;
       if (!_isOnline) {
@@ -155,8 +142,7 @@ class ScheduleManager extends ChangeNotifier {
       }
     });
   }
-  
-  // Nastavení stavu synchronizace
+
   void _setSyncState(SyncState state, [String? error]) {
     _syncState = state;
     _syncError = error;
@@ -165,46 +151,68 @@ class ScheduleManager extends ChangeNotifier {
     }
     notifyListeners();
   }
-  
-  // Pokus o synchronizaci - spustí se pouze pokud jsme online
+
+  /// Kontrola free limitu před přidáním schedule poloťky
+  Future<bool> _checkFreeLimit(BuildContext context) async {
+    try {
+      final subscriptionProvider =
+          Provider.of<SubscriptionProvider>(context, listen: false);
+
+      final canUse = await subscriptionProvider
+          .registerInteraction(InteractionType.addScheduleItem);
+
+      if (!canUse) {
+        final result = await SubscriptionOfferDialog.show(
+          context,
+          source: 'schedule_limit',
+        );
+        return result == true;
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('ScheduleManager: Chyba při kontrole free limitu: $e');
+      return true;
+    }
+  }
+
   Future<void> _attemptSynchronization() async {
     if (!_isOnline || !_cloudSyncEnabled || _auth.currentUser == null) {
       return;
     }
-    
+
     if (_pendingChanges.isNotEmpty) {
       await _syncPendingChanges();
     } else {
       await _refreshFromCloud();
     }
   }
-  
-  // Synchronizace lokálních změn do cloudu
+
   Future<void> _syncPendingChanges() async {
     if (_auth.currentUser == null || !_isOnline) {
       return;
     }
-    
+
     if (_syncState == SyncState.syncing) {
-      return; // Již probíhá synchronizace
+      return;
     }
-    
+
     if (_pendingChanges.isEmpty && _pendingSyncOperations == 0) {
-      return; // Nemáme žádné změny k synchronizaci
+      return;
     }
-    
+
     _setSyncState(SyncState.syncing);
-    
+
     try {
-      // Pokud máme konkrétní akce, zpracujeme je
       if (_pendingChanges.isNotEmpty) {
-        final List<Map<String, dynamic>> changesToProcess = List.from(_pendingChanges);
+        final List<Map<String, dynamic>> changesToProcess =
+            List.from(_pendingChanges);
         _pendingChanges.clear();
-        
+
         for (final change in changesToProcess) {
           final String operation = change['operation'];
           final ScheduleItem item = change['item'];
-          
+
           switch (operation) {
             case 'add':
               await _cloudService.addItem(item);
@@ -217,203 +225,178 @@ class ScheduleManager extends ChangeNotifier {
               break;
           }
         }
-      } 
-      // Nemáme konkrétní akce, ale máme změny v datech - sync celé kolekce
-      else if (_pendingSyncOperations > 0) {
+      } else if (_pendingSyncOperations > 0) {
         await _cloudService.syncFromLocal(_localService.scheduleItems);
         _pendingSyncOperations = 0;
       }
-      
+
       _setSyncState(SyncState.idle);
     } catch (e) {
-      debugPrint("Chyba při synchronizaci změn: $e");
+      debugPrint("ScheduleManager: Chyba při synchronizaci: $e");
       _setSyncState(SyncState.error, e.toString());
     }
   }
-  
-  // Nová metoda pro forsírovanou inicializační synchronizaci
+
   Future<void> _forceInitialSync() async {
     if (_syncState == SyncState.syncing) return;
-    
+
     _setSyncState(SyncState.syncing);
-    
+
     try {
-      // Načtení poslední synchronizace z cloudu
       final lastCloudSync = await _cloudService.getLastSyncTimestamp();
-      
-      // 1. Nejprve načteme data z cloudu
+
       final cloudItems = await _cloudService.fetchScheduleItems();
-      
-      // 2. Poté načteme lokální data
+
       await _loadLocalData();
-      
-      // 3. Určíme, co použijeme:
+
       if (cloudItems.isNotEmpty) {
-        // Vypneme posluchače změn, abychom předešli zbytečným notifikacím
         _localService.removeListener(_handleLocalChanges);
-        
-        // Nahradíme lokální data daty z cloudu
+
         _localService.setItemsWithoutNotify(cloudItems);
-        
-        // Zapneme posluchače zpět
+
         _localService.addListener(_handleLocalChanges);
-      } 
-      // Pokud máme lokální data, ale cloud je prázdný, nahrajeme na cloud
-      else if (_localService.scheduleItems.isNotEmpty && _isOnline) {
+      } else if (_localService.scheduleItems.isNotEmpty && _isOnline) {
         await _cloudService.syncFromLocal(_localService.scheduleItems);
       }
-      
-      // 4. Nyní zahájíme sledování změn v cloudu
+
       _enableCloudSync();
-      
+
       _initialized = true;
       _setSyncState(SyncState.idle);
-      
     } catch (e) {
-      debugPrint("Chyba při inicializační synchronizaci: $e");
+      debugPrint("ScheduleManager: Chyba při inicializaci: $e");
       _setSyncState(SyncState.error, e.toString());
     }
   }
-  
-  // Metoda pro aktualizaci dat z cloudu
+
   Future<void> _refreshFromCloud() async {
     if (!_isOnline || _auth.currentUser == null) return;
-    
+
     try {
       final cloudItems = await _cloudService.fetchScheduleItems();
-      
+
       if (cloudItems.isNotEmpty) {
-        // Vypneme posluchače změn
         _localService.removeListener(_handleLocalChanges);
-        
-        // Nahradíme lokální data daty z cloudu
+
         _localService.setItemsWithoutNotify(cloudItems);
-        
-        // Zapneme posluchače zpět
+
         _localService.addListener(_handleLocalChanges);
-        
+
         notifyListeners();
       }
     } catch (e) {
-      debugPrint("Chyba při aktualizaci z cloudu: $e");
-      // Nezobrazujeme uživateli tyto chyby, pouze logujeme
+      debugPrint("ScheduleManager: Chyba při aktualizaci z cloudu: $e");
     }
   }
-  
+
   Future<void> _loadLocalData() async {
     if (!_localDataLoaded) {
       await _localService.loadScheduleItems();
       _localDataLoaded = true;
     }
   }
-  
-  /// Zapne synchronizaci s cloudem.
+
   void _enableCloudSync() {
     if (!_cloudSyncEnabled || _auth.currentUser == null) {
       return;
     }
-    
-    // Zaregistrujeme poslech změn z cloudu
+
     _cloudSubscription?.cancel();
-    _cloudSubscription = _cloudService.getScheduleItemsStream().listen((cloudItems) {
+    _cloudSubscription =
+        _cloudService.getScheduleItemsStream().listen((cloudItems) {
       if (cloudItems.isNotEmpty) {
-        // Vypneme posluchače změn
         _localService.removeListener(_handleLocalChanges);
-        
-        // Nahradíme lokální data daty z cloudu
+
         _localService.setItemsWithoutNotify(cloudItems);
-        
-        // Zapneme posluchače zpět
+
         _localService.addListener(_handleLocalChanges);
-        
+
         notifyListeners();
       }
     }, onError: (error) {
-      debugPrint("Chyba ve streamu cloudových dat: $error");
+      debugPrint("ScheduleManager: Chyba ve streamu cloudových dat: $error");
     });
   }
-  
-  /// Vypne synchronizaci s cloudem.
+
   void _disableCloudSync() {
     _cloudSubscription?.cancel();
     _cloudSubscription = null;
     _initialized = false;
   }
-  
-  /// Reaguje na změny v lokálním úložišti.
+
   void _handleLocalChanges() {
-    // Inkrementujeme počítadlo nevyřízených synchronizací
     _pendingSyncOperations++;
-    
-    // Zahájíme synchronizaci do cloudu s debounce
+
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(seconds: 2), () {
       _attemptSynchronization();
     });
   }
-  
-  /// Přidá novou položku do harmonogramu.
-  void addItem(ScheduleItem item) {
+
+  // === VeřejnĂ© metody s free limit kontrolou ===
+
+  /// Přidá novou poloťku do harmonogramu s kontrolou free limitu.
+  Future<bool> addItem(ScheduleItem item, BuildContext context) async {
+    // Kontrola free limitu
+    final canAdd = await _checkFreeLimit(context);
+    if (!canAdd) {
+      return false;
+    }
+
     _localService.addItem(item);
-    
-    // Přidáme operaci do fronty změn
+
     _pendingChanges.add({
       'operation': 'add',
       'item': item,
       'timestamp': DateTime.now(),
     });
-    
+
     _attemptSynchronization();
+    return true;
   }
-  
-  /// Aktualizuje existující položku v harmonogramu.
+
+  /// Aktualizuje existující poloťku v harmonogramu (bez kontroly limitu).
   void updateItem(int index, ScheduleItem item) {
     _localService.updateItem(index, item);
-    
-    // Přidáme operaci do fronty změn
+
     _pendingChanges.add({
       'operation': 'update',
       'item': item,
       'timestamp': DateTime.now(),
     });
-    
+
     _attemptSynchronization();
   }
-  
-  /// Odstraní položku z harmonogramu.
+
+  /// Odstraní poloťku z harmonogramu (bez kontroly limitu).
   void removeItem(int index) {
-    // Nejprve si uložíme referenci na položku před odstraněním
     final item = _localService.scheduleItems[index];
-    
+
     _localService.removeItem(index);
-    
-    // Přidáme operaci do fronty změn
+
     _pendingChanges.add({
       'operation': 'remove',
       'item': item,
       'timestamp': DateTime.now(),
     });
-    
+
     _attemptSynchronization();
   }
-  
-  /// Změní pořadí položek v harmonogramu.
+
+  /// Změní pořadí poloťek v harmonogramu.
   void reorderItems(int oldIndex, int newIndex) {
     _localService.reorderItems(oldIndex, newIndex);
-    
-    // Pro změnu pořadí synchronizujeme celou kolekci
+
     _pendingSyncOperations++;
     _attemptSynchronization();
   }
-  
-  /// Vyčistí všechny položky harmonogramu.
+
+  /// Vyčistí vĹˇechny poloťky harmonogramu.
   void clearAllItems() {
-    // Vytvoříme kopii všech položek před smazáním
     final allItems = List<ScheduleItem>.from(_localService.scheduleItems);
-    
+
     _localService.clearAllItems();
-    
-    // Přidáme operace odstranění pro každou položku
+
     for (final item in allItems) {
       _pendingChanges.add({
         'operation': 'remove',
@@ -421,11 +404,11 @@ class ScheduleManager extends ChangeNotifier {
         'timestamp': DateTime.now(),
       });
     }
-    
+
     _attemptSynchronization();
   }
-  
-  /// Vynucené načtení položek z cloudu - veřejná metoda pro přímé volání z UI
+
+  /// VynucenĂ© náčtení poloťek z cloudu.
   Future<void> forceRefreshFromCloud() async {
     if (_auth.currentUser == null || !_isOnline) {
       if (!_isOnline) {
@@ -433,30 +416,27 @@ class ScheduleManager extends ChangeNotifier {
       }
       return;
     }
-    
+
     _setSyncState(SyncState.syncing);
-    
+
     try {
       final cloudItems = await _cloudService.fetchScheduleItems();
-      
+
       if (cloudItems.isNotEmpty) {
-        // Vypneme posluchače změn
         _localService.removeListener(_handleLocalChanges);
-        
-        // Nahradíme lokální data daty z cloudu
+
         _localService.setItemsWithoutNotify(cloudItems);
-        
-        // Zapneme posluchače zpět
+
         _localService.addListener(_handleLocalChanges);
       }
-      
+
       _setSyncState(SyncState.idle);
     } catch (e) {
-      debugPrint("Chyba při načítání z cloudu: $e");
+      debugPrint("ScheduleManager: Chyba při náčítání z cloudu: $e");
       _setSyncState(SyncState.error, e.toString());
     }
   }
-  
+
   /// Vynucená synchronizace do cloudu.
   Future<void> forceSyncToCloud() async {
     if (_auth.currentUser == null || !_isOnline) {
@@ -465,24 +445,23 @@ class ScheduleManager extends ChangeNotifier {
       }
       return;
     }
-    
+
     _setSyncState(SyncState.syncing);
-    
+
     try {
       await _syncPendingChanges();
-      
-      // Pokud nemáme žádné konkrétní změny, synchronizujeme vše
+
       if (_pendingChanges.isEmpty) {
         await _cloudService.syncFromLocal(_localService.scheduleItems);
       }
-      
+
       _setSyncState(SyncState.idle);
     } catch (e) {
-      debugPrint("Chyba při synchronizaci do cloudu: $e");
+      debugPrint("ScheduleManager: Chyba při synchronizaci do cloudu: $e");
       _setSyncState(SyncState.error, e.toString());
     }
   }
-  
+
   /// Zapne/vypne cloudovou synchronizaci.
   set cloudSyncEnabled(bool value) {
     _cloudSyncEnabled = value;
@@ -496,14 +475,14 @@ class ScheduleManager extends ChangeNotifier {
     }
     notifyListeners();
   }
-  
-  /// Vymaže frontu nevyřízených změn
+
+  /// Vymaťe frontu nevyřízených změn
   void clearPendingChanges() {
     _pendingChanges.clear();
     _pendingSyncOperations = 0;
     notifyListeners();
   }
-  
+
   /// Vrací stav připojení k internetu jako text
   String get connectivityStatus {
     if (_isOnline) {
@@ -512,36 +491,36 @@ class ScheduleManager extends ChangeNotifier {
       return "Offline";
     }
   }
-  
-  /// Exportuje položky harmonogramu do JSON formátu.
+
+  /// Exportuje poloťky harmonogramu do JSON formátu.
   String exportToJson() {
     return _localService.exportToJson();
   }
-  
-  /// Importuje položky harmonogramu z JSON formátu.
+
+  /// Importuje poloťky harmonogramu z JSON formátu.
   Future<void> importFromJson(String jsonData) async {
     await _localService.importFromJson(jsonData);
     _pendingSyncOperations++;
     _attemptSynchronization();
   }
-  
-  /// Seznam položek harmonogramu.
+
+  /// Seznam poloťek harmonogramu.
   List<ScheduleItem> get scheduleItems => _localService.scheduleItems;
-  
-  /// Indikátor načítání.
-  bool get isLoading => _localService.isLoading || _syncState == SyncState.syncing;
-  
-  /// VEŘEJNÁ METODA pro kompatibilitu s main.dart
-  /// Synchronizuje data - alias pro interní synchronizační metody
+
+  /// Indikátor náčítání.
+  bool get isLoading =>
+      _localService.isLoading || _syncState == SyncState.syncing;
+
+  /// Synchronizuje data - alias pro interní synchronizáční metody
   Future<void> synchronizeData() async {
     if (_auth.currentUser == null) {
       await _loadLocalData();
       return;
     }
-    
+
     _attemptSynchronization();
   }
-  
+
   @override
   void dispose() {
     _authSubscription?.cancel();

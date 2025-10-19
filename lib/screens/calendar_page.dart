@@ -1,112 +1,91 @@
-import 'dart:convert';
+/// lib/screens/calendar_page.dart
+library;
+
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
+import '../models/calendar_event.dart';
 import '../repositories/wedding_repository.dart';
 import '../models/wedding_info.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart'; // Pro upozornění
-import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tzdata;
+import '../services/calendar_manager.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import '../services/notification_service.dart';
 
 class CalendarPage extends StatefulWidget {
-  const CalendarPage({Key? key}) : super(key: key);
+  const CalendarPage({super.key});
 
   @override
   State<CalendarPage> createState() => _CalendarPageState();
 }
 
-class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMixin {
+class _CalendarPageState extends State<CalendarPage>
+    with TickerProviderStateMixin {
   late DateTime _focusedDay;
   DateTime? _selectedDay;
-  Map<DateTime, List<Map<String, dynamic>>> _events = {};
-  
-  // Reference pro zjištění, jestli je potřeba při návratu obnovit data na homepage
+
   bool _hasChanges = false;
-  
-  // Reference na svatbu, pokud existuje
   WeddingInfo? _weddingInfo;
-  
-  // Pro zobrazení různých pohledů kalendáře
   CalendarFormat _calendarFormat = CalendarFormat.month;
-  
-  // Pro notifikace
-  late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
-  
-  // Pro animaci mezi pohledy
+
   late TabController _viewTabController;
   final List<String> _viewOptions = ['month_view', 'week_view', 'day_view'];
   int _currentViewIndex = 0;
-  
+
+  // Filtr podle barvy
+  Color? _selectedColorFilter;
+
+  // Dostupné barvy
+  final List<Color> _availableColors = [
+    Colors.blue,
+    Colors.red,
+    Colors.green,
+    Colors.orange,
+    Colors.purple,
+    Colors.teal,
+    Colors.pink,
+    Colors.brown,
+    Colors.amber,
+    Colors.indigo,
+    Colors.cyan,
+    Colors.lime,
+  ];
+
   @override
   void initState() {
     super.initState();
     _focusedDay = DateTime.now();
     _selectedDay = _focusedDay;
-    _loadEvents();
     _loadWeddingInfo();
-    _initializeNotifications();
-    
-    // Inicializace pro přepínání pohledů
+
     _viewTabController = TabController(
-      length: _viewOptions.length, 
+      length: _viewOptions.length,
       vsync: this,
       initialIndex: _currentViewIndex,
     );
     _viewTabController.addListener(_handleViewChange);
-    
-    // Vždy po načtení stránky požádáme o povolení upozornění
-    _requestNotificationPermissions();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final calendarManager =
+          Provider.of<CalendarManager>(context, listen: false);
+      calendarManager.forceRefreshFromCloud();
+    });
   }
-  
-  // Metoda pro vyžádání oprávnění k upozorněním
-  Future<void> _requestNotificationPermissions() async {
-    // Pro iOS explicitně požádáme o povolení
-    final ios = flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>();
-    if (ios != null) {
-      await ios.requestPermissions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-    }
-    
-    // Pro Android 13+ (API úroveň 33+) je také potřeba explicitně požádat o povolení
-    final android = flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-    if (android != null) {
-      // Opraveno: změněno na requestNotificationsPermission místo requestPermission
-      await android.requestNotificationsPermission();
-    }
-    
-    // Informovat uživatele, že upozornění byla povolena
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(tr('notification_permissions_requested')),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
-  }
-  
+
   @override
   void dispose() {
     _viewTabController.removeListener(_handleViewChange);
     _viewTabController.dispose();
     super.dispose();
   }
-  
+
   void _handleViewChange() {
     if (_viewTabController.index != _currentViewIndex) {
       setState(() {
         _currentViewIndex = _viewTabController.index;
-        // Aktualizace formátu zobrazení kalendáře
         switch (_currentViewIndex) {
           case 0:
             _calendarFormat = CalendarFormat.month;
@@ -115,95 +94,29 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
             _calendarFormat = CalendarFormat.week;
             break;
           case 2:
-            _calendarFormat = CalendarFormat.week; // Den v TableCalendar není, ale lze přizpůsobit výškou
+            _calendarFormat = CalendarFormat.week;
             break;
         }
       });
     }
   }
-  
-  Future<void> _initializeNotifications() async {
-    // Inicializace časových zón pro plánování upozornění
-    tzdata.initializeTimeZones();
-    
-    flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const DarwinInitializationSettings initializationSettingsIOS =
-        DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
-    const InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsIOS,
-    );
-    
-    await flutterLocalNotificationsPlugin.initialize(
-      initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse details) {
-        // Když uživatel klikne na upozornění, otevřeme kalendář na správném dni
-        if (details.payload != null) {
-          try {
-            final Map<String, dynamic> payloadData = jsonDecode(details.payload!);
-            if (payloadData.containsKey('day')) {
-              final parts = payloadData['day'].split('-');
-              if (parts.length == 3) {
-                final year = int.parse(parts[0]);
-                final month = int.parse(parts[1]);
-                final day = int.parse(parts[2]);
-                
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  setState(() {
-                    _selectedDay = DateTime(year, month, day);
-                    _focusedDay = _selectedDay!;
-                  });
-                });
-              }
-            }
-          } catch (e) {
-            debugPrint('Error parsing notification payload: $e');
-          }
-        }
-      },
-    );
-    
-    // Zkontrolujeme oprávnění na iOS
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>()
-        ?.requestPermissions(
-          alert: true,
-          badge: true,
-          sound: true,
-        );
-  }
-  
-  // Načtení informací o svatbě pro zobrazení v kalendáři
+
   Future<void> _loadWeddingInfo() async {
     try {
-      final weddingRepo = Provider.of<WeddingRepository>(context, listen: false);
+      final weddingRepo =
+          Provider.of<WeddingRepository>(context, listen: false);
       final wedding = await weddingRepo.fetchWeddingInfo();
       if (mounted) {
         setState(() {
           _weddingInfo = wedding;
         });
       }
-      
-      // Pokud máme datum svatby a nejsme na dnešním dni, automaticky vybereme den v kalendáři
-      if (wedding.weddingDate != null && mounted) {
-        final weddingDay = DateTime(
-          wedding.weddingDate.year,
-          wedding.weddingDate.month,
-          wedding.weddingDate.day
-        );
+
+      if (mounted) {
         final today = DateTime.now();
         final todayKey = DateTime(today.year, today.month, today.day);
-        
-        // Nastavíme vybraný den na dnešek nebo na den svatby, pokud je to relevantní
+
         setState(() {
-          // Dáváme přednost dnešnímu dni jako výchozímu
           _selectedDay = todayKey;
           _focusedDay = todayKey;
         });
@@ -213,514 +126,569 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
     }
   }
 
-  Future<void> _loadEvents() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? jsonString = prefs.getString('events');
-    if (jsonString != null) {
-      try {
-        final Map<String, dynamic> decodedMap = jsonDecode(jsonString);
-        setState(() {
-          _events = decodedMap.map((key, value) {
-            return MapEntry(
-              DateTime.parse(key),
-              List<Map<String, dynamic>>.from(jsonDecode(value).map((event) {
-                // Nyní musíme mít více polí - přidáváme popis, lokaci, reminder, barvu atd.
-                return {
-                  "id": event["id"] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-                  "title": event["title"],
-                  "time": DateTime.parse(event["time"]),
-                  "endTime": event["endTime"] != null ? DateTime.parse(event["endTime"]) : null,
-                  "description": event["description"] ?? "",
-                  "location": event["location"] ?? "",
-                  "allDay": event["allDay"] ?? false,
-                  "color": event["color"] ?? Colors.blue.value,
-                  "reminder": event["reminder"] != null ? {
-                    "type": event["reminder"]["type"],
-                    "value": event["reminder"]["value"],
-                    "scheduled": event["reminder"]["scheduled"] ?? false,
-                  } : null,
-                };
-              })),
-            );
-          });
-        });
-        
-        // Po načtení zkontrolujeme, jestli potřebujeme nastavit nějaká upozornění
-        _scheduleNotificationsForEvents();
-      } catch (e) {
-        debugPrint('[CalendarPage] Error parsing events: $e');
-      }
+  List<CalendarEvent> _getEventsForDay(
+      DateTime day, CalendarManager calendarManager) {
+    final events = calendarManager.getEventsForDay(day);
+
+    // Filtrování podle barvy
+    if (_selectedColorFilter != null) {
+      return events
+          .where((e) => Color(e.color) == _selectedColorFilter)
+          .toList();
     }
+
+    return events;
   }
 
-  // Naplánování všech upozornění po načtení
-  Future<void> _scheduleNotificationsForEvents() async {
-    // Nejprve vyčistíme všechna upozornění
-    await flutterLocalNotificationsPlugin.cancelAll();
-    
-    // Plánujeme nová upozornění pro všechny události s reminder
-    for (final dayEvents in _events.entries) {
-      for (final event in dayEvents.value) {
-        if (event["reminder"] != null && !(event["reminder"]["scheduled"] ?? false)) {
-          await _scheduleNotification(event);
-          
-          // Označíme, že upozornění bylo naplánováno
-          event["reminder"]["scheduled"] = true;
-        }
-      }
-    }
-    
-    // Uložíme aktualizovaná data
-    await _saveEvents();
-  }
+  Future<void> _addOrEditEvent(
+      {CalendarEvent? event, DateTime? selectedDate}) async {
+    final calendarManager =
+        Provider.of<CalendarManager>(context, listen: false);
+    final notificationService =
+        Provider.of<NotificationService>(context, listen: false);
 
-  Future<void> _saveEvents() async {
-    final prefs = await SharedPreferences.getInstance();
-    Map<String, String> stringEvents = _events.map((key, value) {
-      return MapEntry(
-        key.toIso8601String(),
-        jsonEncode(value.map((event) {
-          // Uložíme všechna rozšířená pole
-          return {
-            "id": event["id"],
-            "title": event["title"],
-            "time": (event["time"] as DateTime).toIso8601String(),
-            "endTime": event["endTime"] != null ? (event["endTime"] as DateTime).toIso8601String() : null,
-            "description": event["description"],
-            "location": event["location"],
-            "allDay": event["allDay"],
-            "color": event["color"],
-            "reminder": event["reminder"],
-          };
-        }).toList()),
-      );
-    });
-    await prefs.setString('events', jsonEncode(stringEvents));
-    
-    // Označíme, že došlo ke změnám, aby se aktualizovala homepage
-    _hasChanges = true;
-  }
-
-  List<Map<String, dynamic>> _getEventsForDay(DateTime day) {
-    final dayKey = DateTime(day.year, day.month, day.day);
-    return _events[dayKey] ?? [];
-  }
-
-  // Pro podporu zobrazení denního pohledu
-  List<Map<String, dynamic>> _getEventsForToday() {
-    final today = DateTime.now();
-    final todayKey = DateTime(today.year, today.month, today.day);
-    return _events[todayKey] ?? [];
-  }
-
-  Future<void> _addOrEditEvent({Map<String, dynamic>? event, int? index}) async {
     final TextEditingController titleController = TextEditingController(
-      text: event != null ? event["title"] : "",
+      text: event?.title ?? "",
     );
     final TextEditingController descriptionController = TextEditingController(
-      text: event != null ? event["description"] : "",
+      text: event?.description ?? "",
     );
     final TextEditingController locationController = TextEditingController(
-      text: event != null ? event["location"] : "",
+      text: event?.location ?? "",
     );
-    
+
+    final eventDate = selectedDate ?? _selectedDay ?? _focusedDay;
+
     TimeOfDay selectedStartTime = event != null
-        ? TimeOfDay.fromDateTime(event["time"])
+        ? TimeOfDay.fromDateTime(event.startTime)
         : TimeOfDay.now();
-    
-    TimeOfDay selectedEndTime = event != null && event["endTime"] != null
-        ? TimeOfDay.fromDateTime(event["endTime"])
+
+    TimeOfDay selectedEndTime = event != null && event.endTime != null
+        ? TimeOfDay.fromDateTime(event.endTime!)
         : TimeOfDay(
-            hour: TimeOfDay.now().hour + 1,
-            minute: TimeOfDay.now().minute
-          );
-    
-    bool isAllDay = event != null ? event["allDay"] ?? false : false;
-    
-    // Výchozí barva nebo načtená
-    Color selectedColor = event != null 
-        ? Color(event["color"]) 
-        : Colors.blue;
-    
-    // Upozornění
-    Map<String, dynamic>? reminder = event != null 
-        ? event["reminder"] 
-        : null;
-        
+            hour: TimeOfDay.now().hour + 1, minute: TimeOfDay.now().minute);
+
+    bool isAllDay = event?.allDay ?? false;
+    Color selectedColor = event != null ? Color(event.color) : Colors.blue;
+
+    // Nastavení notifikací
+    bool notificationEnabled = event?.notificationEnabled ?? false;
+    int notificationMinutesBefore = event?.notificationMinutesBefore ?? 30;
+
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Text(event == null ? tr('add_event') : tr('edit_event', namedArgs: {'event': event["title"]})),
-              content: SingleChildScrollView(
+          builder: (context, setDialogState) {
+            return Dialog(
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 40,
+              ),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.7,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextField(
-                      controller: titleController,
-                      decoration: InputDecoration(
-                        labelText: tr('event_title'),
-                        border: const OutlineInputBorder(),
+                    // Header s titulkem - FIXED
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Celodenní událost přepínač
-                    Row(
-                      children: [
-                        Text(tr('all_day_event')),
-                        Switch(
-                          value: isAllDay,
-                          activeColor: Colors.pink,
-                          onChanged: (value) {
-                            setState(() {
-                              isAllDay = value;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                    
-                    if (!isAllDay) ...[
-                      // Čas začátku
-                      Row(
+                      decoration: BoxDecoration(
+                        color: Colors.pink.shade50,
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(16)),
+                      ),
+                      child: Row(
                         children: [
-                          Text("${tr('start_time')}: "),
-                          TextButton.icon(
-                            icon: const Icon(Icons.access_time),
-                            onPressed: () async {
-                              final pickedTime = await showTimePicker(
-                                context: context,
-                                initialTime: selectedStartTime,
-                                builder: (context, child) {
-                                  return MediaQuery(
-                                    data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-                                    child: child!,
-                                  );
-                                },
-                              );
-                              if (pickedTime != null) {
-                                setState(() {
-                                  selectedStartTime = pickedTime;
-                                  // Pokud je konec dříve než začátek, posuneme konec
-                                  if (_timeToMinutes(selectedEndTime) < _timeToMinutes(selectedStartTime)) {
-                                    selectedEndTime = TimeOfDay(
-                                      hour: selectedStartTime.hour + 1,
-                                      minute: selectedStartTime.minute,
-                                    );
-                                  }
-                                });
-                              }
-                            },
-                            label: Text(
-                              DateFormat.Hm().format(DateTime(
-                                2022, 1, 1, 
-                                selectedStartTime.hour, 
-                                selectedStartTime.minute
-                              )),
-                              style: const TextStyle(
-                                fontSize: 16, 
-                                fontWeight: FontWeight.bold
+                          Icon(Icons.event, color: Colors.pink.shade700),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              event == null
+                                  ? tr('add_event')
+                                  : tr('edit_event'),
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.pink.shade700,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(dialogContext),
                           ),
                         ],
                       ),
-                      
-                      // Čas konce
-                      Row(
-                        children: [
-                          Text("${tr('end_time')}: "),
-                          TextButton.icon(
-                            icon: const Icon(Icons.access_time),
-                            onPressed: () async {
-                              final pickedTime = await showTimePicker(
-                                context: context,
-                                initialTime: selectedEndTime,
-                                builder: (context, child) {
-                                  return MediaQuery(
-                                    data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-                                    child: child!,
-                                  );
-                                },
-                              );
-                              if (pickedTime != null) {
-                                setState(() {
-                                  selectedEndTime = pickedTime;
-                                });
-                              }
-                            },
-                            label: Text(
-                              DateFormat.Hm().format(DateTime(
-                                2022, 1, 1, 
-                                selectedEndTime.hour, 
-                                selectedEndTime.minute
-                              )),
-                              style: const TextStyle(
-                                fontSize: 16, 
-                                fontWeight: FontWeight.bold
+                    ),
+
+                    // Scrollovatelný obsah - FLEXIBLE
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Název události
+                            TextField(
+                              controller: titleController,
+                              autofocus: false,
+                              decoration: InputDecoration(
+                                labelText: tr('event_title'),
+                                border: const OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.title),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Popis události
-                    TextField(
-                      controller: descriptionController,
-                      decoration: InputDecoration(
-                        labelText: tr('event_description'),
-                        border: const OutlineInputBorder(),
-                      ),
-                      maxLines: 3,
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Lokace události
-                    TextField(
-                      controller: locationController,
-                      decoration: InputDecoration(
-                        labelText: tr('event_location'),
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.location_on),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Barva události
-                    Text(
-                      "${tr('event_color')}:",
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        Colors.blue,
-                        Colors.red,
-                        Colors.green,
-                        Colors.orange,
-                        Colors.purple,
-                        Colors.teal,
-                        Colors.pink,
-                        Colors.brown,
-                      ].map((color) {
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              selectedColor = color;
-                            });
-                          },
-                          child: Container(
-                            width: 30,
-                            height: 30,
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
-                              border: selectedColor == color
-                                  ? Border.all(color: Colors.black, width: 2)
-                                  : null,
+                            const SizedBox(height: 16),
+
+                            // Celý den switch
+                            SwitchListTile(
+                              title: Text(tr('all_day_event')),
+                              value: isAllDay,
+                              activeColor: Colors.pink,
+                              onChanged: (value) {
+                                setDialogState(() => isAllDay = value);
+                              },
                             ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Nastavení upozornění
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          "${tr('reminder_when')}:",
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        if (reminder != null)
-                          TextButton.icon(
-                            icon: const Icon(Icons.delete_outline, color: Colors.red),
-                            label: Text(
-                              tr('reminder_remove'),
-                              style: const TextStyle(color: Colors.red),
-                            ),
-                            onPressed: () async {
-                              // Potvrzení odstranění upozornění
-                              final bool confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: Text(tr('confirm')),
-                                  content: Text(tr('reminder_confirm_remove')),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context, false),
-                                      child: Text(tr('cancel')),
-                                    ),
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.red,
-                                        foregroundColor: Colors.white,
+
+                            // Časy (pokud není celý den)
+                            if (!isAllDay) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: InkWell(
+                                      onTap: () async {
+                                        final picked = await showTimePicker(
+                                          context: context,
+                                          initialTime: selectedStartTime,
+                                          builder: (context, child) =>
+                                              MediaQuery(
+                                            data: MediaQuery.of(context)
+                                                .copyWith(
+                                                    alwaysUse24HourFormat:
+                                                        true),
+                                            child: child!,
+                                          ),
+                                        );
+                                        if (picked != null) {
+                                          setDialogState(() {
+                                            selectedStartTime = picked;
+                                            if (_timeToMinutes(
+                                                    selectedEndTime) <=
+                                                _timeToMinutes(
+                                                    selectedStartTime)) {
+                                              selectedEndTime = TimeOfDay(
+                                                hour: (selectedStartTime.hour +
+                                                        1) %
+                                                    24,
+                                                minute:
+                                                    selectedStartTime.minute,
+                                              );
+                                            }
+                                          });
+                                        }
+                                      },
+                                      child: InputDecorator(
+                                        decoration: InputDecoration(
+                                          labelText: tr('start_time'),
+                                          border: const OutlineInputBorder(),
+                                          prefixIcon:
+                                              const Icon(Icons.access_time),
+                                        ),
+                                        child: Text(
+                                          DateFormat.Hm().format(DateTime(
+                                              2022,
+                                              1,
+                                              1,
+                                              selectedStartTime.hour,
+                                              selectedStartTime.minute)),
+                                          style: const TextStyle(fontSize: 16),
+                                        ),
                                       ),
-                                      onPressed: () => Navigator.pop(context, true),
-                                      child: Text(tr('delete')),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: InkWell(
+                                      onTap: () async {
+                                        final picked = await showTimePicker(
+                                          context: context,
+                                          initialTime: selectedEndTime,
+                                          builder: (context, child) =>
+                                              MediaQuery(
+                                            data: MediaQuery.of(context)
+                                                .copyWith(
+                                                    alwaysUse24HourFormat:
+                                                        true),
+                                            child: child!,
+                                          ),
+                                        );
+                                        if (picked != null) {
+                                          setDialogState(
+                                              () => selectedEndTime = picked);
+                                        }
+                                      },
+                                      child: InputDecorator(
+                                        decoration: InputDecoration(
+                                          labelText: tr('end_time'),
+                                          border: const OutlineInputBorder(),
+                                          prefixIcon: const Icon(
+                                              Icons.access_time_filled),
+                                        ),
+                                        child: Text(
+                                          DateFormat.Hm().format(DateTime(
+                                              2022,
+                                              1,
+                                              1,
+                                              selectedEndTime.hour,
+                                              selectedEndTime.minute)),
+                                          style: const TextStyle(fontSize: 16),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+
+                            const SizedBox(height: 16),
+
+                            // Popis
+                            TextField(
+                              controller: descriptionController,
+                              decoration: InputDecoration(
+                                labelText: tr('event_description'),
+                                border: const OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.description),
+                              ),
+                              maxLines: 3,
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Lokace
+                            TextField(
+                              controller: locationController,
+                              decoration: InputDecoration(
+                                labelText: tr('event_location'),
+                                border: const OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.location_on),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Výběr barvy
+                            Text(
+                              "${tr('event_color')}:",
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: _availableColors.map((color) {
+                                final isSelected = selectedColor == color;
+                                return GestureDetector(
+                                  onTap: () => setDialogState(
+                                      () => selectedColor = color),
+                                  child: Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: color,
+                                      shape: BoxShape.circle,
+                                      border: isSelected
+                                          ? Border.all(
+                                              color: Colors.black,
+                                              width: 3,
+                                            )
+                                          : null,
+                                      boxShadow: isSelected
+                                          ? [
+                                              BoxShadow(
+                                                color: color.withOpacity(0.5),
+                                                blurRadius: 8,
+                                                spreadRadius: 2,
+                                              )
+                                            ]
+                                          : null,
+                                    ),
+                                    child: isSelected
+                                        ? const Icon(
+                                            Icons.check,
+                                            color: Colors.white,
+                                            size: 28,
+                                          )
+                                        : null,
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+
+                            const SizedBox(height: 20),
+                            const Divider(),
+                            const SizedBox(height: 12),
+
+                            // Notifikace
+                            SwitchListTile(
+                              title: Row(
+                                children: [
+                                  const Icon(Icons.notifications_active,
+                                      size: 20),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      tr('event_notification'),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              subtitle: notificationEnabled
+                                  ? Text(
+                                      tr('event_notification_time', namedArgs: {
+                                        'minutes':
+                                            notificationMinutesBefore.toString()
+                                      }),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    )
+                                  : null,
+                              value: notificationEnabled,
+                              activeColor: Colors.pink,
+                              onChanged: (value) {
+                                setDialogState(
+                                    () => notificationEnabled = value);
+                              },
+                            ),
+
+                            // Nastavení času notifikace
+                            if (notificationEnabled) ...[
+                              const SizedBox(height: 8),
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      tr('event_notification_before'),
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        _buildTimeChip(
+                                          context,
+                                          label: '5 ${tr('minutes')}',
+                                          minutes: 5,
+                                          selectedMinutes:
+                                              notificationMinutesBefore,
+                                          onTap: () => setDialogState(() =>
+                                              notificationMinutesBefore = 5),
+                                        ),
+                                        _buildTimeChip(
+                                          context,
+                                          label: '10 ${tr('minutes')}',
+                                          minutes: 10,
+                                          selectedMinutes:
+                                              notificationMinutesBefore,
+                                          onTap: () => setDialogState(() =>
+                                              notificationMinutesBefore = 10),
+                                        ),
+                                        _buildTimeChip(
+                                          context,
+                                          label: '15 ${tr('minutes')}',
+                                          minutes: 15,
+                                          selectedMinutes:
+                                              notificationMinutesBefore,
+                                          onTap: () => setDialogState(() =>
+                                              notificationMinutesBefore = 15),
+                                        ),
+                                        _buildTimeChip(
+                                          context,
+                                          label: '30 ${tr('minutes')}',
+                                          minutes: 30,
+                                          selectedMinutes:
+                                              notificationMinutesBefore,
+                                          onTap: () => setDialogState(() =>
+                                              notificationMinutesBefore = 30),
+                                        ),
+                                        _buildTimeChip(
+                                          context,
+                                          label: '1 ${tr('hour')}',
+                                          minutes: 60,
+                                          selectedMinutes:
+                                              notificationMinutesBefore,
+                                          onTap: () => setDialogState(() =>
+                                              notificationMinutesBefore = 60),
+                                        ),
+                                        _buildTimeChip(
+                                          context,
+                                          label: '2 ${tr('hours')}',
+                                          minutes: 120,
+                                          selectedMinutes:
+                                              notificationMinutesBefore,
+                                          onTap: () => setDialogState(() =>
+                                              notificationMinutesBefore = 120),
+                                        ),
+                                        _buildTimeChip(
+                                          context,
+                                          label: '1 ${tr('day')}',
+                                          minutes: 1440,
+                                          selectedMinutes:
+                                              notificationMinutesBefore,
+                                          onTap: () => setDialogState(() =>
+                                              notificationMinutesBefore = 1440),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                              ) ?? false;
-                              
-                              if (confirm) {
-                                setState(() {
-                                  reminder = null;
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Tlačítka - FIXED na spodku
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            child: Text(tr('cancel')),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.pink.shade300,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
+                            ),
+                            icon: const Icon(Icons.check),
+                            label: Text(event == null ? tr('add') : tr('save')),
+                            onPressed: () {
+                              if (titleController.text.trim().isNotEmpty) {
+                                final eventStartTime = DateTime(
+                                  eventDate.year,
+                                  eventDate.month,
+                                  eventDate.day,
+                                  isAllDay ? 0 : selectedStartTime.hour,
+                                  isAllDay ? 0 : selectedStartTime.minute,
+                                );
+
+                                final eventEndTime = isAllDay
+                                    ? null
+                                    : DateTime(
+                                        eventDate.year,
+                                        eventDate.month,
+                                        eventDate.day,
+                                        selectedEndTime.hour,
+                                        selectedEndTime.minute,
+                                      );
+
+                                Navigator.pop(dialogContext, {
+                                  "title": titleController.text.trim(),
+                                  "startTime": eventStartTime,
+                                  "endTime": eventEndTime,
+                                  "description":
+                                      descriptionController.text.trim(),
+                                  "location": locationController.text.trim(),
+                                  "allDay": isAllDay,
+                                  "color": selectedColor.value,
+                                  "notificationEnabled": notificationEnabled,
+                                  "notificationMinutesBefore":
+                                      notificationMinutesBefore,
                                 });
                               }
                             },
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (reminder == null)
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.notifications_active),
-                        label: Text(tr('reminder_add_now')),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.pink,
-                          foregroundColor: Colors.white,
-                        ),
-                        onPressed: () async {
-                          // Otevřeme dialog pro výběr času upozornění
-                          final selectedReminder = await _showReminderSelectionDialog();
-                          if (selectedReminder != null) {
-                            setState(() {
-                              reminder = selectedReminder;
-                            });
-                          }
-                        },
-                      )
-                    else
-                      // Zobrazit aktuální nastavení připomenutí
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.pink.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.pink.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.notifications_active, color: Colors.pink),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _getReminderText(reminder!),
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.edit, size: 16),
-                              onPressed: () async {
-                                final selectedReminder = await _showReminderSelectionDialog(
-                                  initialReminder: reminder
-                                );
-                                if (selectedReminder != null) {
-                                  setState(() {
-                                    reminder = selectedReminder;
-                                  });
-                                }
-                              },
-                            ),
-                          ],
-                        ),
+                        ],
                       ),
+                    ),
                   ],
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(tr('cancel')),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.pink.shade300,
-                  ),
-                  onPressed: () {
-                    if (titleController.text.trim().isNotEmpty && _selectedDay != null) {
-                      final eventId = event != null ? event["id"] : DateTime.now().millisecondsSinceEpoch.toString();
-                      
-                      final eventStartTime = DateTime(
-                        _selectedDay!.year,
-                        _selectedDay!.month,
-                        _selectedDay!.day,
-                        isAllDay ? 0 : selectedStartTime.hour,
-                        isAllDay ? 0 : selectedStartTime.minute,
-                      );
-                      
-                      final eventEndTime = isAllDay ? null : DateTime(
-                        _selectedDay!.year,
-                        _selectedDay!.month,
-                        _selectedDay!.day,
-                        selectedEndTime.hour,
-                        selectedEndTime.minute,
-                      );
-                      
-                      Navigator.pop(context, {
-                        "id": eventId,
-                        "title": titleController.text.trim(),
-                        "time": eventStartTime,
-                        "endTime": eventEndTime,
-                        "description": descriptionController.text.trim(),
-                        "location": locationController.text.trim(),
-                        "allDay": isAllDay,
-                        "color": selectedColor.value,
-                        "reminder": reminder,
-                      });
-                    }
-                  },
-                  child: Text(event == null ? tr('add') : tr('save')),
-                ),
-              ],
             );
-          }
+          },
         );
       },
     );
-    
-    if (result != null && _selectedDay != null) {
-      final dayKey = DateTime(_selectedDay!.year, _selectedDay!.month, _selectedDay!.day);
-      setState(() {
-        if (_events.containsKey(dayKey)) {
-          if (event != null && index != null) {
-            // Edit existing event.
-            _events[dayKey]![index] = result;
-          } else {
-            // Add new event.
-            _events[dayKey]!.add(result);
-          }
+
+    if (result != null) {
+      if (event != null) {
+        final updatedEvent = event.copyWith(
+          title: result["title"],
+          startTime: result["startTime"],
+          endTime: result["endTime"],
+          description: result["description"],
+          location: result["location"],
+          allDay: result["allDay"],
+          color: result["color"],
+          notificationEnabled: result["notificationEnabled"],
+          notificationMinutesBefore: result["notificationMinutesBefore"],
+        );
+        calendarManager.updateEvent(updatedEvent);
+
+        // Naplánování notifikace
+        if (updatedEvent.notificationEnabled) {
+          await _scheduleNotification(notificationService, updatedEvent);
         } else {
-          _events[dayKey] = [result];
+          await notificationService
+              .cancelNotification(updatedEvent.id.hashCode);
         }
-      });
-      
-      // Uložíme změny
-      await _saveEvents();
-      
-      // Naplánujeme upozornění, pokud existuje
-      if (result["reminder"] != null) {
-        await _scheduleNotification(result);
+      } else {
+        final newEvent = CalendarEvent(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          title: result["title"],
+          startTime: result["startTime"],
+          endTime: result["endTime"],
+          description: result["description"],
+          location: result["location"],
+          allDay: result["allDay"],
+          color: result["color"],
+          notificationEnabled: result["notificationEnabled"],
+          notificationMinutesBefore: result["notificationMinutesBefore"],
+        );
+        calendarManager.addEvent(newEvent);
+
+        // Naplánování notifikace
+        if (newEvent.notificationEnabled) {
+          await _scheduleNotification(notificationService, newEvent);
+        }
       }
-      
-      // Oznámíme uživateli
+
+      setState(() {
+        _hasChanges = true;
+      });
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -732,257 +700,84 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
     }
   }
 
-  // Pomocná metoda pro převod TimeOfDay na minuty pro snadné porovnávání
-  int _timeToMinutes(TimeOfDay time) {
-    return time.hour * 60 + time.minute;
-  }
-  
-  // Dialog pro výběr upozornění
-  Future<Map<String, dynamic>?> _showReminderSelectionDialog({Map<String, dynamic>? initialReminder}) async {
-    String reminderType = initialReminder != null ? initialReminder["type"] : "minutes";
-    int reminderValue = initialReminder != null ? initialReminder["value"] : 30;
-    
-    final options = <Map<String, dynamic>>[
-      {"type": "minutes", "values": [5, 10, 15, 30]},
-      {"type": "hours", "values": [1, 2, 3, 6, 12]},
-      {"type": "days", "values": [1, 2, 3, 7]},
-    ];
-    
-    return showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            title: Text(tr('set_reminder')),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: options.map((typeOption) {
-                  final String type = typeOption["type"];
-                  final List<int> values = typeOption["values"];
-                  
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 8),
-                      ...values.map((value) {
-                        final bool isSelected = reminderType == type && reminderValue == value;
-                        return InkWell(
-                          onTap: () {
-                            setState(() {
-                              reminderType = type;
-                              reminderValue = value;
-                            });
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                                  color: isSelected ? Colors.pink : Colors.grey,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  type == "minutes" 
-                                      ? tr('reminder_minutes_before', namedArgs: {'minutes': value.toString()})
-                                      : type == "hours"
-                                          ? tr('reminder_hours_before', namedArgs: {'hours': value.toString()})
-                                          : tr('reminder_days_before', namedArgs: {'days': value.toString()}),
-                                  style: TextStyle(
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ],
-                  );
-                }).toList(),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(tr('cancel')),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.pink,
-                ),
-                onPressed: () {
-                  Navigator.pop(context, {
-                    "type": reminderType,
-                    "value": reminderValue,
-                    "scheduled": false,
-                  });
-                },
-                child: Text(tr('save')),
-              ),
-            ],
-          );
-        },
-      ),
+  Widget _buildTimeChip(
+    BuildContext context, {
+    required String label,
+    required int minutes,
+    required int selectedMinutes,
+    required VoidCallback onTap,
+  }) {
+    final isSelected = minutes == selectedMinutes;
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: Colors.pink.shade200,
+      onSelected: (_) => onTap(),
     );
   }
-  
-  // Získání textu pro zobrazení upozornění
-  String _getReminderText(Map<String, dynamic> reminder) {
-    final type = reminder["type"];
-    final value = reminder["value"];
-    
-    switch (type) {
-      case "minutes":
-        return tr('reminder_minutes_before', namedArgs: {'minutes': value.toString()});
-      case "hours":
-        return tr('reminder_hours_before', namedArgs: {'hours': value.toString()});
-      case "days":
-        return tr('reminder_days_before', namedArgs: {'days': value.toString()});
-      default:
-        return "";
-    }
-  }
-  
-  // Plánování upozornění pro událost
-  Future<void> _scheduleNotification(Map<String, dynamic> event) async {
-    if (event["reminder"] == null) return;
-    
-    final int uniqueId = int.parse(event["id"].toString().substring(0, 9));
-    final DateTime eventTime = event["time"];
-    final String title = event["title"];
-    
-    // Výpočet času upozornění v závislosti na typu a hodnotě
-    final reminderType = event["reminder"]["type"];
-    final reminderValue = event["reminder"]["value"];
-    
-    // Výpočet času upozornění
-    DateTime notificationTime;
-    switch (reminderType) {
-      case "minutes":
-        notificationTime = eventTime.subtract(Duration(minutes: reminderValue));
-        break;
-      case "hours":
-        notificationTime = eventTime.subtract(Duration(hours: reminderValue));
-        break;
-      case "days":
-        notificationTime = eventTime.subtract(Duration(days: reminderValue));
-        break;
-      default:
-        notificationTime = eventTime.subtract(const Duration(minutes: 30));
-    }
-    
-    // Neplánovat upozornění v minulosti
-    if (notificationTime.isBefore(DateTime.now())) {
-      debugPrint('[CalendarPage] Skipping notification in the past');
-      return;
-    }
-    
-    // Struktura upozornění
-    final androidDetails = AndroidNotificationDetails(
-      'wedding_calendar_channel',
-      'Wedding Calendar Notifications',
-      channelDescription: 'Notifications for wedding calendar events',
-      importance: Importance.high,
-      priority: Priority.high,
-      color: Color(event["color"]),
+
+  Future<void> _scheduleNotification(
+      NotificationService notificationService, CalendarEvent event) async {
+    if (!event.notificationEnabled) return;
+
+    final notificationTime = event.startTime.subtract(
+      Duration(minutes: event.notificationMinutesBefore),
     );
-    
-    final iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-    
-    final platformDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-    
-    // Vytvoření obsahu upozornění
-    // Opravili jsme placeholder tak, aby používal namedArgs {event}
-    final titleText = tr('reminder_title', namedArgs: {'event': title});
-    // Opravili jsme placeholder tak, aby používal namedArgs {time}
-    final bodyText = event["location"].isNotEmpty
-        ? '${tr('reminder_body', namedArgs: {'time': DateFormat.Hm().format(eventTime)})} - ${event["location"]}'
-        : tr('reminder_body', namedArgs: {'time': DateFormat.Hm().format(eventTime)});
-        
-    final payload = jsonEncode({
-      'eventId': event["id"],
-      'day': '${eventTime.year}-${eventTime.month}-${eventTime.day}',
-    });
-    
-    // Naplánování upozornění - OPRAVA: odstraněny neplatné parametry
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      uniqueId,
-      titleText,
-      bodyText,
-      tz.TZDateTime.from(notificationTime, tz.local),
-      platformDetails,
-      payload: payload,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      // Odstraněn parametr uiLocalNotificationDateInterpretation, který není potřeba v novější verzi pluginu
-    );
-    
-    // Označíme upozornění jako naplánované
-    event["reminder"]["scheduled"] = true;
-    
-    // Zobrazíme potvrzení
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(tr('reminder_added')),
-          duration: const Duration(seconds: 2),
-          backgroundColor: Colors.green,
-        ),
+
+    if (notificationTime.isAfter(DateTime.now())) {
+      await notificationService.scheduleNotification(
+        title: tr('event_reminder'),
+        body:
+            '${event.title} ${tr('event_starts_in')} ${event.notificationMinutesBefore} ${tr('minutes')}',
+        scheduledTime: notificationTime,
+        payload: {'event_id': event.id, 'type': 'calendar_event'},
       );
     }
   }
 
-  Future<void> _deleteEvent(DateTime day, int index) async {
-    // Přidáno potvrzení před smazáním
+  int _timeToMinutes(TimeOfDay time) {
+    return time.hour * 60 + time.minute;
+  }
+
+  Future<void> _deleteEvent(CalendarEvent event) async {
     final bool confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(tr('confirm')),
-        content: Text(tr('confirm_delete_event')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(tr('cancel')),
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(tr('confirm')),
+            content: Text(tr('confirm_delete_event')),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(tr('cancel')),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(tr('delete')),
+              ),
+            ],
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(tr('delete')),
-          ),
-        ],
-      ),
-    ) ?? false;
-    
+        ) ??
+        false;
+
     if (confirm) {
-      final dayKey = DateTime(day.year, day.month, day.day);
-      
-      // Rušíme naplánované upozornění
-      if (_events[dayKey]?[index]["reminder"] != null) {
-        final eventId = _events[dayKey]![index]["id"];
-        final uniqueId = int.parse(eventId.toString().substring(0, 9));
-        await flutterLocalNotificationsPlugin.cancel(uniqueId);
-      }
-      
+      final calendarManager =
+          Provider.of<CalendarManager>(context, listen: false);
+      final notificationService =
+          Provider.of<NotificationService>(context, listen: false);
+
+      // Zrušení notifikace
+      await notificationService.cancelNotification(event.id.hashCode);
+
+      calendarManager.removeEvent(event.id);
+
       setState(() {
-        _events[dayKey]?.removeAt(index);
-        if (_events[dayKey]?.isEmpty ?? false) {
-          _events.remove(dayKey);
-        }
+        _hasChanges = true;
       });
-      await _saveEvents();
-      
-      // Zobrazíme potvrzení o smazání
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -994,23 +789,25 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
       }
     }
   }
-  
-  // Zobrazení detailů události
-  Future<void> _showEventDetails(Map<String, dynamic> event, int index) async {
+
+  Future<void> _showEventDetails(CalendarEvent event) async {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: false,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-            ),
-            child: Container(
-              padding: const EdgeInsets.all(20),
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1029,19 +826,20 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
                         ),
                       ),
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
                             icon: const Icon(Icons.edit, color: Colors.blue),
                             onPressed: () {
                               Navigator.pop(context);
-                              _addOrEditEvent(event: event, index: index);
+                              _addOrEditEvent(event: event);
                             },
                           ),
                           IconButton(
                             icon: const Icon(Icons.delete, color: Colors.red),
                             onPressed: () {
                               Navigator.pop(context);
-                              _deleteEvent(_selectedDay ?? _focusedDay, index);
+                              _deleteEvent(event);
                             },
                           ),
                         ],
@@ -1050,56 +848,95 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
                   ),
                   const Divider(),
                   const SizedBox(height: 10),
-                  
-                  // Název události
-                  Text(
-                    event["title"],
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(event["color"]),
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Color(event.color),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          event.title,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 15),
-                  
-                  // Čas události
+                  const SizedBox(height: 20),
                   Row(
                     children: [
                       Icon(Icons.access_time, color: Colors.grey.shade700),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: event["allDay"]
-                            ? Text(tr('all_day_event'))
+                        child: event.allDay
+                            ? Text(
+                                tr('all_day_event'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              )
                             : Text(
-                                '${DateFormat.Hm().format(event["time"])} - ${event["endTime"] != null ? DateFormat.Hm().format(event["endTime"]) : ""}',
+                                '${DateFormat.Hm().format(event.startTime)} - ${event.endTime != null ? DateFormat.Hm().format(event.endTime!) : ""}',
                                 style: const TextStyle(fontSize: 16),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                       ),
                     ],
                   ),
-                  
-                  // Lokace (pokud existuje)
-                  if (event["location"] != null && event["location"].toString().isNotEmpty)
+                  if (event.location != null && event.location!.isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(top: 10),
+                      padding: const EdgeInsets.only(top: 12),
                       child: Row(
                         children: [
                           Icon(Icons.location_on, color: Colors.grey.shade700),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              event["location"],
+                              event.location!,
                               style: const TextStyle(fontSize: 16),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  
-                  // Popis (pokud existuje)
-                  if (event["description"] != null && event["description"].toString().isNotEmpty)
+                  if (event.notificationEnabled)
                     Padding(
-                      padding: const EdgeInsets.only(top: 15),
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.notifications_active,
+                              color: Colors.grey.shade700),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              tr('event_notification_time', namedArgs: {
+                                'minutes':
+                                    event.notificationMinutesBefore.toString()
+                              }),
+                              style: const TextStyle(fontSize: 16),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (event.description != null &&
+                      event.description!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1113,38 +950,15 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
                           ),
                           const SizedBox(height: 5),
                           Text(
-                            event["description"],
+                            event.description!,
                             style: const TextStyle(fontSize: 16),
+                            maxLines: 10,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
                     ),
-                  
-                  const SizedBox(height: 15),
-                  
-                  // Reminder status
-                  if (event["reminder"] != null)
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.pink.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.pink.shade200),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.notifications_active, color: Colors.pink),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(_getReminderText(event["reminder"])),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
                   const SizedBox(height: 20),
-                  
-                  // Tlačítka akcí
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -1156,7 +970,7 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
                         ),
                         onPressed: () {
                           Navigator.pop(context);
-                          _addOrEditEvent(event: event, index: index);
+                          _addOrEditEvent(event: event);
                         },
                       ),
                       ElevatedButton.icon(
@@ -1168,7 +982,7 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
                         ),
                         onPressed: () {
                           Navigator.pop(context);
-                          _deleteEvent(_selectedDay ?? _focusedDay, index);
+                          _deleteEvent(event);
                         },
                       ),
                     ],
@@ -1181,354 +995,587 @@ class _CalendarPageState extends State<CalendarPage> with TickerProviderStateMix
       },
     );
   }
-  
-  @override
-  Widget build(BuildContext context) {
-    // Zvýraznění dne svatby v kalendáři, pokud existuje
-    final weddingDay = _weddingInfo?.weddingDate != null 
-      ? DateTime(
-          _weddingInfo!.weddingDate.year,
-          _weddingInfo!.weddingDate.month,
-          _weddingInfo!.weddingDate.day,
-        ) 
-      : null;
-    
-    return WillPopScope(
-      // Předáme informaci o změnách při návratu na předchozí obrazovku
-      onWillPop: () async {
-        Navigator.pop(context, _hasChanges);
-        return false;
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(tr('calendar')),
-          centerTitle: true,
-          actions: [
-            // Tlačítko pro přechod na dnešek
-            IconButton(
-              icon: const Icon(Icons.today),
-              tooltip: tr('jump_to_today'),
-              onPressed: () {
-                setState(() {
-                  _selectedDay = DateTime.now();
-                  _focusedDay = DateTime.now();
-                });
-              },
+
+  void _showColorFilter() {
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: false,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
             ),
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              tooltip: tr('refresh'),
-              onPressed: _loadEvents,
-            ),
-          ],
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(48),
-            child: TabBar(
-              controller: _viewTabController,
-              tabs: [
-                Tab(text: tr('month_view')),
-                Tab(text: tr('week_view')),
-                Tab(text: tr('day_view')),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tr('filter_by_color'),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: [
+                    // Všechny události
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => _selectedColorFilter = null);
+                        Navigator.pop(context);
+                      },
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: _selectedColorFilter == null
+                                    ? Colors.pink
+                                    : Colors.grey,
+                                width: _selectedColorFilter == null ? 3 : 1,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.all_inclusive),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(tr('all_events')),
+                        ],
+                      ),
+                    ),
+                    // Jednotlivé barvy
+                    ..._availableColors.map((color) {
+                      final isSelected = _selectedColorFilter == color;
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() => _selectedColorFilter = color);
+                          Navigator.pop(context);
+                        },
+                        child: Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            border: isSelected
+                                ? Border.all(color: Colors.black, width: 3)
+                                : null,
+                          ),
+                          child: isSelected
+                              ? const Icon(Icons.check, color: Colors.white)
+                              : null,
+                        ),
+                      );
+                    }),
+                  ],
+                ),
               ],
-              labelColor: Colors.pink,
-              indicatorColor: Colors.pink,
             ),
           ),
-        ),
-        body: Column(
-          children: [
-            // Kalendář - zobrazení se mění podle vybraného pohledu
-            AnimatedSize(
-              duration: const Duration(milliseconds: 300),
-              child: _currentViewIndex == 2 // denní pohled
-                ? Container(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        // Pouze zobrazit dnešní datum
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.arrow_back_ios),
-                              onPressed: () {
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<CalendarManager>(
+      builder: (context, calendarManager, child) {
+        final weddingDay = _weddingInfo?.weddingDate != null
+            ? DateTime(
+                _weddingInfo!.weddingDate.year,
+                _weddingInfo!.weddingDate.month,
+                _weddingInfo!.weddingDate.day,
+              )
+            : null;
+
+        final bool showSyncIndicator =
+            calendarManager.syncState == SyncState.syncing;
+
+        return WillPopScope(
+          onWillPop: () async {
+            Navigator.pop(context, _hasChanges);
+            return false;
+          },
+          child: Scaffold(
+            resizeToAvoidBottomInset: true,
+            appBar: AppBar(
+              title: Text(tr('calendar')),
+              centerTitle: true,
+              actions: [
+                // ONLINE/OFFLINE ikona
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Icon(
+                    calendarManager.isOnline
+                        ? Icons.cloud_done
+                        : Icons.cloud_off,
+                    color:
+                        calendarManager.isOnline ? Colors.green : Colors.orange,
+                  ),
+                ),
+                // JUMP TO TODAY
+                IconButton(
+                  icon: const Icon(Icons.today),
+                  tooltip: tr('jump_to_today'),
+                  onPressed: () {
+                    setState(() {
+                      _focusedDay = DateTime.now();
+                      _selectedDay = DateTime.now();
+                    });
+                  },
+                ),
+              ],
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(48),
+                child: TabBar(
+                  controller: _viewTabController,
+                  tabs: [
+                    Tab(text: tr('month_view')),
+                    Tab(text: tr('week_view')),
+                    Tab(text: tr('day_view')),
+                  ],
+                  labelColor: Colors.pink,
+                  indicatorColor: Colors.pink,
+                ),
+              ),
+            ),
+            body: Stack(
+              children: [
+                Column(
+                  children: [
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 300),
+                      child: _currentViewIndex == 2
+                          ? Container(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.arrow_back_ios),
+                                        onPressed: () {
+                                          setState(() {
+                                            _selectedDay = _selectedDay!
+                                                .subtract(
+                                                    const Duration(days: 1));
+                                            _focusedDay = _selectedDay!;
+                                          });
+                                        },
+                                      ),
+                                      Expanded(
+                                        child: Text(
+                                          DateFormat.yMMMMd(
+                                                  context.locale.toString())
+                                              .format(
+                                                  _selectedDay ?? _focusedDay),
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon:
+                                            const Icon(Icons.arrow_forward_ios),
+                                        onPressed: () {
+                                          setState(() {
+                                            _selectedDay = _selectedDay!
+                                                .add(const Duration(days: 1));
+                                            _focusedDay = _selectedDay!;
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            )
+                          : TableCalendar<CalendarEvent>(
+                              focusedDay: _focusedDay,
+                              firstDay: DateTime(2000),
+                              lastDay: DateTime(2100),
+                              locale: context.locale.languageCode,
+                              selectedDayPredicate: (day) =>
+                                  isSameDay(_selectedDay, day),
+                              onDaySelected: (selectedDay, focusedDay) {
                                 setState(() {
-                                  _selectedDay = _selectedDay!.subtract(const Duration(days: 1));
-                                  _focusedDay = _selectedDay!;
+                                  _selectedDay = selectedDay;
+                                  _focusedDay = focusedDay;
                                 });
                               },
+                              calendarFormat: _calendarFormat,
+                              onFormatChanged: (format) {
+                                setState(() {
+                                  _calendarFormat = format;
+                                });
+                              },
+                              eventLoader: (day) =>
+                                  _getEventsForDay(day, calendarManager),
+                              calendarStyle: CalendarStyle(
+                                todayDecoration: BoxDecoration(
+                                  color: Colors.pink.shade300,
+                                  shape: BoxShape.circle,
+                                ),
+                                selectedDecoration: BoxDecoration(
+                                  color: Colors.pink.shade700,
+                                  shape: BoxShape.circle,
+                                ),
+                                markerDecoration: BoxDecoration(
+                                  color: Colors.pink.shade200,
+                                  shape: BoxShape.circle,
+                                ),
+                                markerSize: 8,
+                                markersMaxCount: 5,
+                              ),
+                              headerStyle: const HeaderStyle(
+                                titleCentered: true,
+                                formatButtonVisible: false,
+                                titleTextStyle: TextStyle(
+                                    fontSize: 20, fontWeight: FontWeight.bold),
+                              ),
+                              calendarBuilders: CalendarBuilders(
+                                defaultBuilder: (context, day, focusedDay) {
+                                  if (weddingDay != null &&
+                                      isSameDay(day, weddingDay)) {
+                                    return Container(
+                                      margin: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                            color: Colors.pink, width: 2),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          day.day.toString(),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return null;
+                                },
+                                markerBuilder: (context, date, events) {
+                                  if (events.isNotEmpty) {
+                                    return Positioned(
+                                      bottom: 1,
+                                      child: Container(
+                                        height: 6,
+                                        width: 6,
+                                        decoration: BoxDecoration(
+                                          color: events.length > 1
+                                              ? Colors.pink
+                                              : Color(events.first.color),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return null;
+                                },
+                              ),
                             ),
-                            Text(
-                              DateFormat.yMMMMd(context.locale.toString()).format(_selectedDay ?? _focusedDay),
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                    ),
+                    const SizedBox(height: 8),
+                    if (weddingDay != null &&
+                        _selectedDay != null &&
+                        isSameDay(_selectedDay!, weddingDay))
+                      Container(
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.pink.shade100,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.favorite, color: Colors.pink),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                tr('wedding_day_info', namedArgs: {
+                                  'name1': _weddingInfo?.yourName ?? '',
+                                  'name2': _weddingInfo?.partnerName ?? ''
+                                }),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (_selectedColorFilter != null)
+                      Container(
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: _selectedColorFilter!.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: _selectedColorFilter!, width: 2),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: _selectedColorFilter,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                tr('color_filter_active'),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.arrow_forward_ios),
+                              icon: const Icon(Icons.close, size: 20),
                               onPressed: () {
-                                setState(() {
-                                  _selectedDay = _selectedDay!.add(const Duration(days: 1));
-                                  _focusedDay = _selectedDay!;
-                                });
+                                setState(() => _selectedColorFilter = null);
                               },
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  )
-                : TableCalendar(
-                    focusedDay: _focusedDay,
-                    firstDay: DateTime(2000),
-                    lastDay: DateTime(2100),
-                    locale: context.locale.languageCode,
-                    selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                    onDaySelected: (selectedDay, focusedDay) {
-                      setState(() {
-                        _selectedDay = selectedDay;
-                        _focusedDay = focusedDay;
-                      });
-                    },
-                    calendarFormat: _calendarFormat,
-                    onFormatChanged: (format) {
-                      setState(() {
-                        _calendarFormat = format;
-                      });
-                    },
-                    eventLoader: _getEventsForDay,
-                    calendarStyle: CalendarStyle(
-                      todayDecoration: BoxDecoration(
-                        color: Colors.pink.shade300,
-                        shape: BoxShape.circle,
                       ),
-                      selectedDecoration: BoxDecoration(
-                        color: Colors.pink.shade700,
-                        shape: BoxShape.circle,
-                      ),
-                      markerDecoration: BoxDecoration(
-                        color: Colors.pink.shade200,
-                        shape: BoxShape.circle,
-                      ),
-                      markerSize: 8,
-                      markersMaxCount: 5,
-                    ),
-                    headerStyle: HeaderStyle(
-                      titleCentered: true,
-                      formatButtonVisible: false,
-                      titleTextStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    calendarBuilders: CalendarBuilders(
-                      // Speciální vykreslení pro den svatby
-                      defaultBuilder: (context, day, focusedDay) {
-                        if (weddingDay != null && isSameDay(day, weddingDay)) {
-                          return Container(
-                            margin: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.pink, width: 2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Center(
-                              child: Text(
-                                day.day.toString(),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-                        return null;
-                      },
-                      // Přizpůsobení markerů pro události
-                      markerBuilder: (context, date, events) {
-                        if (events.isNotEmpty) {
-                          return Positioned(
-                            bottom: 1,
-                            child: Container(
-                              height: 6,
-                              width: 6,
-                              decoration: BoxDecoration(
-                                color: events.length > 1 
-                                  ? Colors.pink 
-                                  : Color((events.first as Map<String, dynamic>)["color"]),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          );
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-            ),
-            const SizedBox(height: 8),
-            
-            // Zobrazíme informaci o svatbě, pokud je aktuálně vybraný den svatby
-            if (weddingDay != null && _selectedDay != null && isSameDay(_selectedDay!, weddingDay))
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.pink.shade100,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.favorite, color: Colors.pink),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        tr('wedding_day_info', namedArgs: {
-                          'name1': _weddingInfo?.yourName ?? '',
-                          'name2': _weddingInfo?.partnerName ?? ''
-                        }),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-            const SizedBox(height: 8),
-            
-            // Záhlaví sekce událostí
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Icon(Icons.event, color: Colors.pink.shade700),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      tr('events_for_day', namedArgs: {
-                        'date': DateFormat.yMMMMd(context.locale.toString()).format(_selectedDay ?? _focusedDay)
-                      }),
-                      style: const TextStyle(
-                        fontSize: 16, 
-                        fontWeight: FontWeight.bold
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            const Divider(thickness: 1, height: 16),
-            
-            Expanded(
-              child: _getEventsForDay(_selectedDay ?? _focusedDay).isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
                         children: [
-                          Icon(Icons.event_busy, size: 50, color: Colors.grey.shade400),
-                          const SizedBox(height: 16),
-                          Text(
-                            tr('no_events'),
-                            style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
-                          ),
-                          const SizedBox(height: 16),
-                          OutlinedButton.icon(
-                            icon: const Icon(Icons.add),
-                            label: Text(tr('add_event')),
-                            onPressed: () => _addOrEditEvent(),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.pink.shade700,
+                          Icon(Icons.event, color: Colors.pink.shade700),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              tr('events_for_day', namedArgs: {
+                                'date':
+                                    DateFormat.yMMMMd(context.locale.toString())
+                                        .format(_selectedDay ?? _focusedDay)
+                              }),
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
                       ),
-                    )
-                  : ListView.builder(
-                      itemCount: _getEventsForDay(_selectedDay ?? _focusedDay).length,
-                      itemBuilder: (context, index) {
-                        final event = _getEventsForDay(_selectedDay ?? _focusedDay)[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-                          elevation: 3,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Color(event["color"]),
-                              child: const Icon(Icons.event_note, color: Colors.white),
-                            ),
-                            title: Text(
-                              event["title"],
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  event["allDay"] 
-                                    ? tr('all_day_event')
-                                    : tr('event_time', namedArgs: {
-                                        'time': DateFormat.Hm().format(event["time"])
-                                      }),
+                    ),
+                    const Divider(thickness: 1, height: 16),
+                    Expanded(
+                      child: _getEventsForDay(
+                                  _selectedDay ?? _focusedDay, calendarManager)
+                              .isEmpty
+                          ? SingleChildScrollView(
+                              child: Padding(
+                                padding: EdgeInsets.only(
+                                  top: 20,
+                                  bottom: MediaQuery.of(context)
+                                          .viewPadding
+                                          .bottom +
+                                      16,
                                 ),
-                                if (event["location"] != null && event["location"].toString().isNotEmpty)
-                                  Text(
-                                    event["location"],
-                                    style: TextStyle(
-                                      color: Colors.grey.shade700,
-                                      fontSize: 12,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.event_busy,
+                                        size: 50, color: Colors.grey.shade400),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      _selectedColorFilter != null
+                                          ? tr('no_events_with_color')
+                                          : tr('no_events'),
+                                      style: TextStyle(
+                                          fontSize: 18,
+                                          color: Colors.grey.shade600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: _getEventsForDay(
+                                      _selectedDay ?? _focusedDay,
+                                      calendarManager)
+                                  .length,
+                              itemBuilder: (context, index) {
+                                final event = _getEventsForDay(
+                                    _selectedDay ?? _focusedDay,
+                                    calendarManager)[index];
+
+                                return Card(
+                                  margin: const EdgeInsets.symmetric(
+                                      vertical: 4, horizontal: 12),
+                                  elevation: 3,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    side: BorderSide(
+                                      color: Color(event.color),
+                                      width: 2,
                                     ),
                                   ),
-                                if (event["reminder"] != null)
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.notifications,
-                                        size: 12, 
-                                        color: Colors.pink,
+                                  child: ListTile(
+                                    leading: Container(
+                                      width: 48,
+                                      height: 48,
+                                      decoration: BoxDecoration(
+                                        color: Color(event.color),
+                                        shape: BoxShape.circle,
                                       ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        _getReminderText(event["reminder"]),
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.pink,
+                                      child: Icon(
+                                        event.notificationEnabled
+                                            ? Icons.notifications_active
+                                            : Icons.event_note,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    title: Text(
+                                      event.title,
+                                      style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    subtitle: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          event.allDay
+                                              ? tr('all_day_event')
+                                              : tr('event_time', namedArgs: {
+                                                  'time': DateFormat.Hm()
+                                                      .format(event.startTime)
+                                                }),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
+                                        if (event.location != null &&
+                                            event.location!.isNotEmpty)
+                                          Text(
+                                            event.location!,
+                                            style: TextStyle(
+                                              color: Colors.grey.shade700,
+                                              fontSize: 12,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                      ],
+                                    ),
+                                    trailing: SizedBox(
+                                      width: 88,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.edit,
+                                                color: Colors.blue, size: 18),
+                                            padding: const EdgeInsets.all(4),
+                                            constraints: const BoxConstraints(
+                                              minWidth: 36,
+                                              minHeight: 36,
+                                            ),
+                                            onPressed: () =>
+                                                _addOrEditEvent(event: event),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete,
+                                                color: Colors.red, size: 18),
+                                            padding: const EdgeInsets.all(4),
+                                            constraints: const BoxConstraints(
+                                              minWidth: 36,
+                                              minHeight: 36,
+                                            ),
+                                            onPressed: () =>
+                                                _deleteEvent(event),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),  
-                              ],
+                                    ),
+                                    onTap: () => _showEventDetails(event),
+                                  ),
+                                );
+                              },
                             ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.edit, color: Colors.blue),
-                                  onPressed: () => _addOrEditEvent(event: event, index: index),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
-                                  onPressed: () => _deleteEvent(_selectedDay ?? _focusedDay, index),
-                                ),
-                              ],
-                            ),
-                            onTap: () => _showEventDetails(event, index),
-                          ),
-                        );
-                      },
                     ),
+                  ],
+                ),
+                if (showSyncIndicator)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      color: Colors.blue.withOpacity(0.9),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            tr('syncing'),
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ],
-        ),
-        floatingActionButton: FloatingActionButton(
-          backgroundColor: Colors.pink.shade700,
-          onPressed: () => _addOrEditEvent(),
-          child: const Icon(Icons.add),
-          tooltip: tr('add_event'),
-        ),
-      ),
+            floatingActionButton: FloatingActionButton(
+              backgroundColor: Colors.pink.shade700,
+              onPressed: () =>
+                  _addOrEditEvent(selectedDate: _selectedDay ?? _focusedDay),
+              tooltip: tr('add_event'),
+              child: const Icon(Icons.add),
+            ),
+          ),
+        );
+      },
     );
   }
 }

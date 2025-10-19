@@ -1,0 +1,28 @@
+{
+  "name": "svatebni_planovac",
+  "version": "1.0.0",
+  "description": "Tento dokument obsahuje pokyny pro nastavení a nasazení aplikace do produkčního prostředí.",
+  "main": "translation-manager.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FilSta251/Den-D.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/FilSta251/Den-D/issues"
+  },
+  "homepage": "https://github.com/FilSta251/Den-D#readme",
+  "dependencies": {
+    "csv-parser": "^3.2.0",
+    "csv-writer": "^1.6.0"
+  }
+}

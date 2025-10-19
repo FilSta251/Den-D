@@ -1,11 +1,12 @@
-// lib/models/event.dart
+/// lib/models/event.dart
+library;
 
 /// Třída reprezentující událost v aplikaci.
-/// 
-/// Obsahuje klíčové atributy jako unikátní identifikátor, titulek, popis,
-/// datum a čas začátku a (volitelně) konce události, lokaci, kategorii
-/// a časová razítka vytvoření a aktualizace. Tato třída také poskytuje metody
-/// pro serializaci, kopírování a přepis operátorů pro správné porovnávání instancí.
+///
+/// Obsahuje klíčovĂ© atributy jako unikátní identifikátor, titulek, popis,
+/// datum a čas záčátku a (volitelně) konce události, lokaci, kategorii
+/// a časová razítka vytvoření a aktualizace. Tato třída takĂ© poskytuje metody
+/// pro serializaci, kopírování a přepis operátorů pro správnĂ© porovnávání instancí.
 class Event {
   /// Unikátní identifikátor události.
   final String id;
@@ -16,7 +17,7 @@ class Event {
   /// Volitelný popis události.
   final String? description;
 
-  /// Datum a čas začátku události.
+  /// Datum a čas záčátku události.
   final DateTime startTime;
 
   /// Volitelný datum a čas konce události.
@@ -61,7 +62,9 @@ class Event {
       title: json['title'] as String,
       description: json['description'] as String?,
       startTime: DateTime.parse(json['startTime'] as String),
-      endTime: json['endTime'] != null ? DateTime.tryParse(json['endTime'] as String) : null,
+      endTime: json['endTime'] != null
+          ? DateTime.tryParse(json['endTime'] as String)
+          : null,
       location: json['location'] as String?,
       category: json['category'] as String?,
       createdAt: json['createdAt'] != null
@@ -88,7 +91,7 @@ class Event {
     };
   }
 
-  /// Umožňuje vytvoření nové instance [Event] s možností přepsání některých hodnot.
+  /// UmoťĹuje vytvoření novĂ© instance [Event] s moťností přepsání některých hodnot.
   Event copyWith({
     String? id,
     String? title,
@@ -118,7 +121,7 @@ class Event {
     );
   }
 
-  /// Přepis operátoru rovnosti pro správné porovnání instancí.
+  /// Přepis operátoru rovnosti pro správnĂ© porovnání instancí.
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -134,7 +137,7 @@ class Event {
         other.updatedAt == updatedAt;
   }
 
-  /// Přepis hashCode pro správné porovnání instancí.
+  /// Přepis hashCode pro správnĂ© porovnání instancí.
   @override
   int get hashCode {
     return id.hashCode ^
@@ -148,7 +151,7 @@ class Event {
         updatedAt.hashCode;
   }
 
-  /// Vrací textovou reprezentaci instance (užitečné při ladění).
+  /// Vrací textovou reprezentaci instance (uťitečnĂ© při ladění).
   @override
   String toString() {
     return 'Event(id: $id, title: $title, description: $description, startTime: $startTime, '

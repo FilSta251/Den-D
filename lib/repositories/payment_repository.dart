@@ -1,147 +1,314 @@
+/// lib/services/payment_service.dart - pouze roční předplatnĂ© za 200 Kč
+library;
+
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import '../models/payment.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
-/// PaymentRepository zajišťuje správu platebních záznamů z Firestore.
-/// Poskytuje CRUD operace, real-time synchronizaci, lokální cachování
-/// a metody pro filtrování platebních záznamů.
-class PaymentRepository {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final CollectionReference<Map<String, dynamic>> _paymentsCollection =
-      _firestore.collection('payments');
+/// PaymentService pro správu in-app nákupů
+///
+/// poskytuje jednotné rozhraní pro Google Play Billing a Apple StoreKit.
+/// Obsahuje metody pro inicializaci, náčtení produktů, nákup a obnovu.
+class PaymentService {
+  // Singleton instance
+  static final PaymentService _instance = PaymentService._internal();
+  factory PaymentService() => _instance;
+  PaymentService._internal();
 
-  // Lokální cache seznamu plateb.
-  List<Payment> _cachedPayments = [];
+  // Instance InAppPurchase pluginu
+  final InAppPurchase _inAppPurchase = InAppPurchase.instance;
 
-  // Stream controller pro vysílání aktuálního seznamu plateb.
-  final StreamController<List<Payment>> _paymentsStreamController =
-      StreamController<List<Payment>>.broadcast();
+  // Stream pro poslouchání nákupních aktualizací
+  late StreamSubscription<List<PurchaseDetails>> _subscription;
 
-  // Firestore subscription pro real-time aktualizace.
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _subscription;
+  // Controller pro vlastní purchase stream
+  final StreamController<List<PurchaseDetails>> _purchaseStreamController =
+      StreamController<List<PurchaseDetails>>.broadcast();
 
-  /// Stream, který vysílá aktuální seznam plateb v reálném čase.
-  Stream<List<Payment>> get paymentsStream => _paymentsStreamController.stream;
+  // Seznam dostupných produktů
+  List<ProductDetails> _products = [];
 
-  PaymentRepository() {
-    _initializeListener();
-  }
+  // Příznak inicializace
+  bool _isInitialized = false;
 
-  /// Nastaví real-time posluchače změn v kolekci 'payments' na Firestore.
-  void _initializeListener() {
-    _subscription = _paymentsCollection.snapshots().listen(
-      (snapshot) {
-        try {
-          _cachedPayments = snapshot.docs.map((doc) {
-            final data = doc.data();
-            data['id'] = doc.id; // Ujistíme se, že máme dokumentové ID.
-            return Payment.fromJson(data);
-          }).toList();
-          _paymentsStreamController.add(_cachedPayments);
-        } catch (error, stackTrace) {
-          debugPrint("Error processing payments snapshot: $error");
-          debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
-          _paymentsStreamController.addError(error);
-        }
-      },
-      onError: (error) {
-        debugPrint("Error listening to payments collection: $error");
-        _paymentsStreamController.addError(error);
-      },
-    );
-  }
+  // ID produktu pro roční předplatnĂ© - upravte podle vaĹˇeho nastavení v obchodech
+  static const String yearlySubscriptionId = 'yearly_premium_200czk';
 
-  /// Načte seznam plateb z Firestore.
-  Future<List<Payment>> fetchPayments() async {
-    try {
-      QuerySnapshot<Map<String, dynamic>> snapshot =
-          await _paymentsCollection.get();
-      _cachedPayments = snapshot.docs.map((doc) {
-        final data = doc.data();
-        data['id'] = doc.id;
-        return Payment.fromJson(data);
-      }).toList();
-      _paymentsStreamController.add(_cachedPayments);
-      return _cachedPayments;
-    } catch (error, stackTrace) {
-      debugPrint("Error fetching payments: $error");
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
-      rethrow;
+  // Getter pro purchase stream
+  Stream<List<PurchaseDetails>> get purchaseStream =>
+      _purchaseStreamController.stream;
+
+  /// Inicializuje PaymentService
+  ///
+  /// Ověří dostupnost in-app nákupů a nastaví poslucháče aktualizací.
+  Future<void> initialize() async {
+    if (_isInitialized) {
+      debugPrint('PaymentService jiť byl inicializován');
+      return;
     }
-  }
 
-  /// Přidá nový platební záznam do Firestore.
-  Future<void> addPayment(Payment payment) async {
     try {
-      if (payment.id.isNotEmpty) {
-        await _paymentsCollection.doc(payment.id).set(payment.toJson());
-      } else {
-        await _paymentsCollection.add(payment.toJson());
+      // Kontrola dostupnosti in-app nákupů
+      final bool available = await _inAppPurchase.isAvailable();
+      if (!available) {
+        throw Exception('In-app nákupy nejsou dostupnĂ© na tomto zařízení');
       }
-    } catch (error, stackTrace) {
-      debugPrint("Error adding payment: $error");
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
+
+      // Nastavení poslucháče pro nákupní aktualizace
+      _subscription = _inAppPurchase.purchaseStream.listen(
+        _handlePurchaseUpdates,
+        onDone: () {
+          debugPrint('Purchase stream ukončen');
+        },
+        onError: (error) {
+          debugPrint('Chyba v purchase streamu: $error');
+          FirebaseCrashlytics.instance.recordError(error, null);
+          _purchaseStreamController.addError(error);
+        },
+      );
+
+      _isInitialized = true;
+      debugPrint('PaymentService úspěĹˇně inicializován');
+    } catch (e, st) {
+      debugPrint('Chyba při inicializaci PaymentService: $e');
+      FirebaseCrashlytics.instance.recordError(e, st);
       rethrow;
     }
   }
 
-  /// Aktualizuje existující platební záznam.
-  Future<void> updatePayment(Payment payment) async {
+  /// Náčte informace o ročním předplatnĂ©m z obchodu
+  ///
+  /// Vrací [ProductDetails] s cenou a popiskem
+  Future<ProductDetails?> getYearlySubscription() async {
+    if (!_isInitialized) {
+      throw Exception(
+          'PaymentService není inicializován - zavolej initialize() nejdříve');
+    }
+
     try {
-      final DocumentReference<Map<String, dynamic>> docRef =
-          _paymentsCollection.doc(payment.id);
-      await docRef.update(payment.toJson());
-    } catch (error, stackTrace) {
-      debugPrint("Error updating payment: $error");
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
+      debugPrint('Náčítám roční předplatnĂ©: $yearlySubscriptionId');
+
+      final ProductDetailsResponse response =
+          await _inAppPurchase.queryProductDetails({yearlySubscriptionId});
+
+      if (response.error != null) {
+        throw Exception(
+            'Chyba při náčítání produktu: ${response.error!.message}');
+      }
+
+      if (response.notFoundIDs.isNotEmpty) {
+        debugPrint('Produkt nenalezen: $yearlySubscriptionId');
+        FirebaseCrashlytics.instance
+            .log('Produkt nenalezen: $yearlySubscriptionId');
+        return null;
+      }
+
+      _products = response.productDetails;
+
+      if (_products.isNotEmpty) {
+        final product = _products.first;
+        debugPrint(
+            'Náčten produkt: ${product.id} - ${product.title} (${product.price})');
+        return product;
+      }
+
+      return null;
+    } catch (e, st) {
+      debugPrint('Chyba při náčítání ročního předplatnĂ©ho: $e');
+      FirebaseCrashlytics.instance.recordError(e, st);
       rethrow;
     }
   }
 
-  /// Smaže platební záznam podle jeho ID.
-  Future<void> deletePayment(String paymentId) async {
+  /// Zahájí nákup ročního předplatnĂ©ho
+  ///
+  /// Automaticky náčte produkt a zahájí nákup
+  Future<void> purchaseYearlySubscription() async {
+    if (!_isInitialized) {
+      throw Exception('PaymentService není inicializován');
+    }
+
     try {
-      await _paymentsCollection.doc(paymentId).delete();
-    } catch (error, stackTrace) {
-      debugPrint("Error deleting payment: $error");
-      debugPrintStack(label: 'StackTrace', stackTrace: stackTrace);
+      debugPrint('Zahajuji nákup ročního předplatnĂ©ho...');
+
+      // Náčteme aktuální informace o produktu
+      final ProductDetails? productDetails = await getYearlySubscription();
+
+      if (productDetails == null) {
+        throw Exception('Roční předplatnĂ© není dostupnĂ© v obchodě');
+      }
+
+      // Zahájíme nákup
+      await buyProduct(productDetails);
+    } catch (e, st) {
+      debugPrint('Chyba při nákupu ročního předplatnĂ©ho: $e');
+      FirebaseCrashlytics.instance.recordError(e, st);
       rethrow;
     }
   }
 
-  /// Vrací filtrovaný seznam plateb dle zadaných kritérií.
-  /// Např. můžete filtrovat podle uživatelského ID, data transakce nebo stavu.
-  List<Payment> getFilteredPayments({
-    String? userId,
-    DateTime? startDate,
-    DateTime? endDate,
-    String? status,
-  }) {
-    List<Payment> filtered = List.from(_cachedPayments);
-    if (userId != null && userId.isNotEmpty) {
-      filtered = filtered.where((payment) => payment.userId == userId).toList();
+  /// Zahájí nákup produktu
+  ///
+  /// [productDetails] - detail produktu k nákupu
+  /// Pro předplatnĂ© pouťívá buyNonConsumable
+  Future<void> buyProduct(ProductDetails productDetails) async {
+    if (!_isInitialized) {
+      throw Exception('PaymentService není inicializován');
     }
-    if (startDate != null) {
-      filtered = filtered.where((payment) =>
-          payment.transactionDate.isAfter(startDate) ||
-          payment.transactionDate.isAtSameMomentAs(startDate)).toList();
+
+    try {
+      debugPrint('Zahajuji nákup produktu: ${productDetails.id}');
+
+      final PurchaseParam purchaseParam = PurchaseParam(
+        productDetails: productDetails,
+        applicationUserName: null, // Můťeme přidat user ID pro tracking
+      );
+
+      // Pro roční předplatnĂ© pouťíváme nonConsumable
+      debugPrint('Nákup ročního předplatnĂ©ho (non-consumable)');
+      await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
+    } catch (e, st) {
+      debugPrint('Chyba při zahájení nákupu: $e');
+      FirebaseCrashlytics.instance.recordError(e, st);
+      rethrow;
     }
-    if (endDate != null) {
-      filtered = filtered.where((payment) =>
-          payment.transactionDate.isBefore(endDate) ||
-          payment.transactionDate.isAtSameMomentAs(endDate)).toList();
-    }
-    if (status != null && status.isNotEmpty) {
-      filtered = filtered.where((payment) =>
-          payment.status.toLowerCase() == status.toLowerCase()).toList();
-    }
-    return filtered;
   }
 
-  /// Uvolní zdroje – zruší Firestore subscription a zavře stream controller.
+  /// Obnoví předchozí nákupy
+  ///
+  /// UťitečnĂ© při reinstalaci aplikace nebo přepnutí zařízení.
+  /// Funguje pouze pro non-consumable produkty a předplatnĂ©.
+  Future<void> restorePurchases() async {
+    if (!_isInitialized) {
+      throw Exception('PaymentService není inicializován');
+    }
+
+    try {
+      debugPrint('Zahajuji obnovu nákupů...');
+      await _inAppPurchase.restorePurchases();
+      debugPrint('Obnova nákupů dokončena');
+    } catch (e, st) {
+      debugPrint('Chyba při obnově nákupů: $e');
+      FirebaseCrashlytics.instance.recordError(e, st);
+      rethrow;
+    }
+  }
+
+  /// Zpracování aktualizací nákupů
+  ///
+  /// Interní metoda pro zpracování vĹˇech stavů nákupů.
+  /// Přeposílá události do vlastního streamu pro SubscriptionRepository.
+  void _handlePurchaseUpdates(List<PurchaseDetails> purchaseDetailsList) async {
+    debugPrint(
+        'Zpracovávám ${purchaseDetailsList.length} nákupních aktualizací');
+
+    // Přeposlat do vlastního streamu
+    _purchaseStreamController.add(purchaseDetailsList);
+
+    // Logování pro debug
+    for (final purchase in purchaseDetailsList) {
+      debugPrint('Nákup ${purchase.productID}: ${purchase.status}'
+          '${purchase.error != null ? ' - ${purchase.error}' : ''}');
+
+      // AutomatickĂ© dokončení nákupu pokud je to potřeba
+      if (purchase.pendingCompletePurchase) {
+        try {
+          await _inAppPurchase.completePurchase(purchase);
+          debugPrint('Nákup ${purchase.productID} automaticky dokončen');
+        } catch (e) {
+          debugPrint('Chyba při dokončování nákupu: $e');
+          FirebaseCrashlytics.instance.recordError(e, null);
+        }
+      }
+
+      // Analýzy pro Firebase
+      try {
+        _logPurchaseEvent(purchase);
+      } catch (e) {
+        debugPrint('Chyba při logování purchase eventu: $e');
+      }
+    }
+  }
+
+  /// Logování purchase eventů pro analytiku
+  void _logPurchaseEvent(PurchaseDetails purchase) {
+    final Map<String, dynamic> parameters = {
+      'product_id': purchase.productID,
+      'status': purchase.status.toString(),
+      'transaction_date': purchase.transactionDate ?? '',
+      'purchase_id': purchase.purchaseID ?? '',
+    };
+
+    if (purchase.error != null) {
+      parameters['error_code'] = purchase.error!.code;
+      parameters['error_message'] = purchase.error!.message;
+    }
+
+    FirebaseCrashlytics.instance
+        .log('Purchase event: ${purchase.productID} - ${purchase.status}');
+  }
+
+  /// Získání ročního předplatnĂ©ho z cache
+  ProductDetails? getYearlySubscriptionFromCache() {
+    try {
+      return _products
+          .firstWhere((product) => product.id == yearlySubscriptionId);
+    } catch (e) {
+      debugPrint('Roční předplatnĂ© $yearlySubscriptionId není v cache');
+      return null;
+    }
+  }
+
+  /// Vrací vĹˇechny náčtenĂ© produkty (v naĹˇem případě jen roční předplatnĂ©)
+  List<ProductDetails> get availableProducts => List.unmodifiable(_products);
+
+  /// Kontrola, zda je PaymentService inicializován
+  bool get isInitialized => _isInitialized;
+
+  /// Kontrola dostupnosti in-app nákupů
+  Future<bool> isAvailable() async {
+    try {
+      return await _inAppPurchase.isAvailable();
+    } catch (e) {
+      debugPrint('Chyba při kontrole dostupnosti: $e');
+      return false;
+    }
+  }
+
+  /// Vrací informace o ceně ročního předplatnĂ©ho pro zobrazení
+  String get yearlyPriceText {
+    final product = getYearlySubscriptionFromCache();
+    return product?.price ?? '200 Kč';
+  }
+
+  /// Vrací název ročního předplatnĂ©ho
+  String get yearlyTitle {
+    final product = getYearlySubscriptionFromCache();
+    return product?.title ?? tr('rocni_predplatne');
+  }
+
+  /// Vrací popis ročního předplatnĂ©ho
+  String get yearlyDescription {
+    final product = getYearlySubscriptionFromCache();
+    return product?.description ?? tr('rocni_predplatne_popis');
+  }
+
+  /// Uvolní zdroje
   void dispose() {
-    _subscription?.cancel();
-    _paymentsStreamController.close();
+    debugPrint('PaymentService dispose');
+    _subscription.cancel();
+    _purchaseStreamController.close();
+    _isInitialized = false;
+  }
+
+  /// Dočasná funkce pro překlady - nahraďŹte svým systĂ©mem lokalizace
+  String tr(String key) {
+    const Map<String, String> translations = {
+      'rocni_predplatne': 'Roční předplatnĂ©',
+      'rocni_predplatne_popis':
+          'Získejte přístup ke vĹˇem funkcím aplikace na celý rok za 200 Kč',
+    };
+    return translations[key] ?? key;
   }
 }

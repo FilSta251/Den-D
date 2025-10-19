@@ -7,26 +7,34 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:163734675450:android:839b89141df7dec4f70e43",
+        "mobilesdk_app_id": "1:163734675450:android:b366542a4ee3cbf0f70e43",
         "android_client_info": {
-          "package_name": "com.example.svatebni_planovac"
+          "package_name": "cz.filip.svatebniplanovac"
         }
       },
       "oauth_client": [
         {
-          "client_id": "163734675450-letnj1et3u8qc7qqtfan27tv276dqsvj.apps.googleusercontent.com",
+          "client_id": "163734675450-iep2uj6v7vpgr0gsjj0ai4tulhteoclu.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.example.svatebni_planovac",
-            "certificate_hash": "2fec675e47f8807ef409e677b957aee2d90bf3c5"
+            "package_name": "cz.filip.svatebniplanovac",
+            "certificate_hash": "b823ea3f418bec003b22f9d134a740e452094e34"
           }
         },
         {
-          "client_id": "163734675450-qr6nj3d1ti22r3bmg41vijo6jrlrpg5h.apps.googleusercontent.com",
+          "client_id": "163734675450-mpsc8dq1p9mhj0au0kgruv8478hegn7c.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.example.svatebni_planovac",
-            "certificate_hash": "b823ea3f418bec003b22f9d134a740e452094e34"
+            "package_name": "cz.filip.svatebniplanovac",
+            "certificate_hash": "af54b1987356a5219b2530e2410975377f5f1717"
+          }
+        },
+        {
+          "client_id": "163734675450-v0lq0g9ta9ke62r79kg9l62b7jdh079h.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "cz.filip.svatebniplanovac",
+            "certificate_hash": "2fec675e47f8807ef409e677b957aee2d90bf3c5"
           }
         },
         {

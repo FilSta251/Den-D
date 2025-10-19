@@ -1,161 +1,182 @@
-// lib/models/subscription.dart
+/// lib/models/subscription.dart
+library;
 
-enum SubscriptionType {
-  free,
-  monthly,
-  yearly,
-  // Můžete přidat i weekly, lifetime, apod.
-}
+import 'package:easy_localization/easy_localization.dart';
 
-String subscriptionTypeToString(SubscriptionType type) {
-  switch (type) {
-    case SubscriptionType.free:
+enum SubscriptionTier { free, premium }
+
+String subscriptionTierToString(SubscriptionTier tier) {
+  switch (tier) {
+    case SubscriptionTier.free:
       return 'free';
-    case SubscriptionType.monthly:
-      return 'monthly';
-    case SubscriptionType.yearly:
-      return 'yearly';
+    case SubscriptionTier.premium:
+      return 'premium';
   }
 }
 
-SubscriptionType subscriptionTypeFromString(String value) {
+SubscriptionTier subscriptionTierFromString(String value) {
   switch (value) {
-    case 'monthly':
-      return SubscriptionType.monthly;
-    case 'yearly':
-      return SubscriptionType.yearly;
+    case 'premium':
+      return SubscriptionTier.premium;
     default:
-      return SubscriptionType.free;
+      return SubscriptionTier.free;
   }
 }
 
-/// Model představující předplatné v aplikaci.
+/// Model představující předplatnĂ© v aplikaci.
 ///
-/// Obsahuje i údaje typu:
-///  - gracePeriodDays – kolik dnů "milosti" po vypršení.
-///  - isTrial pro zkušební verzi.
-///  - isAutoRenewal pro automatické obnovení.
-///
-/// daysLeft a isStillValid pak poskytují užitečné getter funkce pro
-/// zjištění stavu předplatného (např. pro UI).
+/// Obsahuje údaje pro správu předplatnĂ©ho:
+///  - tier: free nebo premium
+///  - expiresAt: datum vyprĹˇení (null pro free)
+///  - productId: ID produktu z obchodu
+///  - purchaseToken: token z Google Play/App Store
+///  - autoRenewing: zda se automaticky obnovuje
 class Subscription {
   final String id;
   final String userId;
-  final bool isActive;
-  final SubscriptionType subscriptionType;
-
-  /// Datum, kdy předplatné vyprší (nebo null pro free).
-  final DateTime? expirationDate;
-
-  /// Kdy bylo naposledy obnoveno (volitelné).
-  final DateTime? lastRenewalDate;
-
-  /// Cena (např. 800.0) a měna (CZK, EUR...).
-  final double? price;
-  final String? currency;
-
-  /// Zda se předplatné samo obnovuje (auto-renew).
-  final bool isAutoRenewal;
-
-  /// Zda je předplatné v trial režimu.
-  final bool isTrial;
-
-  /// Počet dní, kdy i po vypršení dáváme "čas milosti" (tzv. grace period).
-  final int gracePeriodDays;
+  final SubscriptionTier tier;
+  final DateTime? expiresAt;
+  final String? productId;
+  final String? purchaseToken;
+  final bool autoRenewing;
 
   const Subscription({
     required this.id,
     required this.userId,
-    required this.isActive,
-    required this.subscriptionType,
-    this.expirationDate,
-    this.lastRenewalDate,
-    this.price,
-    this.currency,
-    this.isAutoRenewal = false,
-    this.isTrial = false,
-    this.gracePeriodDays = 0,
+    this.tier = SubscriptionTier.free,
+    this.expiresAt,
+    this.productId,
+    this.purchaseToken,
+    this.autoRenewing = false,
   });
 
+  /// Bezpečná konverze z JSON
   factory Subscription.fromJson(Map<String, dynamic> json) {
     return Subscription(
-      id: json['id'] as String,
-      userId: json['userId'] as String,
-      isActive: json['isActive'] as bool,
-      subscriptionType: subscriptionTypeFromString(json['subscriptionType'] ?? 'free'),
-      expirationDate: json['expirationDate'] != null
-          ? DateTime.tryParse(json['expirationDate'] as String)
+      id: json['id'] as String? ?? '',
+      userId: json['userId'] as String? ?? '',
+      tier: subscriptionTierFromString(json['tier'] ?? 'free'),
+      expiresAt: json['expiresAt'] != null
+          ? DateTime.tryParse(json['expiresAt'].toString())
           : null,
-      lastRenewalDate: json['lastRenewalDate'] != null
-          ? DateTime.tryParse(json['lastRenewalDate'] as String)
-          : null,
-      price: (json['price'] as num?)?.toDouble(),
-      currency: json['currency'] as String?,
-      isAutoRenewal: json['isAutoRenewal'] as bool? ?? false,
-      isTrial: json['isTrial'] as bool? ?? false,
-      gracePeriodDays: json['gracePeriodDays'] as int? ?? 0,
+      productId: json['productId'] as String?,
+      purchaseToken: json['purchaseToken'] as String?,
+      autoRenewing: _safeBoolConversion(json['autoRenewing']) ?? false,
     );
   }
 
+  /// Bezpečná konverze na bool - řeĹˇí problĂ©m s int/bool castu
+  static bool? _safeBoolConversion(dynamic value) {
+    if (value == null) return null;
+    if (value is bool) return value;
+    if (value is int) return value != 0;
+    if (value is String) {
+      final lowerValue = value.toLowerCase();
+      if (lowerValue == 'true' || lowerValue == '1') return true;
+      if (lowerValue == 'false' || lowerValue == '0') return false;
+    }
+    return null;
+  }
+
+  /// Konverze do JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'userId': userId,
-      'isActive': isActive,
-      'subscriptionType': subscriptionTypeToString(subscriptionType),
-      'expirationDate': expirationDate?.toIso8601String(),
-      'lastRenewalDate': lastRenewalDate?.toIso8601String(),
-      'price': price,
-      'currency': currency,
-      'isAutoRenewal': isAutoRenewal,
-      'isTrial': isTrial,
-      'gracePeriodDays': gracePeriodDays,
+      'tier': subscriptionTierToString(tier),
+      'expiresAt': expiresAt?.toIso8601String(),
+      'productId': productId,
+      'purchaseToken': purchaseToken,
+      'autoRenewing': autoRenewing,
     };
   }
 
+  /// Kopie s moťností změny hodnot
   Subscription copyWith({
     String? id,
     String? userId,
-    bool? isActive,
-    SubscriptionType? subscriptionType,
-    DateTime? expirationDate,
-    DateTime? lastRenewalDate,
-    double? price,
-    String? currency,
-    bool? isAutoRenewal,
-    bool? isTrial,
-    int? gracePeriodDays,
+    SubscriptionTier? tier,
+    DateTime? expiresAt,
+    String? productId,
+    String? purchaseToken,
+    bool? autoRenewing,
   }) {
     return Subscription(
       id: id ?? this.id,
       userId: userId ?? this.userId,
-      isActive: isActive ?? this.isActive,
-      subscriptionType: subscriptionType ?? this.subscriptionType,
-      expirationDate: expirationDate ?? this.expirationDate,
-      lastRenewalDate: lastRenewalDate ?? this.lastRenewalDate,
-      price: price ?? this.price,
-      currency: currency ?? this.currency,
-      isAutoRenewal: isAutoRenewal ?? this.isAutoRenewal,
-      isTrial: isTrial ?? this.isTrial,
-      gracePeriodDays: gracePeriodDays ?? this.gracePeriodDays,
+      tier: tier ?? this.tier,
+      expiresAt: expiresAt ?? this.expiresAt,
+      productId: productId ?? this.productId,
+      purchaseToken: purchaseToken ?? this.purchaseToken,
+      autoRenewing: autoRenewing ?? this.autoRenewing,
     );
   }
 
-  /// Kolik dní zbývá do expirace (včetně grace period).
-  /// Pokud je předplatné neaktivní (isActive=false), může vracet 0 nebo zápornou hodnotu.
-  int get daysLeft {
-    if (!isActive) return 0;
-    if (expirationDate == null) return 9999; // free => neomezeně
-    final extended = expirationDate!.add(Duration(days: gracePeriodDays));
-    final diffDays = extended.difference(DateTime.now()).inDays;
-    return diffDays;
+  /// Getter pro zpětnou kompatibilitu - zda je předplatnĂ© aktivní
+  bool get isActive =>
+      tier != SubscriptionTier.free &&
+      (expiresAt == null || expiresAt!.isAfter(DateTime.now()));
+
+  /// Getter - zda je aktivní Premium předplatnĂ©
+  bool get isActivePremium {
+    if (tier != SubscriptionTier.premium) return false;
+    if (expiresAt == null) return false;
+    return DateTime.now().isBefore(expiresAt!);
   }
 
-  /// Zda je subscription stále platné (i v rámci grace period).
-  bool get isStillValid {
-    if (!isActive) return false;
-    if (expirationDate == null) return true; // free = neomezené
-    final extended = expirationDate!.add(Duration(days: gracePeriodDays));
-    return DateTime.now().isBefore(extended);
+  /// Kolik dní zbývá do expirace
+  int get daysLeft {
+    if (tier == SubscriptionTier.free) return 0;
+    if (expiresAt == null) return 0;
+    final diffDays = expiresAt!.difference(DateTime.now()).inDays;
+    return diffDays > 0 ? diffDays : 0;
+  }
+
+  /// Vrací textový popis typu předplatnĂ©ho pro UI
+  String get tierText {
+    switch (tier) {
+      case SubscriptionTier.free:
+        return tr('subs.tier.free'); // 'Zdarma'
+      case SubscriptionTier.premium:
+        return tr('subs.tier.premium'); // 'Premium'
+    }
+  }
+
+  /// Vrací status předplatnĂ©ho pro UI
+  String get statusText {
+    if (tier == SubscriptionTier.free) {
+      return tr('subs.status.free'); // 'Free verze'
+    }
+
+    if (!isActivePremium) {
+      return tr('subs.status.expired'); // 'VyprĹˇelo'
+    }
+
+    if (autoRenewing) {
+      return tr('subs.status.active_auto'); // 'Aktivní (automatická obnova)'
+    }
+
+    return tr('subs.status.active'); // 'Aktivní'
+  }
+
+  /// Vrací informaci o expiraci pro UI
+  String get expirationInfo {
+    if (tier == SubscriptionTier.free) {
+      return tr('subs.expiration.unlimited'); // 'NeomezenĂ©'
+    }
+
+    if (expiresAt == null) {
+      return tr('subs.expiration.unknown'); // 'NeznámĂ©'
+    }
+
+    final days = daysLeft;
+    if (days == 0) {
+      return tr('subs.expiration.expired'); // 'VyprĹˇelo'
+    } else if (days == 1) {
+      return tr('subs.expiration.one_day'); // 'VyprĹˇí za 1 den'
+    } else {
+      return tr('subs.expiration.days')
+          .replaceAll('{days}', days.toString()); // 'VyprĹˇí za {days} dní'
+    }
   }
 }

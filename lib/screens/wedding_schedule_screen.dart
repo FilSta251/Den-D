@@ -1,4 +1,5 @@
-// lib/screens/wedding_schedule_screen.dart - PRODUKČNÍ VERZE
+/// lib/screens/wedding_schedule_screen.dart - PRODUKČNÍ VERZE
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,52 +7,51 @@ import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 import 'dart:io';
 
-import 'package:svatebni_planovac/services/local_schedule_service.dart'; // Potřebujeme pro model ScheduleItem
-import 'package:svatebni_planovac/services/schedule_manager.dart';
+import 'package:den_d/services/local_schedule_service.dart';
+import 'package:den_d/services/schedule_manager.dart';
+import '../providers/subscription_provider.dart';
+import '../widgets/subscription_offer_dialog.dart';
+import '../repositories/wedding_repository.dart';
+import '../models/wedding_info.dart';
 
-/// Pevně daný den svatby – nastavte zde datum svatby, ke kterému se budou všechny časy vztahovat.
+/// Pevně daný den svatby - nastavte zde datum svatby, ke kterému se budou všechny časy vztahovat.
 final weddingDay = DateTime(2023, 1, 1);
 
 class WeddingScheduleScreen extends StatefulWidget {
-  const WeddingScheduleScreen({Key? key}) : super(key: key);
+  const WeddingScheduleScreen({super.key});
 
   @override
   _WeddingScheduleScreenState createState() => _WeddingScheduleScreenState();
 }
 
-class _WeddingScheduleScreenState extends State<WeddingScheduleScreen> with WidgetsBindingObserver {
-  // Reference na vytvořený PDF soubor
-  File? _pdfFile;
-  
+class _WeddingScheduleScreenState extends State<WeddingScheduleScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    
-    // Při inicializaci obrazovky zajistíme načtení dat z cloudu
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       debugPrint("=== WEDDING SCHEDULE SCREEN: INICIALIZACE ===");
       _forceRefresh();
     });
   }
-  
+
   @override
   void dispose() {
     debugPrint("=== WEDDING SCHEDULE SCREEN: UKONČENÍ ===");
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
-  
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Při návratu do aplikace znovu synchronizujeme data
     if (state == AppLifecycleState.resumed) {
       debugPrint("=== WEDDING SCHEDULE SCREEN: NÁVRAT DO APLIKACE ===");
       _forceRefresh();
@@ -60,78 +60,51 @@ class _WeddingScheduleScreenState extends State<WeddingScheduleScreen> with Widg
 
   void _forceRefresh() {
     debugPrint("=== WEDDING SCHEDULE SCREEN: VYNUCENÁ AKTUALIZACE DAT ===");
-    final scheduleManager = Provider.of<ScheduleManager>(context, listen: false);
+    final scheduleManager =
+        Provider.of<ScheduleManager>(context, listen: false);
     scheduleManager.forceRefreshFromCloud();
   }
-  
+
+  Widget _buildPremiumButton() {
+    return Consumer<SubscriptionProvider>(
+      builder: (context, subscriptionProvider, child) {
+        if (!subscriptionProvider.isPremium) {
+          return IconButton(
+            icon: const Icon(Icons.star, color: Colors.amber),
+            tooltip: tr('upgrade_to_premium'),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (_) => const SubscriptionOfferDialog(),
+              );
+            },
+          );
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('wedding_schedule_title')),
         actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) async {
-              if (value == 'export_pdf') {
-                await _createAndExportPdf(context);
-              } else if (value == 'share_text') {
-                await _shareScheduleAsText(context);
-              } else if (value == 'share_pdf') {
-                if (_pdfFile == null) {
-                  await _createAndExportPdf(context, showSnackbar: false);
-                }
-                if (_pdfFile != null) {
-                  await _sharePdf(context);
-                }
-              }
+          _buildPremiumButton(),
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.green),
+            tooltip: tr('export_pdf'),
+            onPressed: () async {
+              await _createAndExportPdf(context);
             },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'export_pdf',
-                child: Row(
-                  children: [
-                    const Icon(Icons.picture_as_pdf, color: Colors.red),
-                    const SizedBox(width: 8),
-                    Text(tr('export_pdf')),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'share_text',
-                child: Row(
-                  children: [
-                    const Icon(Icons.text_fields, color: Colors.blue),
-                    const SizedBox(width: 8),
-                    const Text("Sdílet jako text"),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'share_pdf',
-                child: Row(
-                  children: [
-                    const Icon(Icons.share, color: Colors.green),
-                    const SizedBox(width: 8),
-                    const Text("Sdílet jako PDF"),
-                  ],
-                ),
-              ),
-            ],
           ),
         ],
       ),
       body: Consumer<ScheduleManager>(
         builder: (context, scheduleManager, child) {
-          // Zobrazíme indikátor načítání, pokud probíhá synchronizace
-          if (scheduleManager.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          }
-          
           final items = scheduleManager.scheduleItems;
-          
-          // Seřadíme položky vzestupně podle času.
+
           final sortedItems = List<ScheduleItem>.from(items)
             ..sort((a, b) {
               if (a.time == null && b.time == null) return 0;
@@ -139,7 +112,7 @@ class _WeddingScheduleScreenState extends State<WeddingScheduleScreen> with Widg
               if (b.time == null) return -1;
               return a.time!.compareTo(b.time!);
             });
-            
+
           if (sortedItems.isEmpty) {
             return Center(
               child: Column(
@@ -147,98 +120,66 @@ class _WeddingScheduleScreenState extends State<WeddingScheduleScreen> with Widg
                 children: [
                   Text(tr('no_schedule_items')),
                   const SizedBox(height: 16),
-                  const Text("Přidejte položky harmonogramu pomocí tlačítka +"),
+                  Text(tr('add_schedule_hint')),
                 ],
               ),
             );
           }
-          
-          return Column(
-            children: [
-              // Banner pro informaci o cloudové synchronizaci
-              if (scheduleManager.scheduleItems.isNotEmpty)
-                Container(
-                  width: double.infinity,
-                  color: Colors.blue.shade100,
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                  child: Row(
-                    children: [
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
+
+          return ReorderableListView.builder(
+            onReorder: (oldIndex, newIndex) {
+              scheduleManager.reorderItems(oldIndex, newIndex);
+            },
+            itemCount: sortedItems.length,
+            itemBuilder: (context, index) {
+              final item = sortedItems[index];
+              return Dismissible(
+                key: Key(item.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  color: Colors.red,
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+                onDismissed: (direction) {
+                  scheduleManager.removeItem(index);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(tr('item_deleted'))),
+                  );
+                },
+                child: Card(
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: ListTile(
+                    title: Text(item.title),
+                    subtitle: item.time != null
+                        ? Text(DateFormat('HH:mm').format(item.time!))
+                        : null,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.delete),
+                          tooltip: tr('delete_item'),
+                          onPressed: () {
+                            scheduleManager.removeItem(index);
+                          },
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          "Probíhá synchronizace...",
-                          style: TextStyle(color: Colors.blue.shade800),
+                        IconButton(
+                          icon: const Icon(Icons.edit),
+                          tooltip: tr('edit_item'),
+                          onPressed: () {
+                            _showEditDialog(
+                                context, scheduleManager, index, item);
+                          },
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              
-              // Hlavní seznam položek
-              Expanded(
-                child: ReorderableListView.builder(
-                  onReorder: (oldIndex, newIndex) {
-                    scheduleManager.reorderItems(oldIndex, newIndex);
-                  },
-                  itemCount: sortedItems.length,
-                  itemBuilder: (context, index) {
-                    final item = sortedItems[index];
-                    return Dismissible(
-                      key: Key(item.id),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        color: Colors.red,
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: const Icon(Icons.delete, color: Colors.white),
-                      ),
-                      onDismissed: (direction) {
-                        scheduleManager.removeItem(index);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(tr('item_deleted'))),
-                        );
-                      },
-                      child: Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        child: ListTile(
-                          title: Text(item.title),
-                          subtitle: item.time != null
-                              ? Text(DateFormat('HH:mm').format(item.time!))
-                              : null,
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Tlačítko pro smazání položky
-                              IconButton(
-                                icon: const Icon(Icons.delete),
-                                tooltip: tr('delete_item'),
-                                onPressed: () {
-                                  scheduleManager.removeItem(index);
-                                },
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.edit),
-                                tooltip: tr('edit_item'),
-                                onPressed: () {
-                                  _showEditDialog(context, scheduleManager, index, item);
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
+              );
+            },
           );
         },
       ),
@@ -252,11 +193,9 @@ class _WeddingScheduleScreenState extends State<WeddingScheduleScreen> with Widg
     );
   }
 
-  void _showAddDialog(BuildContext context) {
+  void _showAddDialog(BuildContext context) async {
     final titleController = TextEditingController();
-    // Pouze tlačítko pro výběr času – textové pole pro čas není
     TimeOfDay? selectedTime;
-    String displayedTime = "";
 
     showDialog(
       context: context,
@@ -265,72 +204,69 @@ class _WeddingScheduleScreenState extends State<WeddingScheduleScreen> with Widg
           builder: (context, setStateDialog) {
             return AlertDialog(
               title: Text(tr('add_schedule_item')),
-              content: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: titleController,
-                      decoration: InputDecoration(
-                        labelText: tr('item_title'),
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.5,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: titleController,
+                        decoration: InputDecoration(
+                          labelText: tr('item_title'),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () async {
-                        final now = TimeOfDay.now();
-                        final pickedTime = await showTimePicker(
-                          context: context,
-                          initialTime: now,
-                        );
-                        if (pickedTime != null) {
-                          selectedTime = pickedTime;
-                          final dateTime = DateTime(
-                            weddingDay.year,
-                            weddingDay.month,
-                            weddingDay.day,
-                            pickedTime.hour,
-                            pickedTime.minute,
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () async {
+                          final pickedTime = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay.now(),
                           );
-                          setStateDialog(() {
-                            displayedTime = DateFormat('HH:mm').format(dateTime);
-                          });
-                        }
-                      },
-                      child: Text(tr('set_time')),
-                    ),
-                    if (displayedTime.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(displayedTime),
+                          if (pickedTime != null) {
+                            selectedTime = pickedTime;
+                            setStateDialog(() {});
+                          }
+                        },
+                        child: Text(selectedTime != null
+                            ? '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}'
+                            : tr('set_time')),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               actions: [
                 TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
+                  onPressed: () => Navigator.pop(context),
                   child: Text(tr('cancel')),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    final title = titleController.text;
-                    if (title.trim().isEmpty || selectedTime == null) return;
-                    final dateTime = DateTime(
-                      weddingDay.year,
-                      weddingDay.month,
-                      weddingDay.day,
-                      selectedTime!.hour,
-                      selectedTime!.minute,
-                    );
-                    final newItem = ScheduleItem(
-                      id: const Uuid().v4(),
-                      title: title,
-                      time: dateTime,
-                    );
-                    Provider.of<ScheduleManager>(context, listen: false).addItem(newItem);
-                    Navigator.pop(context);
+                  onPressed: () async {
+                    if (titleController.text.isNotEmpty &&
+                        selectedTime != null) {
+                      final scheduleManager =
+                          Provider.of<ScheduleManager>(context, listen: false);
+                      final dateTime = DateTime(
+                        weddingDay.year,
+                        weddingDay.month,
+                        weddingDay.day,
+                        selectedTime!.hour,
+                        selectedTime!.minute,
+                      );
+                      final newItem = ScheduleItem(
+                        id: const Uuid().v4(),
+                        title: titleController.text,
+                        time: dateTime,
+                      );
+                      final success =
+                          await scheduleManager.addItem(newItem, context);
+                      if (success) {
+                        Navigator.pop(context);
+                      }
+                    }
                   },
                   child: Text(tr('add')),
                 ),
@@ -342,12 +278,15 @@ class _WeddingScheduleScreenState extends State<WeddingScheduleScreen> with Widg
     );
   }
 
-  void _showEditDialog(BuildContext context, ScheduleManager scheduleManager, int index, ScheduleItem currentItem) {
+  void _showEditDialog(BuildContext context, ScheduleManager scheduleManager,
+      int index, ScheduleItem currentItem) {
     final titleController = TextEditingController(text: currentItem.title);
     TimeOfDay? selectedTime = currentItem.time != null
         ? TimeOfDay.fromDateTime(currentItem.time!)
         : null;
-    String displayedTime = currentItem.time != null ? DateFormat('HH:mm').format(currentItem.time!) : "";
+    String displayedTime = currentItem.time != null
+        ? DateFormat('HH:mm').format(currentItem.time!)
+        : "";
 
     showDialog(
       context: context,
@@ -356,45 +295,52 @@ class _WeddingScheduleScreenState extends State<WeddingScheduleScreen> with Widg
           builder: (context, setStateDialog) {
             return AlertDialog(
               title: Text(tr('edit_schedule_item')),
-              content: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: titleController,
-                      decoration: InputDecoration(
-                        labelText: tr('item_title'),
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.5,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: titleController,
+                        decoration: InputDecoration(
+                          labelText: tr('item_title'),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () async {
-                        final now = TimeOfDay.now();
-                        final pickedTime = await showTimePicker(
-                          context: context,
-                          initialTime: selectedTime ?? now,
-                        );
-                        if (pickedTime != null) {
-                          selectedTime = pickedTime;
-                          final dateTime = DateTime(
-                            weddingDay.year,
-                            weddingDay.month,
-                            weddingDay.day,
-                            pickedTime.hour,
-                            pickedTime.minute,
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () async {
+                          final now = TimeOfDay.now();
+                          final pickedTime = await showTimePicker(
+                            context: context,
+                            initialTime: selectedTime ?? now,
                           );
-                          setStateDialog(() {
-                            displayedTime = DateFormat('HH:mm').format(dateTime);
-                          });
-                        }
-                      },
-                      child: Text(tr('set_time')),
-                    ),
-                    if (displayedTime.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(displayedTime),
+                          if (pickedTime != null) {
+                            selectedTime = pickedTime;
+                            final dateTime = DateTime(
+                              weddingDay.year,
+                              weddingDay.month,
+                              weddingDay.day,
+                              pickedTime.hour,
+                              pickedTime.minute,
+                            );
+                            setStateDialog(() {
+                              displayedTime =
+                                  DateFormat('HH:mm').format(dateTime);
+                            });
+                          }
+                        },
+                        child: Text(tr('set_time')),
                       ),
-                  ],
+                      if (displayedTime.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(displayedTime),
+                        ),
+                    ],
+                  ),
                 ),
               ),
               actions: [
@@ -432,19 +378,29 @@ class _WeddingScheduleScreenState extends State<WeddingScheduleScreen> with Widg
     );
   }
 
-  // Funkce pro vytvoření a export PDF harmonogramu
-  Future<void> _createAndExportPdf(BuildContext context, {bool showSnackbar = true}) async {
+  /// Funkce pro vytvoření a export PDF harmonogramu s hlavičkou svatebních údajů
+  Future<void> _createAndExportPdf(BuildContext context) async {
     try {
-      // Ukaž indikátor načítání
-      if (showSnackbar) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Generuji PDF harmonogram...")),
-        );
-      }
-      
-      final scheduleManager = Provider.of<ScheduleManager>(context, listen: false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr('generating_pdf'))),
+      );
+
+      final scheduleManager =
+          Provider.of<ScheduleManager>(context, listen: false);
       final items = scheduleManager.scheduleItems;
-      
+
+      // Načteme svatební údaje z repository
+      final weddingRepository =
+          Provider.of<WeddingRepository>(context, listen: false);
+      WeddingInfo? weddingInfo;
+
+      try {
+        weddingInfo = await weddingRepository.fetchWeddingInfo();
+      } catch (e) {
+        debugPrint("Chyba při načítání svatebních údajů: $e");
+        // Pokud se nepodaří načíst, pokračujeme bez nich
+      }
+
       // Seřadíme položky vzestupně podle času
       final sortedItems = List<ScheduleItem>.from(items)
         ..sort((a, b) {
@@ -453,210 +409,256 @@ class _WeddingScheduleScreenState extends State<WeddingScheduleScreen> with Widg
           if (b.time == null) return -1;
           return a.time!.compareTo(b.time!);
         });
-      
+
       // Vytvoření PDF dokumentu
       final pdf = pw.Document();
-      
+
       // Font s podporou české diakritiky
-      final font = await _loadFont();
-      
+      final fontData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
+      final fontBoldData =
+          await rootBundle.load('assets/fonts/Roboto-Bold.ttf');
+      final ttf = pw.Font.ttf(fontData);
+      final ttfBold = pw.Font.ttf(fontBoldData);
+
       // Přidání stránky do PDF
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
-          build: (pw.Context context) {
+          theme: pw.ThemeData.withFont(base: ttf, bold: ttfBold),
+          build: (pw.Context pdfContext) {
             return pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                // Nadpis
-                pw.Center(
-                  child: pw.Text(
-                    'Harmonogram svatby',
-                    style: pw.TextStyle(
-                      font: font,
-                      fontSize: 24,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
+                // Hlavička s informacemi o svatbě
+                pw.Container(
+                  width: double.infinity,
+                  padding: const pw.EdgeInsets.all(20),
+                  decoration: pw.BoxDecoration(
+                    borderRadius:
+                        const pw.BorderRadius.all(pw.Radius.circular(10)),
+                    border: pw.Border.all(color: PdfColors.grey300, width: 2),
                   ),
-                ),
-                pw.SizedBox(height: 20),
-                
-                // Datum svatby
-                pw.Center(
-                  child: pw.Text(
-                    'Datum: ${DateFormat('dd.MM.yyyy').format(weddingDay)}',
-                    style: pw.TextStyle(
-                      font: font,
-                      fontSize: 16,
-                    ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: [
+                      // Nadpis
+                      pw.Text(
+                        tr('wedding_schedule'),
+                        style: pw.TextStyle(
+                          font: ttfBold,
+                          fontSize: 32,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.SizedBox(height: 12),
+
+                      // Jména snoubenců (pokud jsou k dispozici)
+                      if (weddingInfo != null) ...[
+                        pw.Text(
+                          '${weddingInfo.yourName} & ${weddingInfo.partnerName}',
+                          style: pw.TextStyle(
+                            font: ttfBold,
+                            fontSize: 22,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.SizedBox(height: 8),
+                      ],
+
+                      // Datum svatby
+                      pw.Text(
+                        '${tr('date')}: ${weddingInfo != null ? DateFormat('dd.MM.yyyy').format(weddingInfo.weddingDate) : DateFormat('dd.MM.yyyy').format(weddingDay)}',
+                        style: pw.TextStyle(
+                          font: ttf,
+                          fontSize: 18,
+                        ),
+                      ),
+
+                      // Místo svatby (pokud je k dispozici)
+                      if (weddingInfo != null &&
+                          weddingInfo.weddingVenue.isNotEmpty) ...[
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          '${tr('wedding_venue')}: ${weddingInfo.weddingVenue}',
+                          style: pw.TextStyle(
+                            font: ttf,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 pw.SizedBox(height: 30),
-                
-                // Seznam položek harmonogramu
-                ...sortedItems.map((item) {
-                  final timeString = item.time != null 
-                    ? DateFormat('HH:mm').format(item.time!) 
-                    : 'Čas neurčen';
-                  
-                  return pw.Padding(
-                    padding: const pw.EdgeInsets.symmetric(vertical: 8),
-                    child: pw.Row(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+
+                // Nadpis harmonogramu
+                pw.Text(
+                  tr('schedule') ?? 'Harmonogram',
+                  style: pw.TextStyle(
+                    font: ttfBold,
+                    fontSize: 24,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 16),
+
+                // Tabulka s harmonogramem
+                pw.Table(
+                  border:
+                      pw.TableBorder.all(color: PdfColors.grey300, width: 1),
+                  columnWidths: {
+                    0: const pw.FixedColumnWidth(100),
+                    1: const pw.FlexColumnWidth(),
+                  },
+                  children: [
+                    // Hlavička tabulky
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(
+                        color: PdfColors.grey200,
+                      ),
                       children: [
-                        pw.Container(
-                          width: 60,
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(10),
                           child: pw.Text(
-                            timeString,
+                            tr('time'),
                             style: pw.TextStyle(
-                              font: font,
+                              font: ttfBold,
+                              fontSize: 14,
                               fontWeight: pw.FontWeight.bold,
                             ),
                           ),
                         ),
-                        pw.SizedBox(width: 20),
-                        pw.Expanded(
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(10),
                           child: pw.Text(
-                            item.title,
-                            style: pw.TextStyle(font: font),
+                            tr('activity'),
+                            style: pw.TextStyle(
+                              font: ttfBold,
+                              fontSize: 14,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  );
-                }).toList(),
+
+                    // Řádky s položkami harmonogramu
+                    ...sortedItems.map((item) {
+                      final timeString = item.time != null
+                          ? DateFormat('HH:mm').format(item.time!)
+                          : tr('time_not_set');
+
+                      return pw.TableRow(
+                        children: [
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(10),
+                            child: pw.Text(
+                              timeString,
+                              style: pw.TextStyle(
+                                font: ttfBold,
+                                fontSize: 12,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(10),
+                            child: pw.Text(
+                              item.title,
+                              style: pw.TextStyle(
+                                font: ttf,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ],
+                ),
+
+                pw.SizedBox(height: 30),
+
+                // Poznámky ze svatebních údajů (pokud existují)
+                if (weddingInfo != null && weddingInfo.notes.isNotEmpty) ...[
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(15),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.grey100,
+                      borderRadius:
+                          const pw.BorderRadius.all(pw.Radius.circular(8)),
+                    ),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          tr('notes'),
+                          style: pw.TextStyle(
+                            font: ttfBold,
+                            fontSize: 14,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.SizedBox(height: 8),
+                        pw.Text(
+                          weddingInfo.notes,
+                          style: pw.TextStyle(
+                            font: ttf,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // Patička s datem vytvoření
+                pw.Spacer(),
+                pw.Divider(color: PdfColors.grey300),
+                pw.SizedBox(height: 8),
+                pw.Center(
+                  child: pw.Text(
+                    '${tr('created')}: ${DateFormat('dd.MM.yyyy HH:mm').format(DateTime.now())}',
+                    style: pw.TextStyle(
+                      font: ttf,
+                      fontSize: 10,
+                      color: PdfColors.grey600,
+                    ),
+                  ),
+                ),
               ],
             );
           },
         ),
       );
-      
+
       // Uložení PDF do souboru
       final output = await getApplicationDocumentsDirectory();
-      final formattedDate = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final formattedDate =
+          DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
       final file = File('${output.path}/harmonogram_svatby_$formattedDate.pdf');
       await file.writeAsBytes(await pdf.save());
-      
-      // Uložení reference na vytvořený soubor
-      _pdfFile = file;
-      
+
       // Otevření souboru
-      if (showSnackbar) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('PDF harmonogram byl vytvořen'),
-            action: SnackBarAction(
-              label: 'Otevřít',
-              onPressed: () {
-                OpenFile.open(file.path);
-              },
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (showSnackbar) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Chyba při vytváření PDF: $e')),
-        );
-      }
-    }
-  }
-  
-  // Načtení fontu s podporou diakritiky pro PDF
-  Future<pw.Font> _loadFont() async {
-    try {
-      // Zkusíme načíst vlastní font s českou diakritikou, pokud je k dispozici
-      final fontData = await rootBundle.load("assets/fonts/DejaVuSans.ttf");
-      return pw.Font.ttf(fontData);
-    } catch (e) {
-      // Fallback na výchozí font, pokud vlastní font není k dispozici
-      return pw.Font.helvetica();
-    }
-  }
-  
-  // Sdílení PDF souboru - AKTUALIZOVÁNO
-  Future<void> _sharePdf(BuildContext context) async {
-    try {
-      if (_pdfFile != null && await _pdfFile!.exists()) {
-        debugPrint("=== SDÍLENÍ PDF SOUBORU: ${_pdfFile!.path} ===");
-        // Sdílení PDF souboru
-        await Share.shareXFiles(
-          [XFile(_pdfFile!.path)], 
-          text: 'Harmonogram svatby',
-          subject: 'Harmonogram svatby'
-        );
-      } else {
-        // Pokud soubor neexistuje, vytvoříme nový
-        debugPrint("=== PDF SOUBOR NEEXISTUJE, VYTVÁŘÍM NOVÝ ===");
-        await _createAndExportPdf(context);
-        if (_pdfFile != null && await _pdfFile!.exists()) {
-          // Pokusíme se znovu sdílet
-          await Share.shareXFiles(
-            [XFile(_pdfFile!.path)], 
-            text: 'Harmonogram svatby',
-            subject: 'Harmonogram svatby'
-          );
-        } else {
-          throw Exception('Nepodařilo se vytvořit PDF soubor.');
-        }
-      }
-    } catch (e) {
-      debugPrint("=== CHYBA PŘI SDÍLENÍ PDF: $e ===");
-      // Pokud selže sdílení PDF, nabízíme sdílení textu jako záložní řešení
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Problém se sdílením PDF: $e'),
+          content: Text(tr('pdf_created')),
+          backgroundColor: Colors.green,
           action: SnackBarAction(
-            label: 'Sdílet jako text',
+            label: tr('open'),
             onPressed: () {
-              _shareScheduleAsText(context);
+              OpenFile.open(file.path);
             },
           ),
         ),
       );
-    }
-  }
-  
-  // Funkce pro sdílení harmonogramu jako text
-  Future<void> _shareScheduleAsText(BuildContext context) async {
-    try {
-      final scheduleManager = Provider.of<ScheduleManager>(context, listen: false);
-      final items = scheduleManager.scheduleItems;
-      
-      // Seřadíme položky vzestupně podle času
-      final sortedItems = List<ScheduleItem>.from(items)
-        ..sort((a, b) {
-          if (a.time == null && b.time == null) return 0;
-          if (a.time == null) return 1;
-          if (b.time == null) return -1;
-          return a.time!.compareTo(b.time!);
-        });
-      
-      // Vytvoření textové reprezentace harmonogramu
-      final StringBuffer textBuffer = StringBuffer();
-      textBuffer.writeln('HARMONOGRAM SVATBY');
-      textBuffer.writeln('Datum: ${DateFormat('dd.MM.yyyy').format(weddingDay)}');
-      textBuffer.writeln('------------------------------');
-      
-      for (final item in sortedItems) {
-        final timeString = item.time != null 
-          ? DateFormat('HH:mm').format(item.time!) 
-          : 'Čas neurčen';
-        
-        textBuffer.writeln('$timeString: ${item.title}');
-      }
-      
-      debugPrint("=== SDÍLENÍ TEXTU ===");
-      // Sdílení textu
-      await Share.share(
-        textBuffer.toString(),
-        subject: 'Harmonogram svatby'
-      );
     } catch (e) {
-      debugPrint("=== CHYBA PŘI SDÍLENÍ TEXTU: $e ===");
+      debugPrint("Chyba při vytváření PDF: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Chyba při sdílení textu: $e')),
+        SnackBar(
+          content: Text('${tr('pdf_error')}: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }

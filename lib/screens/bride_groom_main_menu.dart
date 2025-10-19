@@ -4,7 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 
 import '../repositories/user_repository.dart';
 import '../services/onboarding_manager.dart';
-import '../widgets/permission_error_banner.dart'; 
+import '../widgets/permission_error_banner.dart';
 import 'home_screen.dart';
 import 'checklist_screen.dart';
 // Import pro SuppliersListPage byl odstraněn
@@ -16,7 +16,7 @@ import 'subscription_page.dart';
 import 'wedding_schedule_screen.dart';
 
 class BrideGroomMainMenu extends StatefulWidget {
-  const BrideGroomMainMenu({Key? key}) : super(key: key);
+  const BrideGroomMainMenu({super.key});
 
   @override
   _BrideGroomMainMenuState createState() => _BrideGroomMainMenuState();
@@ -30,7 +30,7 @@ class _BrideGroomMainMenuState extends State<BrideGroomMainMenu> {
   final List<Widget> _pages = const [
     HomeScreen(),
     ChecklistPage(),
-    WeddingScheduleScreen(), 
+    WeddingScheduleScreen(),
     GuestsScreen(),
     BudgetScreen(),
   ];
@@ -39,7 +39,7 @@ class _BrideGroomMainMenuState extends State<BrideGroomMainMenu> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _selectedIndex);
-    // Ujistíme se, že onboarding je označen jako dokončený
+    // Ujistíme se, ťe onboarding je oznáčen jako dokončený
     _ensureOnboardingCompleted();
   }
 
@@ -67,22 +67,13 @@ class _BrideGroomMainMenuState extends State<BrideGroomMainMenu> {
       case 1:
         return tr('checklist_title');
       case 2:
-        // Pokud překlad neexistuje, použijeme pevný text
-        try {
-          return tr('schedule_title');
-        } catch (_) {
-          return 'Harmonogram';
-        }
+        return tr('schedule_title');
       case 3:
         return tr('guests_title');
       case 4:
         return tr('budget_title');
       default:
-        try {
-          return tr('app_title');
-        } catch (_) {
-          return 'Svatební plánovač';
-        }
+        return tr('app_name');
     }
   }
 
@@ -93,13 +84,14 @@ class _BrideGroomMainMenuState extends State<BrideGroomMainMenu> {
         padding: EdgeInsets.zero,
         children: [
           UserAccountsDrawerHeader(
-            accountName: Text(userRepo.cachedUser?.name ?? "Uživatel"),
+            accountName: Text(userRepo.cachedUser?.name ?? tr('user')),
             accountEmail: Text(userRepo.cachedUser?.email ?? ""),
             currentAccountPicture: CircleAvatar(
-              backgroundImage: (userRepo.cachedUser?.profilePictureUrl != null &&
-                      userRepo.cachedUser!.profilePictureUrl.isNotEmpty)
-                  ? NetworkImage(userRepo.cachedUser!.profilePictureUrl)
-                  : null,
+              backgroundImage:
+                  (userRepo.cachedUser?.profilePictureUrl != null &&
+                          userRepo.cachedUser!.profilePictureUrl.isNotEmpty)
+                      ? NetworkImage(userRepo.cachedUser!.profilePictureUrl)
+                      : null,
               child: (userRepo.cachedUser?.profilePictureUrl == null ||
                       userRepo.cachedUser!.profilePictureUrl.isEmpty)
                   ? const Icon(Icons.person, size: 40)
@@ -117,7 +109,7 @@ class _BrideGroomMainMenuState extends State<BrideGroomMainMenu> {
           const PermissionErrorBanner(),
           ListTile(
             leading: const Icon(Icons.home),
-            title: const Text("Domů"),
+            title: Text(tr('home')),
             onTap: () {
               Navigator.pop(context);
               _onBottomNavTapped(0);
@@ -125,7 +117,7 @@ class _BrideGroomMainMenuState extends State<BrideGroomMainMenu> {
           ),
           ListTile(
             leading: const Icon(Icons.check_box),
-            title: const Text("Checklist"),
+            title: Text(tr('checklist')),
             onTap: () {
               Navigator.pop(context);
               _onBottomNavTapped(1);
@@ -133,7 +125,7 @@ class _BrideGroomMainMenuState extends State<BrideGroomMainMenu> {
           ),
           ListTile(
             leading: const Icon(Icons.schedule),
-            title: const Text("Harmonogram"),
+            title: Text(tr('schedule')),
             onTap: () {
               Navigator.pop(context);
               _onBottomNavTapped(2);
@@ -141,7 +133,7 @@ class _BrideGroomMainMenuState extends State<BrideGroomMainMenu> {
           ),
           ListTile(
             leading: const Icon(Icons.people),
-            title: const Text("Hosté"),
+            title: Text(tr('guests')),
             onTap: () {
               Navigator.pop(context);
               _onBottomNavTapped(3);
@@ -149,7 +141,7 @@ class _BrideGroomMainMenuState extends State<BrideGroomMainMenu> {
           ),
           ListTile(
             leading: const Icon(Icons.account_balance_wallet),
-            title: const Text("Rozpočet"),
+            title: Text(tr('budget')),
             onTap: () {
               Navigator.pop(context);
               _onBottomNavTapped(4);
@@ -158,16 +150,16 @@ class _BrideGroomMainMenuState extends State<BrideGroomMainMenu> {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.favorite),
-            title: const Text("Svatba"),
+            title: Text(tr('wedding')),
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, '/weddingInfo');
             },
           ),
-          // Položka Dodavatelé byla kompletně odstraněna
+          // Poloťka DodavatelĂ© byla kompletně odstraněna
           ListTile(
             leading: const Icon(Icons.settings),
-            title: Text(userRepo.cachedUser?.name ?? "Nastavení"),
+            title: Text(userRepo.cachedUser?.name ?? tr('settings')),
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, '/settings');
@@ -176,7 +168,7 @@ class _BrideGroomMainMenuState extends State<BrideGroomMainMenu> {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.logout),
-            title: const Text("Odhlásit se"),
+            title: Text(tr('logout')),
             onTap: () {
               Navigator.pushReplacementNamed(context, '/auth');
             },
@@ -225,35 +217,26 @@ class _BrideGroomMainMenuState extends State<BrideGroomMainMenu> {
         items: [
           BottomNavigationBarItem(
             icon: const Icon(Icons.home),
-            label: _getTranslation('home', 'Domů'),
+            label: tr('home'),
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.check_box),
-            label: _getTranslation('checklist', 'Checklist'),
+            label: tr('checklist'),
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.schedule),
-            label: _getTranslation('schedule', 'Harmonogram'),
+            label: tr('schedule'),
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.people),
-            label: _getTranslation('guests', 'Hosté'),
+            label: tr('guests'),
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.account_balance_wallet),
-            label: _getTranslation('budget', 'Rozpočet'),
+            label: tr('budget'),
           ),
         ],
       ),
     );
-  }
-  
-  // Pomocná metoda pro získání překladu s fallback hodnotou
-  String _getTranslation(String key, String fallback) {
-    try {
-      return tr(key);
-    } catch (_) {
-      return fallback;
-    }
   }
 }

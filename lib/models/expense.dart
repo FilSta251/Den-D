@@ -1,9 +1,10 @@
-// lib/models/expense.dart
+/// lib/models/expense.dart
+library;
 
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Třída reprezentující výdaj ve vaší aplikaci.
+/// Třída reprezentující výdaj ve vaĹˇí aplikaci.
 class Expense {
   /// Unikátní identifikátor výdaje.
   final String id;
@@ -11,7 +12,7 @@ class Expense {
   /// Název nebo popis výdaje.
   final String title;
 
-  /// Kategorie výdaje (např. "jídlo", "ubytování", "doplňky").
+  /// Kategorie výdaje (např. "jídlo", "ubytování", "doplĹky").
   final String category;
 
   /// Celková částka výdaje
@@ -26,10 +27,10 @@ class Expense {
   /// Datum výdaje nebo datum vytvoření záznamu.
   final DateTime date;
 
-  /// Čas vytvoření záznamu
+  /// ďŚas vytvoření záznamu
   final DateTime createdAt;
 
-  /// Čas poslední aktualizace
+  /// ďŚas poslední aktualizace
   final DateTime? updatedAt;
 
   /// Primární konstruktor s povinnými parametry.
@@ -45,7 +46,7 @@ class Expense {
     this.updatedAt,
   }) : createdAt = createdAt ?? date;
 
-  /// Pro zpětnou kompatibilitu - vypočítané vlastnosti
+  /// Pro zpětnou kompatibilitu - vypočítanĂ© vlastnosti
   double get paid => isPaid ? amount : 0.0;
   double get pending => isPaid ? 0.0 : amount;
 
@@ -55,7 +56,7 @@ class Expense {
     if (json.containsKey('paid') && json.containsKey('pending')) {
       final paidAmount = (json['paid'] as num).toDouble();
       final pendingAmount = (json['pending'] as num).toDouble();
-      
+
       return Expense(
         id: json['id'] as String,
         title: json['title'] as String,
@@ -64,11 +65,15 @@ class Expense {
         note: json['note'] as String? ?? '',
         isPaid: pendingAmount == 0,
         date: DateTime.parse(json['date'] as String),
-        createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt'] as String) : null,
-        updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt'] as String) : null,
+        createdAt: json['createdAt'] != null
+            ? DateTime.parse(json['createdAt'] as String)
+            : null,
+        updatedAt: json['updatedAt'] != null
+            ? DateTime.parse(json['updatedAt'] as String)
+            : null,
       );
     }
-    
+
     // Nový formát
     return Expense(
       id: json['id'] as String,
@@ -78,20 +83,24 @@ class Expense {
       note: json['note'] as String? ?? '',
       isPaid: json['isPaid'] as bool? ?? false,
       date: DateTime.parse(json['date'] as String),
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt'] as String) : null,
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt'] as String) : null,
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : null,
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : null,
     );
   }
 
   /// Vytvoří instanci z Firestore dokumentu
   factory Expense.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    
+
     // Zpětná kompatibilita
     if (data.containsKey('paid') && data.containsKey('pending')) {
       final paidAmount = (data['paid'] as num).toDouble();
       final pendingAmount = (data['pending'] as num).toDouble();
-      
+
       return Expense(
         id: doc.id,
         title: data['title'] as String,
@@ -100,11 +109,15 @@ class Expense {
         note: data['note'] as String? ?? '',
         isPaid: pendingAmount == 0,
         date: _parseFirestoreDate(data['date']),
-        createdAt: data['createdAt'] != null ? _parseFirestoreDate(data['createdAt']) : null,
-        updatedAt: data['updatedAt'] != null ? _parseFirestoreDate(data['updatedAt']) : null,
+        createdAt: data['createdAt'] != null
+            ? _parseFirestoreDate(data['createdAt'])
+            : null,
+        updatedAt: data['updatedAt'] != null
+            ? _parseFirestoreDate(data['updatedAt'])
+            : null,
       );
     }
-    
+
     return Expense(
       id: doc.id,
       title: data['title'] as String,
@@ -113,8 +126,12 @@ class Expense {
       note: data['note'] as String? ?? '',
       isPaid: data['isPaid'] as bool? ?? false,
       date: _parseFirestoreDate(data['date']),
-      createdAt: data['createdAt'] != null ? _parseFirestoreDate(data['createdAt']) : null,
-      updatedAt: data['updatedAt'] != null ? _parseFirestoreDate(data['updatedAt']) : null,
+      createdAt: data['createdAt'] != null
+          ? _parseFirestoreDate(data['createdAt'])
+          : null,
+      updatedAt: data['updatedAt'] != null
+          ? _parseFirestoreDate(data['updatedAt'])
+          : null,
     );
   }
 
@@ -146,14 +163,16 @@ class Expense {
       'isPaid': isPaid,
       'date': Timestamp.fromDate(date),
       'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : FieldValue.serverTimestamp(),
+      'updatedAt': updatedAt != null
+          ? Timestamp.fromDate(updatedAt!)
+          : FieldValue.serverTimestamp(),
       // Pro zpětnou kompatibilitu
       'paid': paid,
       'pending': pending,
     };
   }
 
-  /// Umožňuje vytvoření nové instance s možností přepsat vybrané hodnoty.
+  /// UmoťĹuje vytvoření novĂ© instance s moťností přepsat vybranĂ© hodnoty.
   Expense copyWith({
     String? id,
     String? title,
@@ -187,7 +206,7 @@ class Expense {
     return DateTime.now();
   }
 
-  /// Přepis operátoru rovnosti pro správné porovnání instancí.
+  /// Přepis operátoru rovnosti pro správnĂ© porovnání instancí.
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -200,7 +219,7 @@ class Expense {
         other.date == date;
   }
 
-  /// Přepis hashCode pro správné porovnání instancí.
+  /// Přepis hashCode pro správnĂ© porovnání instancí.
   @override
   int get hashCode {
     return id.hashCode ^
@@ -211,7 +230,7 @@ class Expense {
         date.hashCode;
   }
 
-  /// Vrací textovou reprezentaci instance (užitečné při ladění).
+  /// Vrací textovou reprezentaci instance (uťitečnĂ© při ladění).
   @override
   String toString() {
     return 'Expense(id: $id, title: $title, category: $category, amount: $amount, isPaid: $isPaid, date: $date)';
@@ -219,7 +238,7 @@ class Expense {
 
   /// Volitelná metoda pro formátování částky s měnou.
   String formatAmount({String currency = 'Kč'}) {
-    // Jednoduché formátování – případně můžete použít balíček intl pro pokročilejší formátování.
+    // JednoduchĂ© formátování "“ případně můťete pouťít balíček intl pro pokročilejĹˇí formátování.
     return '${amount.toStringAsFixed(2)} $currency';
   }
 }

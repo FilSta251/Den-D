@@ -1,8 +1,8 @@
-name: svatebni_planovac
-description: "A new Flutter project."
+name: den_d
+description: "Svatební plánovač – aplikace pro organizaci vašeho velkého dne."
 publish_to: 'none' # Odstraňte, pokud chcete publikovat na pub.dev
 
-version: 1.0.0+1
+version: 1.3.1+21
 
 environment:
   sdk: ">=3.6.1 <4.0.0"
@@ -13,44 +13,49 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  provider: ^6.1.2
-  table_calendar: ^3.1.3
-  intl: 0.19.0  # Je potřeba kvůli flutter_localizations, která je zafixovaná na tuto verzi
-  timezone: ^0.10.0
-  percent_indicator: ^4.2.4
-  shared_preferences: ^2.5.2
+  provider: ^6.1.5
+  table_calendar: ^3.2.0
+  intl: 0.20.2  # Je potřeba kvůli flutter_localizations, která je zafixovaná na tuto verzi
+  timezone: ^0.10.1
+  percent_indicator: ^4.2.5
+  shared_preferences: ^2.5.3
   equatable: ^2.0.7
-  in_app_purchase: ^3.2.1
-  firebase_analytics: ^11.4.4
-  firebase_crashlytics: ^4.3.2
-  get_it: ^8.0.3
-  firebase_core: ^3.12.1
-  firebase_auth: ^5.5.1
-  cloud_firestore: ^5.6.5
-  google_sign_in: ^6.2.2
+  in_app_purchase: ^3.2.3
+  firebase_analytics: ^12.0.0
+  firebase_crashlytics: ^5.0.0
+  get_it: ^8.2.0
+  firebase_core: ^4.0.0
+  firebase_auth: ^6.0.0
+  cloud_firestore: ^6.0.0
+  cloud_functions: ^6.0.0
+  google_sign_in: ^6.2.1
   sign_in_with_apple: ^7.0.1
-  flutter_facebook_auth: ^7.1.1
-  logger: ^2.5.0
-  easy_localization: ^3.0.0
-  http: ^1.3.0
+  flutter_facebook_auth: ^7.1.2
+  logger: ^2.6.1
+  easy_localization: ^3.0.8
+  http: ^1.4.0
   fl_chart: ^1.0.0
-  flutter_local_notifications: ^19.2.0  # Ponechejte novější verzi
+  flutter_local_notifications: ^19.4.0  # Ponechejte novější verzi
   pdf: ^3.11.3
   path_provider: ^2.1.5
   share_plus: ^11.0.0
-  google_fonts: ^6.2.1
+  google_fonts: ^6.3.0
   open_file: ^3.5.10
   connectivity_plus: ^6.1.4
-  firebase_performance: ^0.10.1+5
-  device_info_plus: ^11.4.0
+  firebase_performance: ^0.11.0
+  device_info_plus: ^11.5.0
   package_info_plus: ^8.3.0
   flutter_dotenv: ^5.2.1
   flutter_secure_storage: ^9.2.4
   crypto: ^3.0.6
-  mockito: ^5.4.6
-  permission_handler: ^12.0.0+1
+  mockito: ^5.5.0
+  permission_handler: ^12.0.1
   pointycastle: ^4.0.0
-
+  url_launcher: ^6.3.2
+  flutter_markdown: ^0.7.7+1
+  app_links: ^6.4.1
+  firebase_app_check: ^0.4.1
+  firebase_messaging: ^16.0.2
 
 fonts:
   - family: Roboto
@@ -63,6 +68,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  intl_utils: ^2.8.11
 
 flutter:
   uses-material-design: true
@@ -72,4 +78,46 @@ flutter:
     - assets/images/logo.png
     - assets/translations/cs.json
     - assets/translations/en.json
+    - assets/translations/es.json
+    - assets/translations/pl.json
+    - assets/translations/fr.json
+    - assets/translations/de.json
+    - assets/translations/uk.json
     - assets/config/
+    - assets/images/onboarding1.png
+    - assets/images/onboarding2.png
+    - assets/images/onboarding3.png
+    - additional_files/legal/
+    - additional_files/legal/terms_of_service.md
+    - additional_files/legal/privacy_policy.md
+    - assets/images/chatbot.png
+    - assets/fonts/Roboto-Regular.ttf    # ← PŘIDEJ TENTO ŘÁDEK
+    - assets/fonts/Roboto-Bold.ttf
+   # Právní dokumenty - ČESKY
+    - assets/legal/cs/privacy_policy.md
+    - assets/legal/cs/terms_of_service.md
+
+    # Právní dokumenty - ANGLICKY
+    - assets/legal/en/privacy_policy.md
+    - assets/legal/en/terms_of_service.md
+
+    # Právní dokumenty - NĚMECKY
+    - assets/legal/de/privacy_policy.md
+    - assets/legal/de/terms_of_service.md
+
+    # Právní dokumenty - ŠPANĚLSKY
+    - assets/legal/es/privacy_policy.md
+    - assets/legal/es/terms_of_service.md
+
+    # Právní dokumenty - FRANCOUZSKY
+    - assets/legal/fr/privacy_policy.md
+    - assets/legal/fr/terms_of_service.md
+
+    # Právní dokumenty - POLSKY
+    - assets/legal/pl/privacy_policy.md
+    - assets/legal/pl/terms_of_service.md
+
+    # Právní dokumenty - UKRAJINSKY
+    - assets/legal/uk/privacy_policy.md
+    - assets/legal/uk/terms_of_service.md
+

@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 import '../models/message.dart';
 import '../repositories/message_repository.dart';
 import '../repositories/user_repository.dart';
 
 /// Stránka pro zobrazení konverzací a odesílání zpráv.
-/// Používá StreamBuilder pro real-time aktualizace zpráv a
-/// obsahuje textové pole s tlačítkem pro odeslání zprávy.
+/// Pouťívá StreamBuilder pro real-time aktualizace zpráv a
+/// obsahuje textovĂ© pole s tláčítkem pro odeslání zprávy.
 class MessagesPage extends StatefulWidget {
-  const MessagesPage({Key? key}) : super(key: key);
+  const MessagesPage({super.key});
 
   @override
   _MessagesPageState createState() => _MessagesPageState();
@@ -32,8 +33,7 @@ class _MessagesPageState extends State<MessagesPage> {
     final content = _messageController.text.trim();
     if (content.isEmpty) return;
 
-    final messageRepo =
-        Provider.of<MessageRepository>(context, listen: false);
+    final messageRepo = Provider.of<MessageRepository>(context, listen: false);
     try {
       await messageRepo.sendMessage(content);
       _messageController.clear();
@@ -49,24 +49,24 @@ class _MessagesPageState extends State<MessagesPage> {
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Chyba při odesílání zprávy: $e')),
+        SnackBar(
+            content: Text(tr('error_sending_message', args: [e.toString()]))),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Získáme aktuální uživatelské ID z UserRepository.
-    final currentUserId = Provider.of<UserRepository>(context, listen: false)
-            .cachedUser
-            ?.id ?? '';
+    // Získáme aktuální uťivatelskĂ© ID z UserRepository.
+    final currentUserId =
+        Provider.of<UserRepository>(context, listen: false).cachedUser?.id ??
+            '';
 
-    final messageRepo =
-        Provider.of<MessageRepository>(context, listen: false);
+    final messageRepo = Provider.of<MessageRepository>(context, listen: false);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Zprávy'),
+        title: Text(tr('messages_title')),
       ),
       body: Column(
         children: [
@@ -76,7 +76,9 @@ class _MessagesPageState extends State<MessagesPage> {
               stream: messageRepo.messageStream,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(child: Text('Chyba: ${snapshot.error}'));
+                  return Center(
+                      child: Text(tr('error_loading_messages',
+                          args: [snapshot.error.toString()])));
                 }
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
@@ -87,7 +89,7 @@ class _MessagesPageState extends State<MessagesPage> {
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final message = messages[index];
-                    // Porovnáme senderId se získaným aktuálním uživatelským ID.
+                    // Porovnáme senderId se získaným aktuálním uťivatelským ID.
                     final isSentByCurrentUser =
                         message.senderId == currentUserId;
                     return Padding(
@@ -138,7 +140,7 @@ class _MessagesPageState extends State<MessagesPage> {
             ),
           ),
           const Divider(height: 1),
-          // Textové pole a tlačítko pro odeslání zprávy.
+          // TextovĂ© pole a tláčítko pro odeslání zprávy.
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             color: Theme.of(context).cardColor,
@@ -147,8 +149,8 @@ class _MessagesPageState extends State<MessagesPage> {
                 Expanded(
                   child: TextField(
                     controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Napište zprávu...',
+                    decoration: InputDecoration(
+                      hintText: tr('message_input_hint'),
                       border: InputBorder.none,
                     ),
                     textInputAction: TextInputAction.send,

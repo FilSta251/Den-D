@@ -1,10 +1,12 @@
-// lib/widgets/custom_app_bar.dart
+/// lib/widgets/custom_app_bar.dart
+library;
 
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
-/// CustomAppBar je znovupoužitelný widget pro AppBar,
-/// který umožňuje snadnou parametrizaci titulku, podtitulku, akcí, leading widgetu,
-/// volitelně nastavitelné výšky a spodního widgetu (např. TabBar).
+/// CustomAppBar je znovupouťitelný widget pro AppBar,
+/// který umoťĹuje snadnou parametrizaci titulku, podtitulku, akcí, leading widgetu,
+/// volitelně nastavitelnĂ© výĹˇky a spodního widgetu (např. TabBar).
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   /// Hlavní titulek AppBaru.
   final String title;
@@ -12,23 +14,23 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   /// Volitelný podtitul, který se zobrazí pod hlavním titulkem.
   final String? subtitle;
 
-  /// Seznam akčních widgetů umístěných v pravé části AppBaru.
+  /// Seznam akčních widgetů umístěných v pravĂ© části AppBaru.
   final List<Widget>? actions;
 
-  /// Vlastní widget umístěný vlevo (např. tlačítko pro otevření Draweru nebo zpět).
+  /// Vlastní widget umístěný vlevo (např. tláčítko pro otevření Draweru nebo zpět).
   final Widget? leading;
 
-  /// Volitelná výška AppBaru.
+  /// Volitelná výĹˇka AppBaru.
   final double? height;
 
   /// Volitelný spodní widget, např. TabBar.
   final Widget? bottom;
 
-  /// Callback, který se zavolá při stisknutí tlačítka zpět, pokud [leading] není explicitně zadán.
+  /// Callback, který se zavolá při stisknutí tláčítka zpět, pokud [leading] není explicitně zadán.
   final VoidCallback? onBackPressed;
 
   const CustomAppBar({
-    Key? key,
+    super.key,
     required this.title,
     this.subtitle,
     this.actions,
@@ -36,11 +38,11 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.height,
     this.bottom,
     this.onBackPressed,
-  }) : super(key: key);
+  });
 
   @override
   Size get preferredSize {
-    // Výchozí výška AppBaru (kToolbarHeight) plus výška spodního widgetu, pokud je nastaven.
+    // Výchozí výĹˇka AppBaru (kToolbarHeight) plus výĹˇka spodního widgetu, pokud je nastaven.
     final double appBarHeight = height ?? kToolbarHeight;
     final double bottomHeight = bottom != null ? kTextTabBarHeight : 0.0;
     return Size.fromHeight(appBarHeight + bottomHeight);
@@ -48,18 +50,18 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Pokud není explicitně nastaven leading, a onBackPressed existuje, zobrazí se tlačítko zpět.
+    // Pokud není explicitně nastaven leading, a onBackPressed existuje, zobrazí se tláčítko zpět.
     Widget? effectiveLeading = leading;
     if (effectiveLeading == null && onBackPressed != null) {
       effectiveLeading = IconButton(
         icon: const Icon(Icons.arrow_back),
         onPressed: onBackPressed,
-        tooltip: 'Zpět',
+        tooltip: tr('back'),
       );
     }
 
     return AppBar(
-      // Zajištění, že AppBar respektuje SafeArea (notch, status bar).
+      // ZajiĹˇtění, ťe AppBar respektuje SafeArea (notch, status bar).
       automaticallyImplyLeading: false,
       leading: effectiveLeading,
       title: Column(
@@ -72,7 +74,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           if (subtitle != null)
             Text(
               subtitle!,
-              style: Theme.of(context).textTheme.subtitle2,
+              style: Theme.of(context).textTheme.titleSmall,
             ),
         ],
       ),
@@ -83,7 +85,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               child: bottom!,
             )
           : null,
-      // Příklad: Možnost přidání gradientního pozadí (volitelné – odkomentujte, pokud je potřeba).
+      // Příklad: Moťnost přidání gradientního pozadí (volitelnĂ© "“ odkomentujte, pokud je potřeba).
       // flexibleSpace: Container(
       //   decoration: const BoxDecoration(
       //     gradient: LinearGradient(

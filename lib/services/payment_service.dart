@@ -1,112 +1,294 @@
+// lib/services/payment_service.dart
+
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:easy_localization/easy_localization.dart';
+import '../utils/constants.dart';
 
-/// PaymentService implementuje integraci plateb pomocí in-app nákupů.
-/// Tato třída je vytvořena jako singleton a poskytuje metody pro inicializaci,
-/// načtení produktů, zahájení nákupu a obnovu nákupů.
+/// PaymentService pro správu in-app nákupů
+///
+/// poskytuje jednotné rozhraní pro Google Play Billing a Apple StoreKit.
+/// Obsahuje metody pro inicializaci, náčtení produktů, nákup a správu předplatnĂ©ho.
 class PaymentService {
   // Singleton instance
   static final PaymentService _instance = PaymentService._internal();
   factory PaymentService() => _instance;
   PaymentService._internal();
 
-  // Instance InAppPurchase pluginu.
+  // Instance InAppPurchase pluginu
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
 
-  // Stream subscription pro nákupní aktualizace.
-  StreamSubscription<List<PurchaseDetails>>? _subscription;
+  // Stream pro poslouchání nákupních aktualizací
+  late StreamSubscription<List<PurchaseDetails>> _subscription;
 
-  // Definice produktových ID, které nabízíte (např. předplatné, jednorázové nákupy).
-  final Set<String> _productIds = <String>{
-    'premium_subscription', // např. předplatné pro prémiový obsah
-    'coin_pack_100',        // např. balíček virtuálních měn
-  };
+  // Controller pro vlastní purchase stream
+  final StreamController<List<PurchaseDetails>> _purchaseStreamController =
+      StreamController<List<PurchaseDetails>>.broadcast();
 
-  // Interní seznam dostupných produktů.
+  // Seznam dostupných produktů
   List<ProductDetails> _products = [];
 
-  /// Inicializuje PaymentService.
-  ///
-  /// Nejprve se ověří, zda jsou in-app nákupy dostupné. Poté se nastaví posluchač
-  /// nákupních aktualizací a načtou se produktová data.
+  // Příznak inicializace
+  bool _isInitialized = false;
+
+  /// Getter pro purchase stream - přeposílá InAppPurchase.instance.purchaseStream
+  Stream<List<PurchaseDetails>> get purchaseStream =>
+      _purchaseStreamController.stream;
+
+  /// Kontrola dostupnosti in-app nákupů
+  Future<bool> isAvailable() async {
+    try {
+      return await _inAppPurchase.isAvailable();
+    } catch (e) {
+      debugPrint('Chyba při kontrole dostupnosti IAP: $e');
+      return false;
+    }
+  }
+
+  /// Inicializuje PaymentService
   Future<void> initialize() async {
-    // Kontrola dostupnosti in-app nákupů.
-    final bool available = await _inAppPurchase.isAvailable();
-    if (!available) {
-      debugPrint("In-app purchases nejsou dostupné.");
+    if (_isInitialized) {
+      debugPrint('PaymentService jiť byl inicializován');
       return;
     }
 
-    // Nastavení posluchače pro nákupní aktualizace.
-    _subscription = _inAppPurchase.purchaseStream.listen(
-      _listenToPurchaseUpdates,
-      onDone: () => _subscription?.cancel(),
-      onError: (error) {
-        debugPrint("Chyba při nákupních aktualizacích: $error");
-      },
-    );
+    try {
+      // Kontrola dostupnosti in-app nákupů
+      final bool available = await isAvailable();
+      if (!available) {
+        throw Exception('In-app nákupy nejsou dostupnĂ© na tomto zařízení');
+      }
 
-    // Načtení produktových dat z obchodu.
-    final ProductDetailsResponse response =
-        await _inAppPurchase.queryProductDetails(_productIds);
-    if (response.error != null) {
-      debugPrint("Chyba při získávání produktů: ${response.error}");
-      return;
+      // Nastavení poslucháče pro nákupní aktualizace - přeposílání do vlastního streamu
+      _subscription = _inAppPurchase.purchaseStream.listen(
+        (List<PurchaseDetails> purchaseDetailsList) {
+          _purchaseStreamController.add(purchaseDetailsList);
+          _handlePurchaseUpdates(purchaseDetailsList);
+        },
+        onDone: () {
+          debugPrint('Purchase stream ukončen');
+        },
+        onError: (error) {
+          debugPrint('Chyba v purchase streamu: $error');
+          _purchaseStreamController.addError(error);
+        },
+      );
+
+      _isInitialized = true;
+      debugPrint('PaymentService úspěĹˇně inicializován');
+    } catch (e) {
+      debugPrint('Chyba při inicializaci PaymentService: $e');
+      rethrow;
     }
-    _products = response.productDetails;
-    debugPrint("Produkty načteny: ${_products.map((p) => p.title).toList()}");
   }
 
-  /// Vrací seznam dostupných produktů.
-  List<ProductDetails> get products => _products;
+  /// Náčte produkty z obchodu
+  Future<List<ProductDetails>> loadProducts() async {
+    if (!_isInitialized) {
+      throw Exception(
+          'PaymentService není inicializován - zavolej initialize() nejdříve');
+    }
 
-  /// Zahájí nákup zvoleného produktu.
-  ///
-  /// U produktů, jejichž ID obsahuje "subscription", je volána metoda pro nepodporovatelné (non-consumable) nákupy.
-  /// U ostatních produktů se předpokládá, že jde o konzumovatelné nákupy.
-  Future<void> buyProduct(ProductDetails productDetails) async {
-    final PurchaseParam purchaseParam = PurchaseParam(productDetails: productDetails);
+    try {
+      final Set<String> productIds = {
+        Platform.isAndroid
+            ? Billing.productPremiumYearlyAndroid
+            : Billing.productPremiumYearlyIOS
+      };
 
-    if (productDetails.id.contains('subscription')) {
-      // Pro nepodporovatelné nákupy (předplatné)
+      debugPrint('Náčítám produkty: $productIds');
+
+      final ProductDetailsResponse response =
+          await _inAppPurchase.queryProductDetails(productIds);
+
+      if (response.error != null) {
+        throw Exception(
+            'Chyba při náčítání produktů: ${response.error!.message}');
+      }
+
+      if (response.notFoundIDs.isNotEmpty) {
+        debugPrint('NenalezenĂ© produkty: ${response.notFoundIDs}');
+      }
+
+      _products = response.productDetails;
+
+      debugPrint('Náčteno ${_products.length} produktů:');
+      for (final product in _products) {
+        debugPrint('- ${product.id}: ${product.title} (${product.price})');
+      }
+
+      return _products;
+    } catch (e) {
+      debugPrint('Chyba při náčítání produktů: $e');
+      rethrow;
+    }
+  }
+
+  /// Zahájí nákup Premium předplatnĂ©ho
+  Future<void> buyPremium(ProductDetails productDetails) async {
+    if (!_isInitialized) {
+      throw Exception('PaymentService není inicializován');
+    }
+
+    try {
+      debugPrint('Zahajuji nákup Premium: ${productDetails.id}');
+
+      final PurchaseParam purchaseParam = PurchaseParam(
+        productDetails: productDetails,
+        applicationUserName: null,
+      );
+
+      // Pro předplatnĂ© pouťíváme buyNonConsumable
       await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
-    } else {
-      // Pro konzumovatelné produkty
-      await _inAppPurchase.buyConsumable(purchaseParam: purchaseParam, autoConsume: true);
+    } catch (e) {
+      debugPrint('Chyba při zahájení nákupu Premium: $e');
+      rethrow;
     }
   }
 
-  /// Obnoví předchozí nákupy (např. při reinstalaci aplikace).
-  Future<void> restorePurchases() async {
-    await _inAppPurchase.restorePurchases();
+  /// Dokončí nákup
+  Future<void> completePurchase(PurchaseDetails purchaseDetails) async {
+    try {
+      await _inAppPurchase.completePurchase(purchaseDetails);
+      debugPrint('Nákup ${purchaseDetails.productID} dokončen');
+    } catch (e) {
+      debugPrint('Chyba při dokončování nákupu: $e');
+      rethrow;
+    }
   }
 
-  /// Interní metoda pro zpracování nákupních aktualizací.
-  ///
-  /// Projde všechny nákupní aktualizace, ošetří stavy pending, error, purchased a restored.
-  /// Pokud je nákup označen jako pendingCompletePurchase, dokončí ho.
-  void _listenToPurchaseUpdates(List<PurchaseDetails> purchaseDetailsList) async {
-    for (final PurchaseDetails purchaseDetails in purchaseDetailsList) {
-      if (purchaseDetails.status == PurchaseStatus.pending) {
-        debugPrint("Nákup čeká: ${purchaseDetails.productID}");
-      } else {
-        if (purchaseDetails.status == PurchaseStatus.error) {
-          debugPrint("Chyba při nákupu: ${purchaseDetails.error}");
-        } else if (purchaseDetails.status == PurchaseStatus.purchased ||
-            purchaseDetails.status == PurchaseStatus.restored) {
-          // V reálné aplikaci ověřte nákup, např. odesláním na server
-          debugPrint("Nákup úspěšný: ${purchaseDetails.productID}");
+  /// Otevře správu předplatnĂ©ho
+  Future<void> openManageSubscriptions() async {
+    try {
+      if (Platform.isAndroid) {
+        // Android: otevři Google Play Store správu předplatnĂ©ho
+        final String packageName = Constants.packageName;
+
+        // SprávnĂ© URL pro správu předplatnĂ©ho na Google Play
+        final Uri playStoreUri =
+            Uri.parse('https://play.google.com/store/account/subscriptions');
+
+        // Fallback - profil aplikace v Play Store
+        final Uri appUri = Uri.parse(
+            'https://play.google.com/store/apps/details?id=$packageName');
+
+        bool launched = false;
+
+        // Zkus otevřít správu předplatnĂ©ho
+        if (await canLaunchUrl(playStoreUri)) {
+          launched = await launchUrl(playStoreUri,
+              mode: LaunchMode.externalApplication);
         }
-        if (purchaseDetails.pendingCompletePurchase) {
-          await _inAppPurchase.completePurchase(purchaseDetails);
+
+        // Fallback na stránku aplikace
+        if (!launched && await canLaunchUrl(appUri)) {
+          launched =
+              await launchUrl(appUri, mode: LaunchMode.externalApplication);
+        }
+
+        if (!launched) {
+          throw Exception('Nelze otevřít správu předplatnĂ©ho');
+        }
+      } else if (Platform.isIOS) {
+        // iOS: zobraz instrukce pro správu v Nastavení
+        _showIOSSubscriptionInstructions();
+      }
+    } catch (e) {
+      debugPrint('Chyba při otevírání správy předplatnĂ©ho: $e');
+      rethrow;
+    }
+  }
+
+  /// Zobrazí instrukce pro správu předplatnĂ©ho na iOS
+  void _showIOSSubscriptionInstructions() {
+    // Tuto metodu bude volat UI komponenta, která zobrazí dialog s instrukcemi
+    // Instrukce: "Pro správu předplatnĂ©ho přejděte do Nastavení > [VaĹˇe jmĂ©no] > Předplatná"
+    debugPrint('Zobrazuji iOS instrukce pro správu předplatnĂ©ho');
+  }
+
+  /// Obnoví předchozí nákupy
+  Future<void> restorePurchases() async {
+    if (!_isInitialized) {
+      throw Exception('PaymentService není inicializován');
+    }
+
+    try {
+      debugPrint('Zahajuji obnovu nákupů...');
+      await _inAppPurchase.restorePurchases();
+      debugPrint('Obnova nákupů dokončena');
+    } catch (e) {
+      debugPrint('Chyba při obnově nákupů: $e');
+      rethrow;
+    }
+  }
+
+  /// Zpracování aktualizací nákupů
+  void _handlePurchaseUpdates(List<PurchaseDetails> purchaseDetailsList) async {
+    debugPrint(
+        'Zpracovávám ${purchaseDetailsList.length} nákupních aktualizací');
+
+    for (final purchase in purchaseDetailsList) {
+      debugPrint('Nákup ${purchase.productID}: ${purchase.status}'
+          '${purchase.error != null ? ' - ${purchase.error}' : ''}');
+
+      // AutomatickĂ© dokončení nákupu pokud je to potřeba
+      if (purchase.pendingCompletePurchase) {
+        try {
+          await completePurchase(purchase);
+        } catch (e) {
+          debugPrint('Chyba při automatickĂ©m dokončování nákupu: $e');
         }
       }
     }
   }
 
-  /// Uvolní zdroje, zejména zruší stream subscription.
+  /// Získá Premium produkt z náčtených produktů
+  ProductDetails? getPremiumProduct() {
+    final String productId = Platform.isAndroid
+        ? Billing.productPremiumYearlyAndroid
+        : Billing.productPremiumYearlyIOS;
+
+    try {
+      return _products.firstWhere((product) => product.id == productId);
+    } catch (e) {
+      debugPrint('Premium produkt $productId není v cache');
+      return null;
+    }
+  }
+
+  /// Vrací informace o ceně Premium předplatnĂ©ho
+  String get premiumPriceText {
+    final product = getPremiumProduct();
+    return product?.price ??
+        '${Constants.premiumPriceYearly.toInt()} ${Constants.currencySymbol}';
+  }
+
+  /// Vrací název Premium předplatnĂ©ho
+  String get premiumTitle {
+    final product = getPremiumProduct();
+    return product?.title ?? tr('subs.premium.title');
+  }
+
+  /// Vrací popis Premium předplatnĂ©ho
+  String get premiumDescription {
+    final product = getPremiumProduct();
+    return product?.description ?? tr('subs.premium.description');
+  }
+
+  /// Vrací vĹˇechny náčtenĂ© produkty
+  List<ProductDetails> get availableProducts => List.unmodifiable(_products);
+
+  /// Kontrola, zda je PaymentService inicializován
+  bool get isInitialized => _isInitialized;
+
+  /// Uvolní zdroje
   void dispose() {
-    _subscription?.cancel();
+    debugPrint('PaymentService dispose');
+    _subscription.cancel();
+    _purchaseStreamController.close();
+    _isInitialized = false;
   }
 }

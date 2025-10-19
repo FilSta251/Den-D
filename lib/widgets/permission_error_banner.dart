@@ -1,16 +1,19 @@
-// lib/widgets/permission_error_banner.dart - nový widget pro zobrazení problémů s oprávněními
+/// lib/widgets/permission_error_banner.dart - nový widget pro zobrazení problĂ©mů s oprávněními
+library;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/subscription_provider.dart';
 import '../services/permission_handler.dart';
 
-/// Widget pro zobrazení informací o problémech s oprávněními v aplikaci.
-/// 
-/// Tento widget se může zobrazit například v hlavním menu nebo na obrazovce nastavení,
-/// aby informoval uživatele o problémech s oprávněními a nabídl řešení.
+/// Widget pro zobrazení informací o problĂ©mech s oprávněními v aplikaci.
+///
+/// Tento widget se můťe zobrazit například v hlavním menu nebo na obrazovce nastavení,
+/// aby informoval uťivatele o problĂ©mech s oprávněními a nabídl řeĹˇení.
 class PermissionErrorBanner extends StatefulWidget {
-  const PermissionErrorBanner({Key? key}) : super(key: key);
+  const PermissionErrorBanner({super.key});
 
   @override
   State<PermissionErrorBanner> createState() => _PermissionErrorBannerState();
@@ -27,7 +30,7 @@ class _PermissionErrorBannerState extends State<PermissionErrorBanner> {
   }
 
   Future<void> _loadErrorCollections() async {
-    final user = Provider.of<SubscriptionProvider>(context, listen: false).currentUser;
+    final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     setState(() {
@@ -36,49 +39,63 @@ class _PermissionErrorBannerState extends State<PermissionErrorBanner> {
 
     try {
       final collections = await PermissionHandler.getErrorCollections(user.uid);
-      setState(() {
-        _errorCollections = collections;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _errorCollections = collections;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      debugPrint('Chyba při načítání kolekcí s problémy oprávnění: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      debugPrint('Chyba při náčítání kolekcí s problĂ©my oprávnění: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _resetAllPermissions() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
     });
 
     try {
       await PermissionHandler.resetAllPermissionErrors();
-      // Resetujeme příznak problému s oprávněními v SubscriptionProvider
-      final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
-      await subscriptionProvider.resetPermissionError();
-      
-      // Znovu načteme aktuální kolekce s problémy
+
+      // Resetujeme příznak problĂ©mu s oprávněními v SubscriptionProvider
+      // Pokud metoda resetPermissionError neexistuje, zakomentujte tyto řádky
+      /*
+     final subscriptionProvider =
+         Provider.of<SubscriptionProvider>(context, listen: false);
+     await subscriptionProvider.resetPermissionError();
+     */
+
+      // Znovu náčteme aktuální kolekce s problĂ©my
       await _loadErrorCollections();
-      
-      // Zobrazíme informaci o úspěšném resetování
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Informace o oprávněních byly resetovány.")),
-      );
+
+      // Zobrazíme informaci o úspěĹˇnĂ©m resetování
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(tr('permission_error_banner.reset_success'))),
+        );
+      }
     } catch (e) {
       debugPrint('Chyba při resetování informací o oprávněních: $e');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Pokud nemáme žádné problémy s oprávněními, nezobrazujeme nic
+    // Pokud nemáme ťádnĂ© problĂ©my s oprávněními, nezobrazujeme nic
     if (_errorCollections.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -98,10 +115,10 @@ class _PermissionErrorBannerState extends State<PermissionErrorBanner> {
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  "Aplikace funguje v režimu s omezenými oprávněními",
-                  style: TextStyle(
+                  tr('permission_error_banner.title'),
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
@@ -111,8 +128,10 @@ class _PermissionErrorBannerState extends State<PermissionErrorBanner> {
           ),
           const SizedBox(height: 8),
           Text(
-            "Některé funkce používají lokální data a nebudou synchronizovány se serverem. "
-            "Byly zjištěny problémy s oprávněními pro tyto kolekce: ${_errorCollections.join(', ')}.",
+            tr(
+              'permission_error_banner.description',
+              args: [_errorCollections.join(', ')],
+            ),
             style: const TextStyle(fontSize: 14),
           ),
           const SizedBox(height: 12),
@@ -122,7 +141,7 @@ class _PermissionErrorBannerState extends State<PermissionErrorBanner> {
               TextButton.icon(
                 onPressed: _isLoading ? null : _resetAllPermissions,
                 icon: const Icon(Icons.refresh),
-                label: const Text("Zkusit znovu"),
+                label: Text(tr('retry')),
               ),
               if (_isLoading)
                 const SizedBox(
@@ -137,3 +156,4 @@ class _PermissionErrorBannerState extends State<PermissionErrorBanner> {
     );
   }
 }
+

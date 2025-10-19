@@ -1,11 +1,12 @@
-// test/unit/auth_service_test.dart
+/// test/unit/auth_service_test.dart
+library;
 
 import "package:flutter_test/flutter_test.dart";
 import "package:firebase_auth/firebase_auth.dart" as fb;
 import "package:mockito/mockito.dart";
 import "package:mockito/annotations.dart";
 import "package:firebase_auth_platform_interface/firebase_auth_platform_interface.dart";
-import "package:svatebni_planovac/services/auth_service.dart";
+import "package:den_d/services/auth_service.dart";
 
 import "auth_service_test.mocks.dart";
 
@@ -33,8 +34,8 @@ void main() {
         email: "test@example.com",
         password: "password",
       )).then
-      # Pokračování vytvoření testovacího souboru auth_service_test.dart
-cat > test/unit/auth_service_test.dart << 'EOF'
+      # Pokráčování vytvoření testovacího souboru authServiceTest.dart
+cat > test/unit/authServiceTest.dart << 'EOF'
 // test/unit/auth_service_test.dart
 
 import "package:flutter_test/flutter_test.dart";
@@ -42,7 +43,7 @@ import "package:firebase_auth/firebase_auth.dart" as fb;
 import "package:mockito/mockito.dart";
 import "package:mockito/annotations.dart";
 import "package:firebase_auth_platform_interface/firebase_auth_platform_interface.dart";
-import "package:svatebni_planovac/services/auth_service.dart";
+import "package:den_d/services/auth_service.dart";
 
 import "auth_service_test.mocks.dart";
 
@@ -101,3 +102,4 @@ void main() {
     });
   });
 }
+

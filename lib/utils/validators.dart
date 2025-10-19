@@ -1,36 +1,41 @@
-// lib/utils/validators.dart
+/// lib/utils/validators.dart
+library;
 
 import 'package:intl/intl.dart';
 
-/// Validators poskytuje statické metody pro ověřování vstupů.
-/// Každá metoda vrací null, pokud je vstup platný, nebo chybovou zprávu při neplatnosti.
+/// Validators poskytuje statickĂ© metody pro ověřování vstupů.
+/// Kaťdá metoda vrací null, pokud je vstup platný, nebo chybovou zprávu při neplatnosti.
 class Validators {
-  /// Ověří, že hodnota není prázdná.
-  static String? validateRequired(String? value, {String errorMessage = 'Toto pole je povinné.'}) {
+  /// Ověří, ťe hodnota není prázdná.
+  static String? validateRequired(String? value,
+      {String errorMessage = 'Toto pole je povinnĂ©.'}) {
     if (value == null || value.trim().isEmpty) {
       return errorMessage;
     }
     return null;
   }
 
-  /// Ověří, že hodnota má alespoň [minLength] znaků.
-  static String? validateMinLength(String? value, int minLength, {String? errorMessage}) {
+  /// Ověří, ťe hodnota má alespoĹ [minLength] znaků.
+  static String? validateMinLength(String? value, int minLength,
+      {String? errorMessage}) {
     if (value == null || value.trim().length < minLength) {
-      return errorMessage ?? 'Hodnota musí mít alespoň $minLength znaků.';
+      return errorMessage ?? 'Hodnota musí mít alespoĹ $minLength znaků.';
     }
     return null;
   }
 
-  /// Ověří, že hodnota nepřesahuje [maxLength] znaků.
-  static String? validateMaxLength(String? value, int maxLength, {String? errorMessage}) {
+  /// Ověří, ťe hodnota nepřesahuje [maxLength] znaků.
+  static String? validateMaxLength(String? value, int maxLength,
+      {String? errorMessage}) {
     if (value != null && value.trim().length > maxLength) {
-      return errorMessage ?? 'Hodnota nesmí být delší než $maxLength znaků.';
+      return errorMessage ?? 'Hodnota nesmí být delĹˇí neť $maxLength znaků.';
     }
     return null;
   }
 
-  /// Ověří formát emailové adresy.
-  static String? validateEmail(String? value, {String errorMessage = 'Neplatná emailová adresa.'}) {
+  /// Ověří formát emailovĂ© adresy.
+  static String? validateEmail(String? value,
+      {String errorMessage = 'Neplatná emailová adresa.'}) {
     if (value == null || value.trim().isEmpty) {
       return 'Email je povinný';
     }
@@ -41,21 +46,23 @@ class Validators {
     return null;
   }
 
-  /// Ověří, že heslo splňuje minimální délku.
-  static String? validatePassword(String? value, {int minLength = 6, String? errorMessage}) {
+  /// Ověří, ťe heslo splĹuje minimální dĂ©lku.
+  static String? validatePassword(String? value,
+      {int minLength = 6, String? errorMessage}) {
     if (value == null || value.isEmpty) {
-      return 'Heslo je povinné';
+      return 'Heslo je povinnĂ©';
     }
     if (value.length < minLength) {
-      return errorMessage ?? 'Heslo musí mít alespoň $minLength znaků.';
+      return errorMessage ?? 'Heslo musí mít alespoĹ $minLength znaků.';
     }
     return null;
   }
 
   /// Ověří formát telefonního čísla.
-  static String? validatePhoneNumber(String? value, {String errorMessage = 'Neplatné telefonní číslo.'}) {
+  static String? validatePhoneNumber(String? value,
+      {String errorMessage = 'NeplatnĂ© telefonní číslo.'}) {
     if (value == null || value.trim().isEmpty) {
-      return 'Telefonní číslo je povinné';
+      return 'Telefonní číslo je povinnĂ©';
     }
     final RegExp phoneRegExp = RegExp(r'^\+?[0-9]{7,15}$');
     if (!phoneRegExp.hasMatch(value.trim())) {
@@ -65,23 +72,28 @@ class Validators {
   }
 
   /// Ověří formát URL.
-  static String? validateURL(String? value, {String errorMessage = 'Neplatná URL adresa.'}) {
+  static String? validateURL(String? value,
+      {String errorMessage = 'Neplatná URL adresa.'}) {
     if (value == null || value.trim().isEmpty) {
       return 'URL je povinná';
     }
     final uri = Uri.tryParse(value.trim());
-    if (uri == null || !uri.hasScheme || (uri.scheme != 'http' && uri.scheme != 'https')) {
+    if (uri == null ||
+        !uri.hasScheme ||
+        (uri.scheme != 'http' && uri.scheme != 'https')) {
       return errorMessage;
     }
     return null;
   }
 
-  /// Ověří, že zadaný řetězec je platným datem.
+  /// Ověří, ťe zadaný řetězec je platným datem.
   /// Pokud je [mustBeFuture] true, datum musí být v budoucnu; pokud [mustBePast] true, musí být v minulosti.
   static String? validateDate(String? value,
-      {bool mustBeFuture = false, bool mustBePast = false, String errorMessage = 'Neplatné datum.'}) {
+      {bool mustBeFuture = false,
+      bool mustBePast = false,
+      String errorMessage = 'NeplatnĂ© datum.'}) {
     if (value == null || value.trim().isEmpty) {
-      return 'Datum je povinné';
+      return 'Datum je povinnĂ©';
     }
     try {
       final date = DateTime.parse(value.trim());
@@ -98,8 +110,9 @@ class Validators {
     return null;
   }
 
-  /// Složený validátor, který aplikuje více validátorů postupně a vrací první chybovou zprávu.
-  static String? composeValidators(String? value, List<String? Function(String? value)> validators) {
+  /// Sloťený validátor, který aplikuje více validátorů postupně a vrací první chybovou zprávu.
+  static String? composeValidators(
+      String? value, List<String? Function(String? value)> validators) {
     for (final validator in validators) {
       final result = validator(value);
       if (result != null) {

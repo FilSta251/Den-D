@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:svatebni_planovac/models/task.dart';
-import 'package:svatebni_planovac/models/helper.dart';
+import 'package:den_d/models/task.dart';
+import 'package:den_d/models/helper.dart';
 
 void main() {
   group('Task Model Tests', () {
@@ -62,7 +62,8 @@ void main() {
         updatedAt: DateTime.parse('2023-01-05T12:00:00Z'),
       );
 
-      final updatedTask = task.copyWith(isCompleted: true, title: 'Book Venue Updated');
+      final updatedTask =
+          task.copyWith(isCompleted: true, title: 'Book Venue Updated');
       expect(updatedTask.id, task.id);
       expect(updatedTask.title, 'Book Venue Updated');
       expect(updatedTask.isCompleted, true);
@@ -116,7 +117,8 @@ void main() {
         contact: '+123456789',
       );
 
-      final updatedHelper = helper.copyWith(name: 'Alice Johnson', contact: '+987654321');
+      final updatedHelper =
+          helper.copyWith(name: 'Alice Johnson', contact: '+987654321');
       expect(updatedHelper.id, helper.id);
       expect(updatedHelper.name, 'Alice Johnson');
       expect(updatedHelper.contact, '+987654321');

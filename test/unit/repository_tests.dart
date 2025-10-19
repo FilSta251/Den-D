@@ -1,22 +1,22 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:svatebni_planovac/models/task.dart';
-import 'package:svatebni_planovac/repositories/tasks_repository.dart';
+import 'package:den_d/models/task.dart';
+import 'package:den_d/repositories/tasks_repository.dart';
 
 /// FakeTasksRepository simuluje chování TasksRepository pro účely testování.
-/// V reálném testovacím prostředí by bylo vhodné využít knihovnu pro mockování, například cloud_firestore_mocks.
+/// V reálnĂ©m testovacím prostředí by bylo vhodnĂ© vyuťít knihovnu pro mockování, například cloud_firestore_mocks.
 class FakeTasksRepository extends TasksRepository {
   List<Task> fakeTasks = [];
 
-  // Override metody fetchTasks, aby vrátila falešná data místo skutečného volání Firestore.
+  // Override metody fetchTasks, aby vrátila faleĹˇná data místo skutečnĂ©ho volání Firestore.
   @override
   Future<List<Task>> fetchTasks() async {
     return fakeTasks;
   }
 
-  // Metoda pro nastavení falešných úkolů, kterou využijeme při testování.
+  // Metoda pro nastavení faleĹˇných úkolů, kterou vyuťijeme při testování.
   void setFakeTasks(List<Task> tasks) {
     fakeTasks = tasks;
-    // V reálném repozitáři by byla také aktualizována lokální cache a vyslán stream,
+    // V reálnĂ©m repozitáři by byla takĂ© aktualizována lokální cache a vyslán stream,
     // ale zde pracujeme přímo s metodou fetchTasks.
   }
 }
@@ -96,3 +96,4 @@ void main() {
     });
   });
 }
+

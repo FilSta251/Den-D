@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:svatebni_planovac/widgets/custom_app_bar.dart';
-import 'package:svatebni_planovac/widgets/loading_widget.dart';
-import 'package:svatebni_planovac/widgets/error_dialog.dart';
+import 'package:den_d/widgets/custom_app_bar.dart';
+import 'package:den_d/widgets/loading_widget.dart';
+import 'package:den_d/widgets/error_dialog.dart';
 
 void main() {
   group('CustomAppBar Widget Tests', () {
@@ -16,7 +16,7 @@ void main() {
         ),
       );
 
-      // Ověří, že se v custom AppBar vykreslí zadaný titulek.
+      // Ověří, ťe se v custom AppBar vykreslí zadaný titulek.
       expect(find.text(title), findsOneWidget);
     });
   });
@@ -31,7 +31,7 @@ void main() {
         ),
       );
 
-      // Ověří, že widget obsahuje CircularProgressIndicator.
+      // Ověří, ťe widget obsahuje CircularProgressIndicator.
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
   });
@@ -40,7 +40,7 @@ void main() {
     testWidgets('ErrorDialog displays error message and default action', (WidgetTester tester) async {
       const String errorMessage = 'An error occurred';
       
-      // Používáme statickou metodu show pro snadné zobrazení dialogu.
+      // Pouťíváme statickou metodu show pro snadnĂ© zobrazení dialogu.
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -58,11 +58,11 @@ void main() {
         ),
       );
 
-      // Simulujeme klepnutí na tlačítko, aby se dialog zobrazil.
+      // Simulujeme klepnutí na tláčítko, aby se dialog zobrazil.
       await tester.tap(find.text('Show Error'));
       await tester.pumpAndSettle();
 
-      // Ověří, že dialog obsahuje titulek, zprávu a tlačítko OK.
+      // Ověří, ťe dialog obsahuje titulek, zprávu a tláčítko OK.
       expect(find.text('Error'), findsOneWidget);
       expect(find.text(errorMessage), findsOneWidget);
       expect(find.text('OK'), findsOneWidget);
@@ -97,8 +97,9 @@ void main() {
       await tester.tap(find.text('Show Error with Action'));
       await tester.pumpAndSettle();
 
-      // Ověří, že dialog obsahuje custom tlačítko "Retry".
+      // Ověří, ťe dialog obsahuje custom tláčítko "Retry".
       expect(find.text('Retry'), findsOneWidget);
     });
   });
 }
+

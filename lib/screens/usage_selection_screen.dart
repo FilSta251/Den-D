@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class UsageSelectionScreen extends StatelessWidget {
-  const UsageSelectionScreen({Key? key}) : super(key: key);
+  const UsageSelectionScreen({super.key});
 
-  // Navigační funkce – odstranili jsme volbu 'pomahat'
+  // Navigáční funkce "“ odstranili jsme volbu 'pomahat'
   void _selectOption(BuildContext context, String optionKey) {
     if (optionKey == 'planovat') {
       Navigator.pushReplacementNamed(context, '/introduction');
@@ -24,7 +24,8 @@ class UsageSelectionScreen extends StatelessWidget {
     }
   }
 
-  Widget _buildOptionCard(BuildContext context, String optionKey, String title, String description) {
+  Widget _buildOptionCard(BuildContext context, String optionKey, String title,
+      String description) {
     return GestureDetector(
       onTap: () => _selectOption(context, optionKey),
       child: Card(
@@ -47,12 +48,14 @@ class UsageSelectionScreen extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       description,
-                      style: const TextStyle(fontSize: 16, color: Colors.black54),
+                      style:
+                          const TextStyle(fontSize: 16, color: Colors.black54),
                     ),
                   ],
                 ),

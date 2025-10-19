@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Barva pro notifikace (růžová pro svatební téma) -->
+    <color name="notification_color">#FFE91E63</color>
+
+    <!-- Další barvy podle potřeby -->
+    <color name="primary">#FFE91E63</color>
+    <color name="primary_dark">#FFC2185B</color>
+    <color name="accent">#FFFF4081</color>
+</resources>

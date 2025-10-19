@@ -1,19 +1,20 @@
-// lib/widgets/responsive_layout.dart
+/// lib/widgets/responsive_layout.dart
+library;
 
 import "package:flutter/material.dart";
 
-/// Breakpointy pro různé velikosti zařízení.
+/// Breakpointy pro různĂ© velikosti zařízení.
 class ScreenBreakpoints {
  // Mobilní zařízení
  static const double mobileSmall = 320;
  static const double mobileMedium = 375;
  static const double mobileLarge = 414;
- 
+
  // Tablety
  static const double tabletSmall = 600;
  static const double tabletMedium = 768;
  static const double tabletLarge = 900;
- 
+
  // Desktopy
  static const double desktopSmall = 1024;
  static const double desktopMedium = 1280;
@@ -33,58 +34,58 @@ enum DeviceType {
  desktopLarge,
 }
 
-/// Widget pro responzivní layout, který poskytuje různé widgety
+/// Widget pro responzivní layout, který poskytuje různĂ© widgety
 /// v závislosti na velikosti obrazovky.
 class ResponsiveLayout extends StatelessWidget {
  /// Builder pro mobilní zařízení.
  final Widget Function(BuildContext context)? mobileBuilder;
- 
+
  /// Builder pro tablety.
  final Widget Function(BuildContext context)? tabletBuilder;
- 
+
  /// Builder pro desktopy.
  final Widget Function(BuildContext context)? desktopBuilder;
- 
- /// Výchozí builder, který se použije, pokud není definován
+
+ /// Výchozí builder, který se pouťije, pokud není definován
  /// specifický builder pro danou velikost obrazovky.
  final Widget Function(BuildContext context) defaultBuilder;
- 
+
  const ResponsiveLayout({
-   Key? key,
+   super.key,
    this.mobileBuilder,
    this.tabletBuilder,
    this.desktopBuilder,
    required this.defaultBuilder,
- }) : super(key: key);
+ });
 
  @override
  Widget build(BuildContext context) {
    return LayoutBuilder(
      builder: (context, constraints) {
        final deviceType = _getDeviceType(constraints.maxWidth);
-       
+
        // Desktop layout
        if (_isDesktop(deviceType) && desktopBuilder != null) {
          return desktopBuilder!(context);
        }
-       
+
        // Tablet layout
        if (_isTablet(deviceType) && tabletBuilder != null) {
          return tabletBuilder!(context);
        }
-       
+
        // Mobile layout
        if (_isMobile(deviceType) && mobileBuilder != null) {
          return mobileBuilder!(context);
        }
-       
+
        // Default layout
        return defaultBuilder(context);
      },
    );
  }
 
- /// Určí typ zařízení podle šířky obrazovky.
+ /// Určí typ zařízení podle Ĺˇířky obrazovky.
  DeviceType _getDeviceType(double width) {
    if (width < ScreenBreakpoints.mobileSmall) {
      return DeviceType.mobileSmall;
@@ -129,19 +130,19 @@ class ResponsiveLayout extends StatelessWidget {
  }
 }
 
-/// Widget, který vrací různé widgety v závislosti na orientaci zařízení.
+/// Widget, který vrací různĂ© widgety v závislosti na orientaci zařízení.
 class OrientationLayout extends StatelessWidget {
- /// Builder pro portrétní orientaci.
+ /// Builder pro portrĂ©tní orientaci.
  final Widget Function(BuildContext context) portraitBuilder;
- 
+
  /// Builder pro landscape orientaci.
  final Widget Function(BuildContext context) landscapeBuilder;
- 
+
  const OrientationLayout({
-   Key? key,
+   super.key,
    required this.portraitBuilder,
    required this.landscapeBuilder,
- }) : super(key: key);
+ });
 
  @override
  Widget build(BuildContext context) {
@@ -157,31 +158,31 @@ class OrientationLayout extends StatelessWidget {
  }
 }
 
-/// Rozšíření pro získání informací o velikosti obrazovky v kontextu.
+/// RozĹˇíření pro získání informací o velikosti obrazovky v kontextu.
 extension ScreenSizeExtension on BuildContext {
- /// Vrací šířku obrazovky.
+ /// Vrací Ĺˇířku obrazovky.
  double get screenWidth => MediaQuery.of(this).size.width;
- 
- /// Vrací výšku obrazovky.
+
+ /// Vrací výĹˇku obrazovky.
  double get screenHeight => MediaQuery.of(this).size.height;
- 
+
  /// Vrací orientaci obrazovky.
  Orientation get orientation => MediaQuery.of(this).orientation;
- 
+
  /// Kontroluje, zda je zařízení mobilní.
  bool get isMobile => screenWidth < ScreenBreakpoints.tabletSmall;
- 
+
  /// Kontroluje, zda je zařízení tablet.
- bool get isTablet => screenWidth >= ScreenBreakpoints.tabletSmall && 
+ bool get isTablet => screenWidth >= ScreenBreakpoints.tabletSmall &&
                       screenWidth < ScreenBreakpoints.desktopSmall;
- 
+
  /// Kontroluje, zda je zařízení desktop.
  bool get isDesktop => screenWidth >= ScreenBreakpoints.desktopSmall;
- 
+
  /// Vrací typ zařízení.
  DeviceType get deviceType {
    final width = screenWidth;
-   
+
    if (width < ScreenBreakpoints.mobileSmall) {
      return DeviceType.mobileSmall;
    } else if (width < ScreenBreakpoints.mobileMedium) {
@@ -209,7 +210,7 @@ class ResponsiveHelper {
  /// Vrací velikost fontu v závislosti na velikosti obrazovky.
  static double getResponsiveFontSize(BuildContext context, double baseFontSize) {
    final deviceType = context.deviceType;
-   
+
    switch (deviceType) {
      case DeviceType.mobileSmall:
        return baseFontSize * 0.8;
@@ -235,7 +236,7 @@ class ResponsiveHelper {
  /// Vrací velikost mezery v závislosti na velikosti obrazovky.
  static double getResponsiveSpacing(BuildContext context, double baseSpacing) {
    final deviceType = context.deviceType;
-   
+
    switch (deviceType) {
      case DeviceType.mobileSmall:
        return baseSpacing * 0.8;
@@ -261,7 +262,7 @@ class ResponsiveHelper {
  /// Vrací velikost ikony v závislosti na velikosti obrazovky.
  static double getResponsiveIconSize(BuildContext context, double baseIconSize) {
    final deviceType = context.deviceType;
-   
+
    switch (deviceType) {
      case DeviceType.mobileSmall:
        return baseIconSize * 0.8;
@@ -284,3 +285,4 @@ class ResponsiveHelper {
    }
  }
 }
+

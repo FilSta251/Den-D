@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 import '../models/wedding_info.dart';
 import '../services/local_wedding_info_service.dart';
@@ -10,7 +11,7 @@ import '../repositories/wedding_repository.dart';
 /// WeddingInfoPage zobrazuje informace o svatbě a umožňuje je upravovat.
 /// Data jsou ukládána lokálně pomocí SharedPreferences a synchronizována s cloudem.
 class WeddingInfoPage extends StatefulWidget {
-  const WeddingInfoPage({Key? key}) : super(key: key);
+  const WeddingInfoPage({super.key});
 
   @override
   _WeddingInfoPageState createState() => _WeddingInfoPageState();
@@ -32,13 +33,13 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
 
   late LocalWeddingInfoService _localService;
   late WeddingRepository _weddingRepository;
-  
+
   // Referenční hodnota z cloudu
   WeddingInfo? _cloudWeddingInfo;
-  
+
   // Flag pro zabránění nekonečné smyčky aktualizací
   bool _isUpdatingFromCloud = false;
-  
+
   // Subscription na stream dat z cloudu
   StreamSubscription<WeddingInfo?>? _weddingSubscription;
 
@@ -46,44 +47,50 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
   void initState() {
     super.initState();
     debugPrint('[WeddingInfoPage] initState');
-    
+
     _dateController = TextEditingController();
     _yourNameController = TextEditingController();
     _partnerNameController = TextEditingController();
     _venueController = TextEditingController();
     _budgetController = TextEditingController();
     _notesController = TextEditingController();
-    
+
     _localService = LocalWeddingInfoService();
     _weddingRepository = Provider.of<WeddingRepository>(context, listen: false);
-    
+
     // Nastavíme referenci na repository pro lokální service
     _localService.setWeddingRepository(_weddingRepository);
-    
+
     // Přihlásíme se k odběru změn z cloudu
     _subscribeToCloudUpdates();
-    
+
     // Načteme data primárně z cloudu
     _loadWeddingInfoFromCloud();
   }
 
   void _subscribeToCloudUpdates() {
-    _weddingSubscription = _weddingRepository.weddingInfoStream.listen((weddingInfo) {
-      if (weddingInfo != null && mounted && !_isEditMode && !_isUpdatingFromCloud) {
-        debugPrint('[WeddingInfoPage] Received cloud update while not in edit mode');
-        
+    _weddingSubscription =
+        _weddingRepository.weddingInfoStream.listen((weddingInfo) {
+      if (weddingInfo != null &&
+          mounted &&
+          !_isEditMode &&
+          !_isUpdatingFromCloud) {
+        debugPrint(
+            '[WeddingInfoPage] Received cloud update while not in edit mode');
+
         // Zabráníme nekonečné smyčce aktualizací
         if (_cloudWeddingInfo != null) {
           // Porovnáme, jestli jsou data opravdu jiná
           final currentJson = _cloudWeddingInfo!.toJson().toString();
           final newJson = weddingInfo.toJson().toString();
-          
+
           if (currentJson == newJson) {
-            debugPrint('[WeddingInfoPage] Ignoring redundant cloud update - data are the same');
+            debugPrint(
+                '[WeddingInfoPage] Ignoring redundant cloud update - data are the same');
             return;
           }
         }
-        
+
         // Aktualizujeme zobrazení s aktuálními daty z cloudu
         setState(() {
           _cloudWeddingInfo = weddingInfo;
@@ -101,28 +108,30 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
       _isLoading = true;
       _isUpdatingFromCloud = true;
     });
-    
+
     debugPrint('[WeddingInfoPage] Loading wedding info directly from cloud');
-    
+
     try {
       // Načteme data z cloudu
       final weddingInfo = await _weddingRepository.fetchWeddingInfo();
-      
-      if (weddingInfo != null && mounted) {
-        debugPrint('[WeddingInfoPage] Cloud data loaded: ${weddingInfo.toJson()}');
-        
+
+      if (mounted) {
+        debugPrint(
+            '[WeddingInfoPage] Cloud data loaded: ${weddingInfo.toJson()}');
+
         // Aktualizujeme referenční hodnotu
         _cloudWeddingInfo = weddingInfo;
-        
+
         // Aktualizujeme lokální kopii, ale bez zpětné propagace na cloud
         await _localService.saveWeddingInfo(weddingInfo);
-        
+
         if (!_isEditMode) {
           _initializeControllers(weddingInfo);
         }
       }
     } catch (e) {
-      debugPrint('[WeddingInfoPage] Error loading from cloud: $e, falling back to local data');
+      debugPrint(
+          '[WeddingInfoPage] Error loading from cloud: $e, falling back to local data');
       // Pokud se nezdaří načíst z cloudu, zkusíme lokální kopii
       _loadWeddingInfoFromLocal();
     } finally {
@@ -138,12 +147,12 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
   // Záložní metoda pro načtení dat lokálně
   Future<void> _loadWeddingInfoFromLocal() async {
     debugPrint('[WeddingInfoPage] Loading wedding info from local storage');
-    
+
     try {
       final localInfo = await _localService.loadWeddingInfo();
       if (localInfo != null && mounted) {
         _cloudWeddingInfo = localInfo;
-        
+
         if (!_isEditMode) {
           _initializeControllers(localInfo);
         }
@@ -174,7 +183,8 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
     _venueController.text = info.weddingVenue;
     _budgetController.text = info.budget.toStringAsFixed(2);
     _notesController.text = info.notes;
-    debugPrint('[WeddingInfoPage] Controllers initialized with wedding info data: ${info.toJson()}');
+    debugPrint(
+        '[WeddingInfoPage] Controllers initialized with wedding info data: ${info.toJson()}');
   }
 
   /// Uloží upravené informace lokálně a na cloud a aktualizuje zobrazení.
@@ -190,8 +200,10 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
     });
 
     try {
-      final parsedDate = DateFormat('yyyy-MM-dd').parse(_dateController.text.trim());
-      final parsedBudget = double.tryParse(_budgetController.text.trim()) ?? 0.0;
+      final parsedDate =
+          DateFormat('yyyy-MM-dd').parse(_dateController.text.trim());
+      final parsedBudget =
+          double.tryParse(_budgetController.text.trim()) ?? 0.0;
 
       final updatedInfo = originalInfo.copyWith(
         weddingDate: parsedDate,
@@ -202,24 +214,26 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
         notes: _notesController.text.trim(),
       );
 
-      debugPrint('[WeddingInfoPage] Saving updated wedding info: ${updatedInfo.toJson()}');
-      
+      debugPrint(
+          '[WeddingInfoPage] Saving updated wedding info: ${updatedInfo.toJson()}');
+
       // Zabránit zpětné propagaci na cloud během ukládání
       _isUpdatingFromCloud = true;
-      
+
       // Prioritně ukládáme na cloud
       try {
         await _weddingRepository.updateWeddingInfo(updatedInfo);
         debugPrint('[WeddingInfoPage] Wedding info updated in cloud');
-        
+
         // Aktualizujeme referenční hodnotu
         _cloudWeddingInfo = updatedInfo;
-        
+
         // Poté aktualizujeme lokální kopii
         await _localService.saveWeddingInfo(updatedInfo);
         debugPrint('[WeddingInfoPage] Wedding info updated locally');
       } catch (e) {
-        debugPrint('[WeddingInfoPage] Error updating in cloud: $e, trying local save');
+        debugPrint(
+            '[WeddingInfoPage] Error updating in cloud: $e, trying local save');
         // Pokud selže aktualizace na cloudu, uložíme alespoň lokálně
         await _localService.saveWeddingInfo(updatedInfo);
       }
@@ -228,12 +242,11 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
         _isEditMode = false;
         _isUpdatingFromCloud = false; // Znovu povolíme aktualizace z cloudu
       });
-      
+
       debugPrint('[WeddingInfoPage] Wedding info updated successfully.');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Informace o svatbě byly úspěšně aktualizovány.')),
+        SnackBar(content: Text(tr('wedding_info_update_success'))),
       );
-      
     } catch (e, stack) {
       setState(() {
         _errorMessage = e.toString();
@@ -242,7 +255,7 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
       debugPrint('[WeddingInfoPage] Error updating wedding info: $e');
       debugPrintStack(label: 'StackTrace', stackTrace: stack);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Chyba při ukládání: $_errorMessage')),
+        SnackBar(content: Text(tr('save_error', args: [_errorMessage]))),
       );
     } finally {
       setState(() {
@@ -274,9 +287,9 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
   Widget _buildCountdown(WeddingInfo info) {
     final diff = info.weddingDate.difference(DateTime.now());
     if (diff.isNegative) {
-      return const Text(
-        'Svatba již proběhla',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      return Text(
+        tr('wedding_already_happened'),
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       );
     }
     final days = diff.inDays;
@@ -284,7 +297,12 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
     final minutes = diff.inMinutes % 60;
     final seconds = diff.inSeconds % 60;
     return Text(
-      'Do svatby zbývá: $days dní, $hours hodin, $minutes minut, $seconds sekund',
+      tr('wedding_countdown', args: [
+        days.toString(),
+        hours.toString(),
+        minutes.toString(),
+        seconds.toString()
+      ]),
       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       textAlign: TextAlign.center,
     );
@@ -298,17 +316,25 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
         children: [
           _buildCountdown(info),
           const SizedBox(height: 16),
-          Text('Datum svatby: ${DateFormat('yyyy-MM-dd').format(info.weddingDate)}', style: const TextStyle(fontSize: 18)),
+          Text(
+              '${tr('wedding_date')}: ${DateFormat('yyyy-MM-dd').format(info.weddingDate)}',
+              style: const TextStyle(fontSize: 18)),
           const SizedBox(height: 8),
-          Text('Vaše jméno: ${info.yourName}', style: const TextStyle(fontSize: 18)),
+          Text('${tr('your_name')}: ${info.yourName}',
+              style: const TextStyle(fontSize: 18)),
           const SizedBox(height: 8),
-          Text('Jméno partnera: ${info.partnerName}', style: const TextStyle(fontSize: 18)),
+          Text('${tr('partner_name')}: ${info.partnerName}',
+              style: const TextStyle(fontSize: 18)),
           const SizedBox(height: 8),
-          Text('Místo svatby: ${info.weddingVenue}', style: const TextStyle(fontSize: 18)),
+          Text('${tr('wedding_venue')}: ${info.weddingVenue}',
+              style: const TextStyle(fontSize: 18)),
           const SizedBox(height: 8),
-          Text('Rozpočet: ${info.budget.toStringAsFixed(2)} Kč', style: const TextStyle(fontSize: 18)),
+          Text(
+              '${tr('budget')}: ${info.budget.toStringAsFixed(2)} ${tr('currency')}',
+              style: const TextStyle(fontSize: 18)),
           const SizedBox(height: 8),
-          Text('Poznámky: ${info.notes}', style: const TextStyle(fontSize: 16)),
+          Text('${tr('notes')}: ${info.notes}',
+              style: const TextStyle(fontSize: 16)),
           const SizedBox(height: 24),
           Center(
             // Odstraněno tlačítko pro obnovení z cloudu, ponecháno pouze tlačítko pro úpravy
@@ -320,7 +346,7 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
                 });
                 debugPrint('[WeddingInfoPage] Switched to edit mode.');
               },
-              child: const Text('Upravit informace'),
+              child: Text(tr('edit_information')),
             ),
           ),
         ],
@@ -337,20 +363,20 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
           children: [
             TextFormField(
               controller: _dateController,
-              decoration: const InputDecoration(
-                labelText: 'Datum svatby (YYYY-MM-dd)',
-                suffixIcon: Icon(Icons.calendar_today),
+              decoration: InputDecoration(
+                labelText: tr('wedding_date_format'),
+                suffixIcon: const Icon(Icons.calendar_today),
               ),
               readOnly: true,
               onTap: _pickWeddingDate,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Datum je povinné';
+                  return tr('date_required');
                 }
                 try {
                   DateFormat('yyyy-MM-dd').parse(value.trim());
                 } catch (_) {
-                  return 'Neplatný formát data (YYYY-MM-dd)';
+                  return tr('invalid_date_format');
                 }
                 return null;
               },
@@ -358,10 +384,10 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _yourNameController,
-              decoration: const InputDecoration(labelText: 'Vaše jméno'),
+              decoration: InputDecoration(labelText: tr('your_name')),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Vaše jméno je povinné';
+                  return tr('your_name_required');
                 }
                 return null;
               },
@@ -369,10 +395,10 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _partnerNameController,
-              decoration: const InputDecoration(labelText: 'Jméno partnera'),
+              decoration: InputDecoration(labelText: tr('partner_name')),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Jméno partnera je povinné';
+                  return tr('partner_name_required');
                 }
                 return null;
               },
@@ -380,10 +406,10 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _venueController,
-              decoration: const InputDecoration(labelText: 'Místo svatby'),
+              decoration: InputDecoration(labelText: tr('wedding_venue')),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Místo svatby je povinné';
+                  return tr('wedding_venue_required');
                 }
                 return null;
               },
@@ -391,14 +417,14 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _budgetController,
-              decoration: const InputDecoration(labelText: 'Rozpočet (Kč)'),
+              decoration: InputDecoration(labelText: tr('budget_czk')),
               keyboardType: TextInputType.number,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Rozpočet je povinný';
+                  return tr('budget_required');
                 }
                 if (double.tryParse(value.trim()) == null) {
-                  return 'Neplatná částka';
+                  return tr('invalid_amount');
                 }
                 return null;
               },
@@ -406,7 +432,7 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _notesController,
-              decoration: const InputDecoration(labelText: 'Poznámky'),
+              decoration: InputDecoration(labelText: tr('notes')),
               maxLines: 3,
             ),
             const SizedBox(height: 24),
@@ -417,7 +443,7 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
                     children: [
                       ElevatedButton(
                         onPressed: () => _saveWeddingInfo(info),
-                        child: const Text('Uložit změny'),
+                        child: Text(tr('save_changes')),
                       ),
                       OutlinedButton(
                         onPressed: () {
@@ -426,10 +452,12 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
                           });
                           debugPrint('[WeddingInfoPage] Edit mode canceled.');
                         },
-                        child: const Text('Zrušit'),
+                        child: Text(tr('cancel')),
                       ),
                     ],
                   ),
+            // Přidáme extra mezeru na konci pro klávesnici
+            const SizedBox(height: 100),
           ],
         ),
       ),
@@ -439,52 +467,55 @@ class _WeddingInfoPageState extends State<WeddingInfoPage> {
   @override
   Widget build(BuildContext context) {
     debugPrint('[WeddingInfoPage] build() called.');
-    
+
     // Pokud nemáme žádná data, ale načítáme, zobrazíme indikátor načítání
     if (_isLoading) {
       return Scaffold(
+        resizeToAvoidBottomInset: true,
         appBar: AppBar(
-          title: const Text('Informace o svatbě'),
+          title: Text(tr('wedding_information')),
         ),
-        body: const Center(
+        body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Načítání dat z cloudu...'),
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(tr('loading_from_cloud')),
             ],
           ),
         ),
       );
     }
-    
+
     // Pokud máme data z cloudu, zobrazíme je
     if (_cloudWeddingInfo != null) {
       return Scaffold(
+        resizeToAvoidBottomInset: true,
         appBar: AppBar(
-          title: const Text('Informace o svatbě'),
+          title: Text(tr('wedding_information')),
         ),
-        body: _isEditMode 
-              ? _buildEditMode(_cloudWeddingInfo!) 
-              : _buildViewMode(_cloudWeddingInfo!),
+        body: _isEditMode
+            ? _buildEditMode(_cloudWeddingInfo!)
+            : _buildViewMode(_cloudWeddingInfo!),
       );
     }
-    
+
     // Pokud nemáme data ani z cloudu ani lokálně, zobrazíme chybu
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
-        title: const Text('Informace o svatbě'),
+        title: Text(tr('wedding_information')),
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('Nepodařilo se načíst data o svatbě.'),
+            Text(tr('failed_to_load_wedding_data')),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _loadWeddingInfoFromCloud,
-              child: const Text('Zkusit znovu'),
+              child: Text(tr('try_again')),
             ),
           ],
         ),

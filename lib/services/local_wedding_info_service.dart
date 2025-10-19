@@ -1,7 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:provider/provider.dart';
 import '../models/wedding_info.dart';
 import '../repositories/wedding_repository.dart';
 
@@ -12,32 +13,33 @@ abstract class WeddingInfoStorage {
   Future<bool> clearWeddingInfo();
 }
 
-/// Jednoduchá funkce pro "šifrování" pomocí Base64.
-/// Pozor: toto není bezpečné šifrování, slouží pouze jako ukázka.
-String encrypt(String plainText) {
-  return base64Encode(utf8.encode(plainText));
-}
-
-/// Jednoduchá funkce pro "dešifrování" pomocí Base64.
-String decrypt(String cipherText) {
-  try {
-    return utf8.decode(base64Decode(cipherText));
-  } catch (e) {
-    debugPrint('Decryption error: $e');
-    return cipherText;
-  }
-}
-
-/// Verze aktuálního uloženého formátu. Při změně schématu zvýšíte tuto hodnotu a implementujete migraci.
+/// Verze aktuálního uloženého formátu. Při změně schématu zvyšte tuto hodnotu.
 const int _currentVersion = 1;
 
-/// Implementace úložiště informací o svatbě pomocí SharedPreferences.
-/// Tato třída také rozšiřuje [ChangeNotifier] pro notifikaci posluchačů.
-class LocalWeddingInfoService extends ChangeNotifier implements WeddingInfoStorage {
-  final String _storageKey = 'wedding_info';
-  
+/// Timeout pro cloud operace
+const Duration _cloudTimeout = Duration(seconds: 15);
+
+/// Počet pokusů při selhání cloud operace
+const int _maxRetries = 3;
+
+/// Produkční implementace úložiště informací o svatbě.
+/// Používá FlutterSecureStorage pro bezpečné ukládání citlivých dat.
+class LocalWeddingInfoService extends ChangeNotifier
+    implements WeddingInfoStorage {
+  final String _storageKey = 'wedding_info_v1';
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+    ),
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock,
+    ),
+  );
+
   WeddingRepository? _weddingRepository;
   bool _cloudSyncEnabled = true;
+  bool _initialized = false;
+  StreamSubscription<WeddingInfo?>? _cloudSubscription;
 
   WeddingInfo? _weddingInfo;
   WeddingInfo? get weddingInfo => _weddingInfo;
@@ -45,178 +47,269 @@ class LocalWeddingInfoService extends ChangeNotifier implements WeddingInfoStora
   /// Nastaví referenci na WeddingRepository
   void setWeddingRepository(WeddingRepository repository) {
     _weddingRepository = repository;
-    // Přihlášení k odběru aktualizací z cloudu
     _subscribeToCloudUpdates();
   }
 
   /// Povolí nebo zakáže synchronizaci s cloudem
   void setCloudSyncEnabled(bool enabled) {
     _cloudSyncEnabled = enabled;
+    debugPrint(
+        '[LocalWeddingInfoService] Cloud sync ${enabled ? 'enabled' : 'disabled'}');
   }
 
   /// Přihlášení k odběru změn z cloudu
   void _subscribeToCloudUpdates() {
+    if (_initialized) return;
+
     if (_weddingRepository != null) {
-      debugPrint('[LocalWeddingInfoService] Subscribing to cloud updates');
-      _weddingRepository!.weddingInfoStream.listen((cloudInfo) {
-        if (cloudInfo != null) {
-          debugPrint('[LocalWeddingInfoService] Received cloud update: ${cloudInfo.toJson()}');
-          // Aktualizujeme lokální cache a SharedPreferences
-          _weddingInfo = cloudInfo;
-          _saveToLocalCache(cloudInfo);
-          notifyListeners();
-        }
-      });
+      debugPrint('[LocalWeddingInfoService] Initializing cloud subscription');
+      _cloudSubscription = _weddingRepository!.weddingInfoStream.listen(
+        (cloudInfo) {
+          if (cloudInfo != null) {
+            debugPrint('[LocalWeddingInfoService] Cloud update received');
+            _weddingInfo = cloudInfo;
+            _saveToLocalCache(cloudInfo);
+            notifyListeners();
+          }
+        },
+        onError: (error) {
+          debugPrint('[LocalWeddingInfoService] Cloud stream error: $error');
+        },
+      );
+      _initialized = true;
     }
   }
 
-  /// Uloží informace o svatbě do SharedPreferences spolu s verzí a "šifrováním".
+  /// Uloží informace o svatbě do bezpečného úložiště
   Future<bool> _saveToLocalCache(WeddingInfo info) async {
-    final prefs = await SharedPreferences.getInstance();
     try {
-      // Připravíme mapu, která obsahuje verzi a data.
       final Map<String, dynamic> storeMap = {
         'version': _currentVersion,
         'data': info.toJson(),
+        'lastUpdated': DateTime.now().toIso8601String(),
       };
       final String jsonString = jsonEncode(storeMap);
-      final String encrypted = encrypt(jsonString);
-      final success = await prefs.setString(_storageKey, encrypted);
-      debugPrint('[LocalWeddingInfoService] Saved to local cache: $success');
-      return success;
-    } catch (e) {
-      debugPrint('[LocalWeddingInfoService] Error saving wedding info to local cache: $e');
+
+      await _secureStorage.write(
+        key: _storageKey,
+        value: jsonString,
+      );
+
+      debugPrint('[LocalWeddingInfoService] Data saved to secure storage');
+      return true;
+    } catch (e, stackTrace) {
+      debugPrint(
+          '[LocalWeddingInfoService] Error saving to secure storage: $e');
+      debugPrint('Stack trace: $stackTrace');
       return false;
     }
   }
 
-  /// Uloží informace o svatbě do SharedPreferences a na cloud.
+  /// Provede cloud operaci s retry mechanikou a timeout
+  Future<T?> _executeCloudOperation<T>(
+    Future<T> Function() operation,
+    String operationName,
+  ) async {
+    for (int attempt = 1; attempt <= _maxRetries; attempt++) {
+      try {
+        debugPrint(
+            '[LocalWeddingInfoService] $operationName - attempt $attempt/$_maxRetries');
+        final result = await operation().timeout(_cloudTimeout);
+        debugPrint('[LocalWeddingInfoService] $operationName successful');
+        return result;
+      } on TimeoutException {
+        debugPrint('[LocalWeddingInfoService] $operationName timed out');
+        if (attempt == _maxRetries) {
+          debugPrint(
+              '[LocalWeddingInfoService] $operationName failed after $attempt attempts');
+          return null;
+        }
+        await Future.delayed(Duration(seconds: attempt * 2));
+      } catch (e) {
+        debugPrint('[LocalWeddingInfoService] $operationName error: $e');
+        if (attempt == _maxRetries) {
+          debugPrint(
+              '[LocalWeddingInfoService] $operationName failed after $attempt attempts');
+          return null;
+        }
+        await Future.delayed(Duration(seconds: attempt));
+      }
+    }
+    return null;
+  }
+
+  /// Uloží informace o svatbě lokálně a na cloud
   @override
   Future<bool> saveWeddingInfo(WeddingInfo info) async {
     try {
-      // Nejprve uložíme lokálně
+      // Lokální uložení má prioritu
       final localSuccess = await _saveToLocalCache(info);
       if (localSuccess) {
         _weddingInfo = info;
         notifyListeners();
       }
-      
-      // Poté na cloud, pokud je povoleno
+
+      // Cloud synchronizace na pozadí
       if (_cloudSyncEnabled && _weddingRepository != null) {
-        debugPrint('[LocalWeddingInfoService] Syncing to cloud: ${info.toJson()}');
-        try {
-          await _weddingRepository!.updateWeddingInfo(info);
-          debugPrint('[LocalWeddingInfoService] Cloud sync successful');
-        } catch (e) {
-          debugPrint('[LocalWeddingInfoService] Error syncing to cloud: $e');
-          // I když se nepodaří synchronizovat s cloudem, považujeme operaci za úspěšnou,
-          // pokud se podařilo uložit lokálně
-        }
+        _executeCloudOperation(
+          () async {
+            await _weddingRepository!.updateWeddingInfo(info);
+            return true;
+          },
+          'Cloud sync',
+        ).then((success) {
+          if (success == true) {
+            debugPrint(
+                '[LocalWeddingInfoService] Background cloud sync completed');
+          }
+        });
       }
-      
+
       return localSuccess;
-    } catch (e) {
-      debugPrint('[LocalWeddingInfoService] Error saving wedding info: $e');
+    } catch (e, stackTrace) {
+      debugPrint(
+          '[LocalWeddingInfoService] Critical error in saveWeddingInfo: $e');
+      debugPrint('Stack trace: $stackTrace');
       return false;
     }
   }
 
-  /// Načte informace o svatbě z cloudu a pak ze SharedPreferences jako zálohu.
+  /// Načte informace o svatbě z cloudu nebo lokálního úložiště
   @override
   Future<WeddingInfo?> loadWeddingInfo() async {
-    // Pokud máme povolenu cloud synchronizaci, nejprve zkusíme získat data z cloudu
+    // Pokus o načtení z cloudu
     if (_cloudSyncEnabled && _weddingRepository != null) {
-      try {
-        debugPrint('[LocalWeddingInfoService] Attempting to load from cloud');
-        final cloudInfo = await _weddingRepository!.fetchWeddingInfo();
-        if (cloudInfo != null) {
-          _weddingInfo = cloudInfo;
-          // Aktualizujeme lokální kopii
-          await _saveToLocalCache(cloudInfo);
-          debugPrint('[LocalWeddingInfoService] Cloud data loaded and cached locally');
-          return cloudInfo;
-        }
-      } catch (e) {
-        debugPrint('[LocalWeddingInfoService] Error loading from cloud: $e, falling back to local cache');
-        // Pokračujeme k lokálnímu úložišti jako záloha
+      final cloudInfo = await _executeCloudOperation(
+        () => _weddingRepository!.fetchWeddingInfo(),
+        'Load from cloud',
+      );
+
+      if (cloudInfo != null) {
+        _weddingInfo = cloudInfo;
+        await _saveToLocalCache(cloudInfo);
+        return cloudInfo;
       }
     }
 
-    // Pokud se nepodařilo načíst z cloudu nebo není povolená synchronizace,
-    // načteme z lokálního úložiště
+    // Fallback na lokální úložiště
     try {
-      debugPrint('[LocalWeddingInfoService] Loading from local cache');
-      final prefs = await SharedPreferences.getInstance();
-      final String? encrypted = prefs.getString(_storageKey);
-      if (encrypted == null) {
-        debugPrint('[LocalWeddingInfoService] No local cache found');
+      debugPrint('[LocalWeddingInfoService] Loading from secure storage');
+      final String? jsonString = await _secureStorage.read(key: _storageKey);
+
+      if (jsonString == null || jsonString.isEmpty) {
+        debugPrint('[LocalWeddingInfoService] No local data found');
         return null;
       }
-      
-      final String jsonString = decrypt(encrypted);
+
       final Map<String, dynamic> storeMap = jsonDecode(jsonString);
       final int version = storeMap['version'] ?? 0;
       Map<String, dynamic> dataMap = storeMap['data'] ?? {};
-      
-      // Pokud je verze starší, proveďte migraci.
+
+      // Migrace dat pokud je potřeba
       if (version != _currentVersion) {
-        dataMap = _migrateData(dataMap, fromVersion: version, toVersion: _currentVersion);
-        // Uložte migraci zpět.
+        dataMap = await _migrateData(
+          dataMap,
+          fromVersion: version,
+          toVersion: _currentVersion,
+        );
+
         final migratedInfo = WeddingInfo.fromJson(dataMap);
         await saveWeddingInfo(migratedInfo);
       }
-      
+
       _weddingInfo = WeddingInfo.fromJson(dataMap);
-      debugPrint('[LocalWeddingInfoService] Local cache loaded: ${_weddingInfo?.toJson()}');
+      debugPrint('[LocalWeddingInfoService] Local data loaded successfully');
       return _weddingInfo;
-    } catch (e) {
-      debugPrint('[LocalWeddingInfoService] Error loading from local cache: $e');
+    } catch (e, stackTrace) {
+      debugPrint(
+          '[LocalWeddingInfoService] Error loading from secure storage: $e');
+      debugPrint('Stack trace: $stackTrace');
       return null;
     }
   }
 
-  /// Smaže uložené informace o svatbě lokálně i v cloudu.
+  /// Smaže všechny uložené informace lokálně i v cloudu
   @override
   Future<bool> clearWeddingInfo() async {
-    final prefs = await SharedPreferences.getInstance();
-    final success = await prefs.remove(_storageKey);
-    
-    // Pokud máme povolenu cloud synchronizaci, smažeme i na cloudu
-    if (_cloudSyncEnabled && _weddingRepository != null && _weddingInfo != null) {
-      try {
-        // Vytvoříme prázdný objekt se stejným ID
+    try {
+      // Lokální smazání
+      await _secureStorage.delete(key: _storageKey);
+      debugPrint('[LocalWeddingInfoService] Local data cleared');
+
+      // Cloud smazání
+      if (_cloudSyncEnabled &&
+          _weddingRepository != null &&
+          _weddingInfo != null) {
         final emptyInfo = WeddingInfo(
           userId: _weddingInfo!.userId,
           weddingDate: DateTime.now().add(const Duration(days: 180)),
-          yourName: "--",
-          partnerName: "--",
-          weddingVenue: "--",
+          yourName: "",
+          partnerName: "",
+          weddingVenue: "",
           budget: 0.0,
-          notes: "--",
+          notes: "",
         );
-        
-        await _weddingRepository!.updateWeddingInfo(emptyInfo);
-        debugPrint('[LocalWeddingInfoService] Cloud data reset');
-      } catch (e) {
-        debugPrint('[LocalWeddingInfoService] Error clearing cloud data: $e');
+
+        await _executeCloudOperation(
+          () => _weddingRepository!.updateWeddingInfo(emptyInfo),
+          'Clear cloud data',
+        );
       }
-    }
-    
-    if (success) {
+
       _weddingInfo = null;
       notifyListeners();
+      return true;
+    } catch (e, stackTrace) {
+      debugPrint('[LocalWeddingInfoService] Error clearing data: $e');
+      debugPrint('Stack trace: $stackTrace');
+      return false;
     }
-    return success;
   }
 
-  /// Jednoduchá funkce pro migraci dat mezi verzemi.
-  /// V této ukázce jen vypíše informace a vrátí původní data.
-  /// V praxi zde implementujte konkrétní logiku migrace.
-  Map<String, dynamic> _migrateData(Map<String, dynamic> oldData,
-      {required int fromVersion, required int toVersion}) {
-    debugPrint('[LocalWeddingInfoService] Migrating wedding info data from version $fromVersion to $toVersion');
-    // Příklad: pokud se struktura změnila, upravte stará data zde.
-    // Pro tuto ukázku pouze vrátíme původní data.
-    return oldData;
+  /// Migruje data mezi verzemi schématu
+  Future<Map<String, dynamic>> _migrateData(
+    Map<String, dynamic> oldData, {
+    required int fromVersion,
+    required int toVersion,
+  }) async {
+    debugPrint(
+        '[LocalWeddingInfoService] Migrating data from v$fromVersion to v$toVersion');
+
+    Map<String, dynamic> migratedData = Map<String, dynamic>.from(oldData);
+
+    // Postupná migrace mezi verzemi
+    for (int v = fromVersion; v < toVersion; v++) {
+      migratedData = await _migrateFromVersion(migratedData, v);
+    }
+
+    return migratedData;
+  }
+
+  /// Migruje data z konkrétní verze na další
+  Future<Map<String, dynamic>> _migrateFromVersion(
+    Map<String, dynamic> data,
+    int fromVersion,
+  ) async {
+    switch (fromVersion) {
+      case 0:
+        // Migrace z v0 na v1
+        // Příklad: přidání nových polí s výchozími hodnotami
+        return {
+          ...data,
+          // Zde přidejte nová pole pokud je potřeba
+        };
+      default:
+        return data;
+    }
+  }
+
+  /// Zruší všechny aktivní subscription a uvolní zdroje
+  @override
+  void dispose() {
+    debugPrint('[LocalWeddingInfoService] Disposing service');
+    _cloudSubscription?.cancel();
+    _cloudSubscription = null;
+    _initialized = false;
+    super.dispose();
   }
 }

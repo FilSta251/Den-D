@@ -1,8 +1,10 @@
+﻿/// lib/screens/app_introduction_screen.dart
+library;
+
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'chatbot_screen.dart';
-import '../services/onboarding_manager.dart'; // Přidaný import
-import '../router/app_router.dart'; // Přidaný import
+import '../services/onboarding_manager.dart';
 
 class IntroductionPage {
   final String title;
@@ -17,7 +19,7 @@ class IntroductionPage {
 }
 
 class AppIntroductionScreen extends StatefulWidget {
-  const AppIntroductionScreen({Key? key}) : super(key: key);
+  const AppIntroductionScreen({super.key});
 
   @override
   _AppIntroductionScreenState createState() => _AppIntroductionScreenState();
@@ -26,117 +28,330 @@ class AppIntroductionScreen extends StatefulWidget {
 class _AppIntroductionScreenState extends State<AppIntroductionScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  bool _isNavigating = false;
+  bool _isInitialized = false;
 
-  // Definuj stránky s texty načtenými přes tr() – klíče musí být definovány v jazykových souborech.
   late final List<IntroductionPage> _pages = [
     IntroductionPage(
-      title: tr('intro_title_1'),
-      description: tr('intro_desc_1'),
-      imageAsset: 'assets/images/feature_tasks.png',
+      title: tr('onboarding_title_1'),
+      description: tr('onboarding_desc_1'),
+      imageAsset: 'assets/images/onboarding1.png',
     ),
     IntroductionPage(
-      title: tr('intro_title_2'),
-      description: tr('intro_desc_2'),
-      imageAsset: 'assets/images/feature_expenses.png',
+      title: tr('onboarding_title_2'),
+      description: tr('onboarding_desc_2'),
+      imageAsset: 'assets/images/onboarding2.png',
     ),
     IntroductionPage(
-      title: tr('intro_title_3'),
-      description: tr('intro_desc_3'),
-      imageAsset: 'assets/images/feature_events.png',
-    ),
-    IntroductionPage(
-      title: tr('intro_title_4'),
-      description: tr('intro_desc_4'),
-      imageAsset: 'assets/images/feature_chat.png',
+      title: tr('onboarding_title_3'),
+      description: tr('onboarding_desc_3'),
+      imageAsset: 'assets/images/onboarding3.png',
     ),
   ];
 
-  // Přidaná metoda pro dokončení úvodních obrazovek
-  Future<void> _finishOnboarding() async {
-    // Označíme intro jako dokončené
-    await OnboardingManager.markIntroCompleted();
-    // Přejdeme na chatbota
-    Navigator.pushReplacementNamed(context, AppRoutes.chatbot);
+  @override
+  void initState() {
+    super.initState();
+    _checkOnboardingStatus();
   }
 
-  // Přidaná metoda pro přeskočení úvodních obrazovek
+  Future<void> _checkOnboardingStatus() async {
+    if (_isInitialized) return;
+
+    try {
+      final bool introCompleted = await OnboardingManager.isIntroCompleted();
+      final bool chatbotCompleted =
+          await OnboardingManager.isChatbotCompleted();
+      final bool subscriptionShown =
+          await OnboardingManager.isSubscriptionShown();
+      final bool onboardingCompleted =
+          await OnboardingManager.isOnboardingCompleted();
+
+      if (!mounted) return;
+
+      if (onboardingCompleted) {
+        _navigateToMainApp();
+        return;
+      }
+
+      if (subscriptionShown) {
+        _navigateToMainApp();
+        return;
+      }
+
+      if (chatbotCompleted) {
+        _navigateToSubscription();
+        return;
+      }
+
+      if (introCompleted) {
+        _navigateToChatbot();
+        return;
+      }
+
+      setState(() {
+        _isInitialized = true;
+      });
+    } catch (e) {
+      print('Chyba při kontrole onboarding statusu: $e');
+      setState(() {
+        _isInitialized = true;
+      });
+    }
+  }
+
+  void _navigateToMainApp() {
+    if (_isNavigating) return;
+    setState(() {
+      _isNavigating = true;
+    });
+    Navigator.pushReplacementNamed(context, '/brideGroomMain');
+  }
+
+  void _navigateToSubscription() {
+    if (_isNavigating) return;
+    setState(() {
+      _isNavigating = true;
+    });
+    Navigator.pushReplacementNamed(context, '/subscription');
+  }
+
+  void _navigateToChatbot() {
+    if (_isNavigating) return;
+    setState(() {
+      _isNavigating = true;
+    });
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const ChatBotScreen()),
+      (route) => false,
+    );
+  }
+
+  Future<void> _finishOnboarding() async {
+    if (_isNavigating) return;
+    setState(() {
+      _isNavigating = true;
+    });
+
+    try {
+      await OnboardingManager.markIntroCompleted();
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const ChatBotScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      print('Chyba při dokončování onboardingu: $e');
+      if (mounted) {
+        setState(() {
+          _isNavigating = false;
+        });
+      }
+    }
+  }
+
   Future<void> _skipOnboarding() async {
-    // Označíme intro jako dokončené
-    await OnboardingManager.markIntroCompleted();
-    // Přejdeme na chatbota
-    Navigator.pushReplacementNamed(context, AppRoutes.chatbot);
+    if (_isNavigating) return;
+    setState(() {
+      _isNavigating = true;
+    });
+
+    try {
+      await OnboardingManager.markIntroCompleted();
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const ChatBotScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      print('Chyba při přeskakování onboardingu: $e');
+      if (mounted) {
+        setState(() {
+          _isNavigating = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_isInitialized) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    final bool isLastPage = _currentPage == _pages.length - 1;
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(tr('welcome_message')),
-        actions: [
-          // Přidané tlačítko pro přeskočení
-          TextButton(
-            onPressed: _skipOnboarding,
-            child: Text(
-              tr('skip'),
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: _pages.length,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentPage = index;
-                });
-              },
-              itemBuilder: (context, index) {
-                final page = _pages[index];
-                return Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Image.asset(page.imageAsset, height: 200),
-                      const SizedBox(height: 24),
-                      Text(
-                        page.title,
-                        style: Theme.of(context).textTheme.headlineMedium,
-                        textAlign: TextAlign.center,
+      backgroundColor: Theme.of(context).primaryColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const SizedBox(width: 48),
+                  Flexible(
+                    child: Text(
+                      tr('welcome_message'),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        page.description,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
-                );
-              },
+                  TextButton(
+                    onPressed: _isNavigating ? null : _skipOnboarding,
+                    child: Text(
+                      tr('skip'),
+                      style: TextStyle(
+                        color: _isNavigating ? Colors.grey : Colors.white70,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: _pages.length,
+                onPageChanged: (index) {
+                  if (!_isNavigating) {
+                    setState(() {
+                      _currentPage = index;
+                    });
+                  }
+                },
+                itemBuilder: (context, index) {
+                  return _buildOnboardingPage(_pages[index]);
+                },
+              ),
+            ),
+            _buildPageIndicator(),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: ElevatedButton(
+                onPressed: _isNavigating
+                    ? null
+                    : isLastPage
+                        ? _finishOnboarding
+                        : () {
+                            _pageController.nextPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeIn,
+                            );
+                          },
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: Theme.of(context).primaryColor,
+                  backgroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
+                child: _isNavigating
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      )
+                    : Text(
+                        isLastPage ? tr('continue') : tr('next'),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOnboardingPage(IntroductionPage page) {
+    final size = MediaQuery.of(context).size;
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            height: size.height * 0.3,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withOpacity(0.1),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.asset(
+                page.imageAsset,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    height: size.height * 0.3,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.image,
+                      size: 80,
+                      color: Colors.white54,
+                    ),
+                  );
+                },
+              ),
             ),
           ),
-          _buildPageIndicator(),
+          const SizedBox(height: 32),
+          Text(
+            page.title,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 16),
-          _currentPage == _pages.length - 1
-              ? ElevatedButton(
-                  onPressed: _finishOnboarding,
-                  child: Text(tr('continue')),
-                )
-              : ElevatedButton(
-                  onPressed: () {
-                    _pageController.nextPage(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeIn,
-                    );
-                  },
-                  child: Text(tr('next')),
-                ),
-          const SizedBox(height: 16),
+          Text(
+            page.description,
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.white70,
+              height: 1.5,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
@@ -153,7 +368,7 @@ class _AppIntroductionScreenState extends State<AppIntroductionScreen> {
           width: _currentPage == index ? 24 : 8,
           height: 8,
           decoration: BoxDecoration(
-            color: _currentPage == index ? Colors.pink : Colors.grey,
+            color: _currentPage == index ? Colors.white : Colors.white54,
             borderRadius: BorderRadius.circular(4),
           ),
         ),

@@ -1,7 +1,9 @@
-// lib/widgets/custom_error_widget.dart
+/// lib/widgets/custom_error_widget.dart
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 /// Enum pro typy chyb
 enum ErrorWidgetType {
@@ -34,7 +36,7 @@ class CustomErrorWidget extends StatelessWidget {
   final bool showAnimation;
 
   const CustomErrorWidget({
-    Key? key,
+    super.key,
     required this.message,
     this.errorType = ErrorWidgetType.unknown,
     this.onRetry,
@@ -48,13 +50,13 @@ class CustomErrorWidget extends StatelessWidget {
     this.redirectRoute,
     this.customAction,
     this.showAnimation = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final errorColor = _getErrorColor(theme);
-    
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
@@ -81,9 +83,9 @@ class CustomErrorWidget extends StatelessWidget {
                 )
               else
                 _buildErrorIcon(errorColor),
-              
+
               const SizedBox(height: 32),
-              
+
               // Hlavní zpráva
               AnimatedOpacity(
                 opacity: showAnimation ? 1.0 : 1.0,
@@ -97,9 +99,9 @@ class CustomErrorWidget extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               // Detailní zpráva
               if (detailMessage != null) ...[
                 Text(
@@ -111,8 +113,8 @@ class CustomErrorWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
               ],
-              
-              // Kód chyby
+
+              // KĂłd chyby
               if (errorCode != null) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -120,7 +122,7 @@ class CustomErrorWidget extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceVariant,
+                    color: theme.colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: errorColor.withOpacity(0.3),
@@ -136,7 +138,7 @@ class CustomErrorWidget extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Kód: $errorCode',
+                        '${tr('error_code')}: $errorCode',
                         style: theme.textTheme.bodySmall?.copyWith(
                           fontFamily: 'monospace',
                         ),
@@ -155,8 +157,8 @@ class CustomErrorWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
               ],
-              
-              // Akční tlačítka
+
+              // Akční tláčítka
               Column(
                 children: [
                   // Hlavní akce (Retry)
@@ -166,7 +168,7 @@ class CustomErrorWidget extends StatelessWidget {
                       child: ElevatedButton.icon(
                         onPressed: onRetry,
                         icon: const Icon(Icons.refresh),
-                        label: const Text('Zkusit znovu'),
+                        label: Text(tr('try_again')),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: errorColor,
                           foregroundColor: Colors.white,
@@ -174,9 +176,9 @@ class CustomErrorWidget extends StatelessWidget {
                         ),
                       ),
                     ),
-                  
+
                   const SizedBox(height: 12),
-                  
+
                   // Sekundární akce
                   if (onSecondaryAction != null)
                     SizedBox(
@@ -184,7 +186,7 @@ class CustomErrorWidget extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: onSecondaryAction,
                         icon: Icon(secondaryActionIcon ?? Icons.arrow_back),
-                        label: Text(secondaryActionText ?? 'Zpět'),
+                        label: Text(secondaryActionText ?? tr('back')),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: errorColor,
                           side: BorderSide(color: errorColor),
@@ -192,32 +194,34 @@ class CustomErrorWidget extends StatelessWidget {
                         ),
                       ),
                     ),
-                  
+
                   const SizedBox(height: 12),
-                  
+
                   // Vlastní akce
                   if (customAction != null) customAction!,
-                  
-                  // Report tlačítko
+
+                  // Report tláčítko
                   if (showReportButton)
                     TextButton.icon(
-                      onPressed: onReportError ?? () => _showReportDialog(context),
+                      onPressed:
+                          onReportError ?? () => _showReportDialog(context),
                       icon: const Icon(Icons.bug_report, size: 16),
-                      label: const Text('Nahlásit problém'),
+                      label: Text(tr('report_problem')),
                       style: TextButton.styleFrom(
                         foregroundColor: theme.textTheme.bodySmall?.color,
                       ),
                     ),
                 ],
               ),
-              
+
               const SizedBox(height: 32),
-              
-              // Tip pro uživatele
+
+              // Tip pro uťivatele
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                  color: theme.colorScheme.surfaceContainerHighest
+                      .withOpacity(0.5),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -319,26 +323,26 @@ class CustomErrorWidget extends StatelessWidget {
   String _getHelpText() {
     switch (errorType) {
       case ErrorWidgetType.network:
-        return 'Zkontrolujte připojení k internetu a zkuste to znovu.';
+        return tr('error_help_network');
       case ErrorWidgetType.permission:
-        return 'Aplikace potřebuje dodatečná oprávnění pro správné fungování.';
+        return tr('error_help_permission');
       case ErrorWidgetType.auth:
-        return 'Zkuste se odhlásit a znovu přihlásit.';
+        return tr('error_help_auth');
       case ErrorWidgetType.server:
-        return 'Server momentálně neodpovídá. Zkuste to později.';
+        return tr('error_help_server');
       case ErrorWidgetType.validation:
-        return 'Zkontrolujte zadané údaje a opravte chyby.';
+        return tr('error_help_validation');
       case ErrorWidgetType.notFound:
-        return 'Požadovaný obsah nebyl nalezen.';
+        return tr('error_help_not_found');
       case ErrorWidgetType.maintenance:
-        return 'Aplikace se aktualizuje. Zkuste to za chvíli.';
+        return tr('error_help_maintenance');
       case ErrorWidgetType.timeout:
-        return 'Operace trvala příliš dlouho. Zkuste to znovu.';
+        return tr('error_help_timeout');
       case ErrorWidgetType.storage:
-        return 'Problém s úložištěm dat. Zkontrolujte volné místo.';
+        return tr('error_help_storage');
       case ErrorWidgetType.unknown:
       default:
-        return 'Pokud problém přetrvává, kontaktujte podporu.';
+        return tr('error_help_unknown');
     }
   }
 
@@ -347,41 +351,41 @@ class CustomErrorWidget extends StatelessWidget {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Kód "$text" zkopírován do schránky'),
+        content: Text(tr('code_copied_to_clipboard', args: [text])),
         duration: const Duration(seconds: 2),
       ),
     );
   }
 
-  /// Zobrazí dialog pro nahlášení chyby
+  /// Zobrazí dialog pro nahláĹˇení chyby
   void _showReportDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Nahlásit problém'),
+        title: Text(tr('report_problem')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Pomožte nám vylepšit aplikaci nahlášením tohoto problému.'),
+            Text(tr('report_problem_description')),
             const SizedBox(height: 16),
             if (errorCode != null) ...[
-              Text('Kód chyby: $errorCode'),
+              Text('${tr('error_code')}: $errorCode'),
               const SizedBox(height: 8),
             ],
-            Text('Typ: ${errorType.name}'),
+            Text('${tr('type')}: ${errorType.name}'),
             const SizedBox(height: 8),
-            Text('Zpráva: $message'),
+            Text('${tr('message')}: $message'),
             if (detailMessage != null) ...[
               const SizedBox(height: 8),
-              Text('Detail: $detailMessage'),
+              Text('${tr('detail')}: $detailMessage'),
             ],
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Zrušit'),
+            child: Text(tr('cancel')),
           ),
           ElevatedButton.icon(
             onPressed: () {
@@ -389,7 +393,7 @@ class CustomErrorWidget extends StatelessWidget {
               _copyErrorDetailsToClipboard(context);
             },
             icon: const Icon(Icons.copy),
-            label: const Text('Kopírovat detaily'),
+            label: Text(tr('copy_details')),
           ),
         ],
       ),
@@ -399,66 +403,68 @@ class CustomErrorWidget extends StatelessWidget {
   /// Kopíruje detaily chyby do schránky
   void _copyErrorDetailsToClipboard(BuildContext context) {
     final details = StringBuffer();
-    details.writeln('=== Detaily chyby ===');
-    details.writeln('Typ: ${errorType.name}');
-    details.writeln('Zpráva: $message');
-    if (detailMessage != null) details.writeln('Detail: $detailMessage');
-    if (errorCode != null) details.writeln('Kód: $errorCode');
-    details.writeln('Čas: ${DateTime.now()}');
+    details.writeln('=== ${tr('error_details')} ===');
+    details.writeln('${tr('type')}: ${errorType.name}');
+    details.writeln('${tr('message')}: $message');
+    if (detailMessage != null) {
+      details.writeln('${tr('detail')}: $detailMessage');
+    }
+    if (errorCode != null) details.writeln('${tr('error_code')}: $errorCode');
+    details.writeln('${tr('time')}: ${DateTime.now()}');
     details.writeln('==================');
 
     Clipboard.setData(ClipboardData(text: details.toString()));
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Detaily chyby zkopírovány do schránky'),
-        duration: Duration(seconds: 3),
+      SnackBar(
+        content: Text(tr('error_details_copied')),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
 }
 
-/// Factory pro rychlé vytvoření běžných error widgetů
+/// Factory pro rychlĂ© vytvoření běťných error widgetů
 class ErrorWidgetFactory {
   static Widget networkError({VoidCallback? onRetry}) {
     return CustomErrorWidget(
-      message: 'Problém s připojením',
+      message: tr('error_network'),
       errorType: ErrorWidgetType.network,
       onRetry: onRetry,
-      detailMessage: 'Nepodařilo se připojit k internetu',
+      detailMessage: tr('error_network_detail'),
       showReportButton: true,
     );
   }
 
   static Widget serverError({VoidCallback? onRetry, String? errorCode}) {
     return CustomErrorWidget(
-      message: 'Chyba serveru',
+      message: tr('error_server'),
       errorType: ErrorWidgetType.server,
       onRetry: onRetry,
       errorCode: errorCode,
-      detailMessage: 'Server momentálně neodpovídá',
+      detailMessage: tr('error_server_detail'),
       showReportButton: true,
     );
   }
 
   static Widget authError({VoidCallback? onLogin}) {
     return CustomErrorWidget(
-      message: 'Problémy s přihlášením',
+      message: tr('error_auth'),
       errorType: ErrorWidgetType.auth,
       onRetry: onLogin,
-      detailMessage: 'Přihlášení vypršelo nebo je neplatné',
-      secondaryActionText: 'Přihlásit se',
+      detailMessage: tr('error_auth_detail'),
+      secondaryActionText: tr('login'),
       secondaryActionIcon: Icons.login,
     );
   }
 
   static Widget notFoundError({VoidCallback? onGoHome}) {
     return CustomErrorWidget(
-      message: 'Stránka nenalezena',
+      message: tr('error_not_found'),
       errorType: ErrorWidgetType.notFound,
       onSecondaryAction: onGoHome,
-      detailMessage: 'Požadovaná stránka neexistuje',
-      secondaryActionText: 'Domů',
+      detailMessage: tr('error_not_found_detail'),
+      secondaryActionText: tr('home'),
       secondaryActionIcon: Icons.home,
     );
   }

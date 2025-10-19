@@ -1,4 +1,5 @@
-// lib/models/payment.dart
+/// lib/models/payment.dart
+library;
 
 import 'package:flutter/foundation.dart';
 
@@ -10,7 +11,8 @@ class Payment {
   final String currency;
   final DateTime transactionDate;
   final String status; // "success", "pending", "failed"
-  final String paymentMethod; // "card", "bank_transfer", "apple_pay", "google_pay"
+  final String
+      paymentMethod; // "card", "bank_transfer", "apple_pay", "google_pay"
   final String? subscriptionId;
   final Map<String, dynamic>? metadata;
 

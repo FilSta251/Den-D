@@ -1,25 +1,26 @@
-// lib/models/user.dart
+/// lib/models/user.dart
+library;
 
 import 'dart:convert';
 
-/// Třída reprezentující uživatele s pokročilými funkcemi a optimalizovanou strukturou.
+/// Třída reprezentující uťivatele s pokročilými funkcemi a optimalizovanou strukturou.
 class User {
-  /// Unikátní identifikátor uživatele.
+  /// Unikátní identifikátor uťivatele.
   final String id;
 
-  /// Jméno uživatele.
+  /// JmĂ©no uťivatele.
   final String name;
 
-  /// Email uživatele.
+  /// Email uťivatele.
   final String email;
 
-  /// URL profilového obrázku.
+  /// URL profilovĂ©ho obrázku.
   final String profilePictureUrl;
 
   /// Datum svatby (volitelně).
   final DateTime? weddingDate;
 
-  /// Role uživatele (např. svatebčan, pomocník apod.).
+  /// Role uťivatele (např. svatebčan, pomocník apod.).
   final String? role;
 
   /// Místo svatby (volitelně).
@@ -40,7 +41,7 @@ class User {
     this.budget,
   });
 
-  /// Vytvoří instanci uživatele ze struktury JSON.
+  /// Vytvoří instanci uťivatele ze struktury JSON.
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'] as String? ?? '',
@@ -52,11 +53,12 @@ class User {
           : null,
       role: json['role'] as String?,
       weddingVenue: json['weddingVenue'] as String?,
-      budget: json['budget'] != null ? (json['budget'] as num).toDouble() : null,
+      budget:
+          json['budget'] != null ? (json['budget'] as num).toDouble() : null,
     );
   }
 
-  /// Vrací instanci uživatele jako JSON mapu.
+  /// Vrací instanci uťivatele jako JSON mapu.
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -70,7 +72,7 @@ class User {
     };
   }
 
-  /// Vytvoří novou instanci s možností přepsat některé hodnoty.
+  /// Vytvoří novou instanci s moťností přepsat některĂ© hodnoty.
   User copyWith({
     String? id,
     String? name,
@@ -93,7 +95,7 @@ class User {
     );
   }
 
-  /// Přepíše operátor rovnosti pro správné porovnání instancí.
+  /// PřepíĹˇe operátor rovnosti pro správnĂ© porovnání instancí.
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -109,7 +111,7 @@ class User {
         other.budget == budget;
   }
 
-  /// Přepíše hashCode pro správné porovnávání instancí.
+  /// PřepíĹˇe hashCode pro správnĂ© porovnávání instancí.
   @override
   int get hashCode {
     return id.hashCode ^
@@ -122,10 +124,10 @@ class User {
         budget.hashCode;
   }
 
-  /// Vrací textovou reprezentaci instance (užitečné pro debugování).
+  /// Vrací textovou reprezentaci instance (uťitečnĂ© pro debugování).
   @override
   String toString() {
     return 'User(id: $id, name: $name, email: $email, profilePictureUrl: $profilePictureUrl, '
-           'weddingDate: $weddingDate, role: $role, weddingVenue: $weddingVenue, budget: $budget)';
+        'weddingDate: $weddingDate, role: $role, weddingVenue: $weddingVenue, budget: $budget)';
   }
 }

@@ -43,4 +43,31 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
-'.env' 
+'.env'
+
+# Flutter & Dart
+.dart_tool/
+.packages
+.pub-cache/
+build/
+
+# Android
+android/.gradle/
+android/.idea/
+android/build/
+android/app/build/
+
+# iOS
+ios/Pods/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+# Node
+node_modules/
+

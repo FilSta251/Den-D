@@ -2,19 +2,19 @@ import 'package:equatable/equatable.dart';
 import 'package:intl/intl.dart';
 
 /// [WeddingInfo] představuje komplexní informace o svatbě.
-/// Tato třída využívá [Equatable] pro správné porovnávání instancí,
-/// což je užitečné při práci s reaktivním stavem (např. s Providerem).
+/// Tato třída vyuťívá [Equatable] pro správnĂ© porovnávání instancí,
+/// coť je uťitečnĂ© při práci s reaktivním stavem (např. s Providerem).
 class WeddingInfo extends Equatable {
-  /// Jedinečný identifikátor uživatele, ke kterému se tato svatba váže.
+  /// Jedinečný identifikátor uťivatele, ke kterĂ©mu se tato svatba váťe.
   final String userId;
 
   /// Datum a čas svatby.
   final DateTime weddingDate;
 
-  /// Jméno uživatele.
+  /// JmĂ©no uťivatele.
   final String yourName;
 
-  /// Jméno partnera.
+  /// JmĂ©no partnera.
   final String partnerName;
 
   /// Místo konání svatby.
@@ -23,10 +23,10 @@ class WeddingInfo extends Equatable {
   /// Finanční rozpočet na svatbu.
   final double budget;
 
-  /// Volitelné poznámky nebo doplňující informace.
+  /// VolitelnĂ© poznámky nebo doplĹující informace.
   final String notes;
 
-  /// Konstruktor zajišťující neměnitelnost instance.
+  /// Konstruktor zajiĹˇšující neměnitelnost instance.
   const WeddingInfo({
     required this.userId,
     required this.weddingDate,
@@ -39,8 +39,8 @@ class WeddingInfo extends Equatable {
 
   /// Factory konstruktor, který vytvoří instanci [WeddingInfo] z JSON mapy.
   /// Nejprve se pokusí o parsování data pomocí [DateTime.parse].
-  /// Pokud to selže, použije alternativní formát "yyyy-MM-dd" pomocí [parseStrict].
-  /// V případě neúspěchu použije [DateTime.now()] jako fallback.
+  /// Pokud to selťe, pouťije alternativní formát "yyyy-MM-dd" pomocí [parseStrict].
+  /// V případě neúspěchu pouťije [DateTime.now()] jako fallback.
   factory WeddingInfo.fromJson(Map<String, dynamic> json) {
     final String dateRaw = json['weddingDate'] as String? ?? '';
     late final DateTime parsedDate;
@@ -59,15 +59,14 @@ class WeddingInfo extends Equatable {
       yourName: json['yourName'] as String? ?? '--',
       partnerName: json['partnerName'] as String? ?? '--',
       weddingVenue: json['weddingVenue'] as String? ?? '--',
-      budget: (json['budget'] is num)
-          ? (json['budget'] as num).toDouble()
-          : 0.0,
+      budget:
+          (json['budget'] is num) ? (json['budget'] as num).toDouble() : 0.0,
       notes: json['notes'] as String? ?? '--',
     );
   }
 
   /// Převede tuto instanci na JSON mapu.
-  /// Tuto metodu lze využít k odeslání dat do backendu nebo pro lokální úložiště.
+  /// Tuto metodu lze vyuťít k odeslání dat do backendu nebo pro lokální úloťiĹˇtě.
   Map<String, dynamic> toJson() {
     return {
       'userId': userId,
@@ -80,7 +79,7 @@ class WeddingInfo extends Equatable {
     };
   }
 
-  /// Umožňuje vytvořit novou instanci [WeddingInfo] s aktualizovanými hodnotami.
+  /// UmoťĹuje vytvořit novou instanci [WeddingInfo] s aktualizovanými hodnotami.
   /// Ideální pro úpravu a aktualizaci dat.
   WeddingInfo copyWith({
     String? userId,
@@ -126,14 +125,14 @@ class WeddingInfo extends Equatable {
         ')';
   }
 
-  /// Naformátuje datum svatby podle zadaného vzoru.
+  /// Naformátuje datum svatby podle zadanĂ©ho vzoru.
   /// Výchozí vzor je "yyyy-MM-dd", ale lze zadat libovolný formát podporovaný knihovnou [intl].
   String formatWeddingDate({String pattern = 'yyyy-MM-dd'}) {
     return DateFormat(pattern).format(weddingDate);
   }
 
   /// Naformátuje rozpočet jako měnovou částku.
-  /// Výchozí locale je 'en_US' a symbol je prázdný, takže se zobrazí pouze číslo.
+  /// Výchozí locale je 'en_US' a symbol je prázdný, takťe se zobrazí pouze číslo.
   String formatBudget({String locale = 'en_US'}) {
     final NumberFormat formatter = NumberFormat.currency(
       locale: locale,

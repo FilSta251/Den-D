@@ -1,0 +1,33 @@
+{
+  "app_name": "Hochzeitsplaner",
+  "welcome": "Willkommen",
+  "login": "Anmelden",
+  "register": "Registrieren",
+  "email": "E-Mail",
+  "password": "Passwort",
+  "save": "Speichern",
+  "cancel": "Abbrechen",
+  "delete": "Löschen",
+  "edit": "Bearbeiten",
+  "add": "Hinzufügen",
+  "home": "Startseite",
+  "guests": "Gäste",
+  "budget": "Budget",
+  "settings": "Einstellungen",
+  "wedding_date": "Hochzeitsdatum",
+  "venue": "Hochzeitslocation",
+  "budget_amount": "Budget (€)",
+  "monthly_price": "9.99 €/Monat",
+  "yearly_price": "79.99 €/Jahr",
+  "error_network": "Netzwerkfehler",
+  "error_server": "Serverfehler",
+  "success_saved": "Erfolgreich gespeichert",
+  "_meta": {
+    "version": "1.0.0",
+    "language": "Deutsch",
+    "currency": "EUR",
+    "symbol": "€",
+    "lastUpdated": "2025-09-29T13:43:47.161Z",
+    "completeness": 100
+  }
+}
