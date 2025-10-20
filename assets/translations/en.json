@@ -656,5 +656,13 @@
   "attendance_pending": "Pending",
   "unassigned_table": "Unassigned"
 },
-"error_operation_failed_max_retries": "Operation failed after maximum retry attempts"
+"error_operation_failed_max_retries": "Operation failed after maximum retry attempts",
+  "wedding_couple": "Wedding Couple",
+  "venue": "Venue",
+  "error_iap_not_available": "In-app purchases are not available on this device",
+"error_payment_service_not_initialized": "Payment service is not initialized",
+"error_loading_products": "Error loading products",
+"error_cannot_open_manage_subscriptions": "Cannot open subscription management",
+"error_uid_empty": "UID must not be empty",
+"error_unsupported_product": "Unsupported product"
 }

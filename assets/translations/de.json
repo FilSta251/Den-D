@@ -657,5 +657,13 @@
   "attendance_pending": "Ausstehend",
   "unassigned_table": "Nicht zugewiesen"
 },
-"error_operation_failed_max_retries": "Operation nach maximaler Anzahl von Versuchen fehlgeschlagen"
+"error_operation_failed_max_retries": "Operation nach maximaler Anzahl von Versuchen fehlgeschlagen",
+  "wedding_couple": "Brautpaar",
+  "venue": "Veranstaltungsort",
+  "error_iap_not_available": "In-App-Käufe sind auf diesem Gerät nicht verfügbar",
+"error_payment_service_not_initialized": "Zahlungsdienst ist nicht initialisiert",
+"error_loading_products": "Fehler beim Laden der Produkte",
+"error_cannot_open_manage_subscriptions": "Abonnementverwaltung kann nicht geöffnet werden",
+"error_uid_empty": "UID darf nicht leer sein",
+"error_unsupported_product": "Nicht unterstütztes Produkt"
 }

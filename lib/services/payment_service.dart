@@ -59,7 +59,7 @@ class PaymentService {
       // Kontrola dostupnosti in-app nákupů
       final bool available = await isAvailable();
       if (!available) {
-        throw Exception('In-app nákupy nejsou dostupnĂ© na tomto zařízení');
+        throw Exception('error_iap_not_available'.tr());
       }
 
       // Nastavení poslucháče pro nákupní aktualizace - přeposílání do vlastního streamu
@@ -88,8 +88,7 @@ class PaymentService {
   /// Náčte produkty z obchodu
   Future<List<ProductDetails>> loadProducts() async {
     if (!_isInitialized) {
-      throw Exception(
-          'PaymentService není inicializován - zavolej initialize() nejdříve');
+      throw Exception('error_payment_service_not_initialized'.tr());
     }
 
     try {
@@ -106,7 +105,7 @@ class PaymentService {
 
       if (response.error != null) {
         throw Exception(
-            'Chyba při náčítání produktů: ${response.error!.message}');
+            '${'error_loading_products'.tr()}: ${response.error!.message}');
       }
 
       if (response.notFoundIDs.isNotEmpty) {
@@ -130,7 +129,7 @@ class PaymentService {
   /// Zahájí nákup Premium předplatnĂ©ho
   Future<void> buyPremium(ProductDetails productDetails) async {
     if (!_isInitialized) {
-      throw Exception('PaymentService není inicializován');
+      throw Exception('error_payment_service_not_initialized'.tr());
     }
 
     try {
@@ -190,7 +189,7 @@ class PaymentService {
         }
 
         if (!launched) {
-          throw Exception('Nelze otevřít správu předplatnĂ©ho');
+          throw Exception('error_cannot_open_manage_subscriptions'.tr());
         }
       } else if (Platform.isIOS) {
         // iOS: zobraz instrukce pro správu v Nastavení

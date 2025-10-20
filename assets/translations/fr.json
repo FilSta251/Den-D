@@ -656,5 +656,13 @@
   "attendance_pending": "En attente",
   "unassigned_table": "Non assigné"
 },
-"error_operation_failed_max_retries": "L'opération a échoué après le nombre maximum de tentatives"
+"error_operation_failed_max_retries": "L'opération a échoué après le nombre maximum de tentatives",
+  "wedding_couple": "Couple de mariés",
+  "venue": "Lieu",
+  "error_iap_not_available": "Les achats intégrés ne sont pas disponibles sur cet appareil",
+"error_payment_service_not_initialized": "Le service de paiement n'est pas initialisé",
+"error_loading_products": "Erreur lors du chargement des produits",
+"error_cannot_open_manage_subscriptions": "Impossible d'ouvrir la gestion des abonnements",
+"error_uid_empty": "L'UID ne doit pas être vide",
+"error_unsupported_product": "Produit non pris en charge"
 }

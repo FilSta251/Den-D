@@ -657,5 +657,13 @@
   "unassigned_table": "Nieprzypisany"
 },
 
-"error_operation_failed_max_retries": "Operacja nie powiodła się po maksymalnej liczbie prób"
+"error_operation_failed_max_retries": "Operacja nie powiodła się po maksymalnej liczbie prób",
+  "wedding_couple": "Para młoda",
+  "venue": "Miejsce",
+  "error_iap_not_available": "Zakupy w aplikacji nie są dostępne na tym urządzeniu",
+"error_payment_service_not_initialized": "Usługa płatności nie jest zainicjowana",
+"error_loading_products": "Błąd podczas ładowania produktów",
+"error_cannot_open_manage_subscriptions": "Nie można otworzyć zarządzania subskrypcjami",
+"error_uid_empty": "UID nie może być pusty",
+"error_unsupported_product": "Nieobsługiwany produkt"
 }

@@ -656,5 +656,13 @@
   "attendance_pending": "Очікується",
   "unassigned_table": "Не призначено"
 },
-"error_operation_failed_max_retries": "Операція не вдалася після максимальної кількості спроб"
+"error_operation_failed_max_retries": "Операція не вдалася після максимальної кількості спроб",
+  "wedding_couple": "Молодята",
+  "venue": "Місце",
+  "error_iap_not_available": "Покупки в додатку недоступні на цьому пристрої",
+"error_payment_service_not_initialized": "Платіжний сервіс не ініціалізовано",
+"error_loading_products": "Помилка завантаження продуктів",
+"error_cannot_open_manage_subscriptions": "Неможливо відкрити управління підписками",
+"error_uid_empty": "UID не повинен бути порожнім",
+"error_unsupported_product": "Непідтримуваний продукт"
 }

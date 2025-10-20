@@ -19,15 +19,27 @@ class _LegalInformationPageState extends State<LegalInformationPage> {
   String _content = '';
   bool _isLoading = true;
   String? _error;
+  bool _hasLoadedOnce = false; // ✅ PŘIDÁNO: zabránit opakovanému načítání
 
   @override
   void initState() {
     super.initState();
-    _loadContent();
+    // ❌ NEDĚLÁME TU NIC - čekáme na didChangeDependencies
+  }
+
+  // ✅ PŘIDÁNO: Načítání až když je context plně připravený
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasLoadedOnce) {
+      _hasLoadedOnce = true;
+      _loadContent();
+    }
   }
 
   /// Vrací cestu k markdown souboru podle jazyka
   String _getLocalizedFilePath() {
+    // ✅ OPRAVENO: Získáme locale až tady, když je context připravený
     final String currentLocale = context.locale.languageCode;
     final String fileName = widget.contentType == 'privacy'
         ? 'privacy_policy.md'
@@ -44,8 +56,12 @@ class _LegalInformationPageState extends State<LegalInformationPage> {
       'uk', // Ukrajinština
     ];
 
+    debugPrint('[LegalInformationPage] Detekovaný jazyk: $currentLocale');
+
     if (supportedLanguages.contains(currentLocale)) {
-      return 'assets/legal/$currentLocale/$fileName';
+      final path = 'assets/legal/$currentLocale/$fileName';
+      debugPrint('[LegalInformationPage] Používám lokalizovanou verzi: $path');
+      return path;
     }
 
     // Pro nepodporované jazyky použijeme angličtinu jako fallback
@@ -68,21 +84,26 @@ class _LegalInformationPageState extends State<LegalInformationPage> {
 
       final String content = await rootBundle.loadString(filePath);
 
-      setState(() {
-        _content = content;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _content = content;
+          _isLoading = false;
+        });
+      }
 
-      debugPrint('[LegalInformationPage] Obsah úspěšně načten');
+      debugPrint(
+          '[LegalInformationPage] Obsah úspěšně načten (${content.length} znaků)');
     } catch (e) {
       debugPrint('[LegalInformationPage] Chyba při načítání obsahu: $e');
 
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
         // Pokud selže načtení, zkusíme anglickou verzi
         _tryLoadEnglishFallback();
-      });
+      }
     }
   }
 
@@ -99,10 +120,12 @@ class _LegalInformationPageState extends State<LegalInformationPage> {
 
       final String content = await rootBundle.loadString(fallbackPath);
 
-      setState(() {
-        _content = content;
-        _error = null;
-      });
+      if (mounted) {
+        setState(() {
+          _content = content;
+          _error = null;
+        });
+      }
 
       debugPrint('[LegalInformationPage] Anglická verze úspěšně načtena');
     } catch (e) {

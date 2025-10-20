@@ -4,7 +4,7 @@
 
 ## 1. Úvod
 
-Tyto Zásady ochrany osobních údajů vysvětlují, jak aplikace **"Ten Den" Svatební plánovač** (dále jen "Aplikace") shromažďuje, používá, ukládá a chrání vaše osobní údaje. Tuto aplikaci poskytuje:
+Tyto Zásady ochrany osobních údajů vysvětlují, jak aplikace **"Den D" Svatební plánovač** (dále jen "Aplikace") shromažďuje, používá, ukládá a chrání vaše osobní údaje. Tuto aplikaci poskytuje:
 
 **Filip Šťastný**
 E-mail: info@stastnyfoto.com

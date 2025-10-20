@@ -2,7 +2,7 @@ name: den_d
 description: "Svatební plánovač – aplikace pro organizaci vašeho velkého dne."
 publish_to: 'none' # Odstraňte, pokud chcete publikovat na pub.dev
 
-version: 1.3.1+21
+version: 1.3.1+22
 
 environment:
   sdk: ">=3.6.1 <4.0.0"
@@ -69,6 +69,9 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^5.0.0
   intl_utils: ^2.8.11
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.1
+
 
 flutter:
   uses-material-design: true
@@ -87,9 +90,6 @@ flutter:
     - assets/images/onboarding1.png
     - assets/images/onboarding2.png
     - assets/images/onboarding3.png
-    - additional_files/legal/
-    - additional_files/legal/terms_of_service.md
-    - additional_files/legal/privacy_policy.md
     - assets/images/chatbot.png
     - assets/fonts/Roboto-Regular.ttf    # ← PŘIDEJ TENTO ŘÁDEK
     - assets/fonts/Roboto-Bold.ttf
@@ -121,3 +121,21 @@ flutter:
     - assets/legal/uk/privacy_policy.md
     - assets/legal/uk/terms_of_service.md
 
+# 🟢 Automatizované vizuály pro iOS i Android
+
+flutter_launcher_name:
+  name: "Den D"
+
+flutter_launcher_icons:
+  ios: true
+  android: true
+  image_path: assets/images/logo.png   # zde můžeš dát jiné logo pro ikonu
+  remove_alpha_ios: true
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/images/logo.png
+  ios: true
+  android: true
+  android_12:
+    color: "#FFFFFF"

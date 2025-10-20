@@ -655,5 +655,13 @@
   "attendance_pending": "Čeká na odpověď",
   "unassigned_table": "Nepřiřazen"
 },
-"error_operation_failed_max_retries": "Operace selhala po maximálním počtu pokusů"
+"error_operation_failed_max_retries": "Operace selhala po maximálním počtu pokusů",
+  "wedding_couple": "Svatební dvojice",
+  "venue": "Místo konání",
+  "error_iap_not_available": "In-app nákupy nejsou dostupné na tomto zařízení",
+"error_payment_service_not_initialized": "Platební služba není inicializována",
+"error_loading_products": "Chyba při načítání produktů",
+"error_cannot_open_manage_subscriptions": "Nelze otevřít správu předplatného",
+"error_uid_empty": "UID nesmí být prázdné",
+"error_unsupported_product": "Nepodporovaný produkt"
 }

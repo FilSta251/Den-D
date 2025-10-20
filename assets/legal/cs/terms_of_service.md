@@ -4,7 +4,7 @@
 
 ## 1. Úvod
 
-Vítejte v aplikaci **"Ten Den" Svatební plánovač** (dále jen "Aplikace"). Tyto Obchodní podmínky ("Podmínky") upravují vaše používání Aplikace. Stažením, instalací nebo používáním Aplikace souhlasíte s těmito Podmínkami.
+Vítejte v aplikaci **"Den D" Svatební plánovač** (dále jen "Aplikace"). Tyto Obchodní podmínky ("Podmínky") upravují vaše používání Aplikace. Stažením, instalací nebo používáním Aplikace souhlasíte s těmito Podmínkami.
 
 **Poskytovatel služby:**
 **Filip Šťastný**

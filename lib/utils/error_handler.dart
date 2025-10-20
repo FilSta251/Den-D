@@ -9,6 +9,7 @@ import "package:easy_localization/easy_localization.dart";
 import "../services/navigation_service.dart";
 import "../services/crash_reporting_service.dart";
 import "../di/service_locator.dart" as di;
+import '../di/service_locator.dart' show locator;
 
 /// Globální zpracování chyb v aplikaci.
 ///
@@ -43,8 +44,8 @@ class ErrorHandler {
 
   /// Inicializuje ErrorHandler s potřebnými závislostmi.
   Future<void> initialize() async {
-    _crashReportingService = di.locator<CrashReportingService>();
-    _navigationService = di.locator<NavigationService>();
+    _crashReportingService = locator<CrashReportingService>();
+    _navigationService = locator<NavigationService>();
 
     // Nastavení globálního handleru pro Flutter chyby
     FlutterError.onError = _handleFlutterError;

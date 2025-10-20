@@ -206,12 +206,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final minutes = duration.inMinutes % 60;
     final seconds = duration.inSeconds % 60;
 
+    // ✅ OPRAVENO: použit překlad místo hardcoded textu
     final String coupleNames = (yourName != null &&
             partnerName != null &&
             yourName != "--" &&
             partnerName != "--")
         ? "$yourName & $partnerName"
-        : "Svatební dvojice";
+        : tr('wedding_couple');
 
     if (_isLoading) {
       return Scaffold(
@@ -328,11 +329,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
+                  // ✅ OPRAVENO: použit překlad místo hardcoded textu
                   if (weddingVenue != null && weddingVenue != "--")
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Text(
-                        "Místo konání: $weddingVenue",
+                        "${tr('venue')}: $weddingVenue",
                         style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,

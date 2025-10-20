@@ -82,7 +82,7 @@ class SubscriptionProvider extends ChangeNotifier {
   Future<void> bindUser(String uid) async {
     try {
       if (uid.isEmpty) {
-        throw ArgumentError('UID nesmí být prázdné');
+        throw ArgumentError('error_uid_empty'.tr());
       }
 
       _isLoading = true;
@@ -230,7 +230,7 @@ class SubscriptionProvider extends ChangeNotifier {
   /// Zahájí nákup Premium předplatného
   Future<void> startPremiumPurchase() async {
     if (_currentUserId == null) {
-      throw Exception('Uživatel není přihlášen');
+      throw Exception('error_user_not_logged_in'.tr());
     }
 
     try {
@@ -251,7 +251,7 @@ class SubscriptionProvider extends ChangeNotifier {
   /// Obnoví předchozí nákupy
   Future<void> restorePurchases() async {
     if (_currentUserId == null) {
-      throw Exception('Uživatel není přihlášen');
+      throw Exception('error_user_not_logged_in'.tr());
     }
 
     try {
@@ -284,7 +284,7 @@ class SubscriptionProvider extends ChangeNotifier {
   /// Nastaví Free tier pro aktuálního uživatele
   Future<void> setFreeTier() async {
     if (_currentUserId == null) {
-      throw Exception('Uživatel není přihlášen');
+      throw Exception('error_user_not_logged_in'.tr());
     }
 
     try {

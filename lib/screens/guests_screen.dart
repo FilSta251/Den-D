@@ -1,4 +1,4 @@
-/// lib/screens/guests_screen.dart - PRODUKČNÍ VERZE S GUESTS MANAGER
+/// lib/screens/guests_screen.dart - PRODUKČNÍ VERZE S GUESTS MANAGER - OPRAVENO
 library;
 
 import 'dart:convert';
@@ -56,6 +56,9 @@ class _GuestsScreenState extends State<GuestsScreen>
   String _selectedAttendanceFilter = '';
   List<String> _attendanceOptions = [];
 
+  // ✅ Přidána proměnná pro sledování aktuálního jazyka
+  String _currentLocale = '';
+
   @override
   void initState() {
     super.initState();
@@ -68,25 +71,7 @@ class _GuestsScreenState extends State<GuestsScreen>
 
     // Inicializace filtrů
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      setState(() {
-        _selectedGenderFilter = tr('filter_all');
-        _selectedGroupFilter = tr('filter_all');
-        _selectedAttendanceFilter = tr('filter_all');
-
-        _genders = [
-          tr('filter_all'),
-          tr('guest.gender_male'),
-          tr('guest.gender_female'),
-          tr('guest.gender_other')
-        ];
-        _groups = [tr('filter_all'), ...predefinedGroups];
-        _attendanceOptions = [
-          tr('filter_all'),
-          tr('guest.attendance_confirmed'),
-          tr('guest.attendance_declined'),
-          tr('guest.attendance_pending')
-        ];
-      });
+      _initializeFilters();
     });
 
     // Načtení dat při prvním zobrazení
@@ -94,6 +79,42 @@ class _GuestsScreenState extends State<GuestsScreen>
       final guestsManager = Provider.of<GuestsManager>(context, listen: false);
       guestsManager.forceRefreshFromCloud();
     });
+  }
+
+  // ✅ NOVÁ METODA: Inicializace filtrů
+  void _initializeFilters() {
+    setState(() {
+      _currentLocale = context.locale.toString();
+      _selectedGenderFilter = tr('filter_all');
+      _selectedGroupFilter = tr('filter_all');
+      _selectedAttendanceFilter = tr('filter_all');
+
+      _genders = [
+        tr('filter_all'),
+        tr('guest.gender_male'),
+        tr('guest.gender_female'),
+        tr('guest.gender_other')
+      ];
+
+      // ✅ OPRAVENO: Ujistíme se, že tr('filter_all') je jen jednou
+      _groups = [tr('filter_all'), ...predefinedGroups];
+
+      _attendanceOptions = [
+        tr('filter_all'),
+        tr('guest.attendance_confirmed'),
+        tr('guest.attendance_declined'),
+        tr('guest.attendance_pending')
+      ];
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // ✅ OPRAVENO: Při změně jazyka resetujeme filtry
+    if (_currentLocale != context.locale.toString()) {
+      _initializeFilters();
+    }
   }
 
   @override
@@ -336,146 +357,180 @@ class _GuestsScreenState extends State<GuestsScreen>
     );
   }
 
-  /// Panel s filtry
+  /// Panel s filtry - ✅ OPRAVENO
   void _openFilterPanel() {
+    // ✅ Před otevřením panelu zkontrolujeme, že filtry jsou inicializované
+    if (_groups.isEmpty || _genders.isEmpty || _attendanceOptions.isEmpty) {
+      _initializeFilters();
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      useSafeArea: false,
+      useSafeArea: true, // ✅ Změněno na true pro lepší chování
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setStateSheet) {
-            return SafeArea(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    left: 16,
-                    right: 16,
-                    top: 16,
-                    bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            tr('filter_guests'),
-                            style: const TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold),
+            // ✅ OPRAVENO: Validace hodnot filtrů před zobrazením
+            String validGroupFilter = _groups.contains(_selectedGroupFilter)
+                ? _selectedGroupFilter
+                : _groups.first;
+            String validGenderFilter = _genders.contains(_selectedGenderFilter)
+                ? _selectedGenderFilter
+                : _genders.first;
+            String validAttendanceFilter =
+                _attendanceOptions.contains(_selectedAttendanceFilter)
+                    ? _selectedAttendanceFilter
+                    : _attendanceOptions.first;
+
+            return DraggableScrollableSheet(
+              initialChildSize: 0.7,
+              minChildSize: 0.5,
+              maxChildSize: 0.95,
+              expand: false,
+              builder: (context, scrollController) {
+                return SingleChildScrollView(
+                  controller: scrollController,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: 16,
+                      right: 16,
+                      top: 16,
+                      bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              tr('filter_guests'),
+                              style: const TextStyle(
+                                  fontSize: 20, fontWeight: FontWeight.bold),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Filtr skupiny - ✅ OPRAVENO
+                        DropdownButtonFormField<String>(
+                          decoration: InputDecoration(
+                            labelText: tr('group'),
+                            border: const OutlineInputBorder(),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Filtr skupiny
-                      DropdownButtonFormField<String>(
-                        decoration: InputDecoration(
-                          labelText: tr('group'),
-                          border: const OutlineInputBorder(),
-                        ),
-                        value: _selectedGroupFilter,
-                        items: _groups
-                            .map((group) => DropdownMenuItem<String>(
-                                  value: group,
-                                  child: Text(group),
-                                ))
-                            .toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedGroupFilter = value!;
-                          });
-                          setStateSheet(() {});
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Filtr pohlaví
-                      DropdownButtonFormField<String>(
-                        decoration: InputDecoration(
-                          labelText: tr('gender'),
-                          border: const OutlineInputBorder(),
-                        ),
-                        value: _selectedGenderFilter,
-                        items: _genders
-                            .map((gender) => DropdownMenuItem<String>(
-                                  value: gender,
-                                  child: Text(gender),
-                                ))
-                            .toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedGenderFilter = value!;
-                          });
-                          setStateSheet(() {});
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Filtr účasti
-                      DropdownButtonFormField<String>(
-                        decoration: InputDecoration(
-                          labelText: tr('attendance_status'),
-                          border: const OutlineInputBorder(),
-                        ),
-                        value: _selectedAttendanceFilter,
-                        items: _attendanceOptions
-                            .map((option) => DropdownMenuItem<String>(
-                                  value: option,
-                                  child: Text(option),
-                                ))
-                            .toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedAttendanceFilter = value!;
-                          });
-                          setStateSheet(() {});
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Vyhledávací pole
-                      TextField(
-                        controller: _searchController,
-                        textCapitalization: TextCapitalization.words,
-                        decoration: InputDecoration(
-                          hintText: tr('search_guests'),
-                          border: const OutlineInputBorder(),
-                          prefixIcon: const Icon(Icons.search),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Tlačítko reset
-                      Center(
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.refresh),
-                          label: Text(tr('reset_filters')),
-                          onPressed: () {
-                            setState(() {
-                              _selectedGroupFilter = tr('filter_all');
-                              _selectedGenderFilter = tr('filter_all');
-                              _selectedAttendanceFilter = tr('filter_all');
-                              _searchController.clear();
-                            });
-                            setStateSheet(() {});
-                            Navigator.pop(context);
+                          value: validGroupFilter,
+                          items: _groups
+                              .map((group) => DropdownMenuItem<String>(
+                                    value: group,
+                                    child: Text(group,
+                                        overflow: TextOverflow.ellipsis),
+                                  ))
+                              .toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedGroupFilter = value;
+                              });
+                              setStateSheet(() {});
+                            }
                           },
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 16),
+
+                        // Filtr pohlaví - ✅ OPRAVENO
+                        DropdownButtonFormField<String>(
+                          decoration: InputDecoration(
+                            labelText: tr('gender'),
+                            border: const OutlineInputBorder(),
+                          ),
+                          value: validGenderFilter,
+                          items: _genders
+                              .map((gender) => DropdownMenuItem<String>(
+                                    value: gender,
+                                    child: Text(gender,
+                                        overflow: TextOverflow.ellipsis),
+                                  ))
+                              .toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedGenderFilter = value;
+                              });
+                              setStateSheet(() {});
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Filtr účasti - ✅ OPRAVENO
+                        DropdownButtonFormField<String>(
+                          decoration: InputDecoration(
+                            labelText: tr('attendance_status'),
+                            border: const OutlineInputBorder(),
+                          ),
+                          value: validAttendanceFilter,
+                          items: _attendanceOptions
+                              .map((option) => DropdownMenuItem<String>(
+                                    value: option,
+                                    child: Text(option,
+                                        overflow: TextOverflow.ellipsis),
+                                  ))
+                              .toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedAttendanceFilter = value;
+                              });
+                              setStateSheet(() {});
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Vyhledávací pole
+                        TextField(
+                          controller: _searchController,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: InputDecoration(
+                            hintText: tr('search_guests'),
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.search),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Tlačítko reset
+                        Center(
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.refresh),
+                            label: Text(tr('reset_filters')),
+                            onPressed: () {
+                              setState(() {
+                                _selectedGroupFilter = tr('filter_all');
+                                _selectedGenderFilter = tr('filter_all');
+                                _selectedAttendanceFilter = tr('filter_all');
+                                _searchController.clear();
+                              });
+                              setStateSheet(() {});
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
         );
@@ -568,20 +623,29 @@ class _GuestsScreenState extends State<GuestsScreen>
             title: Text(
               guest.name,
               style: const TextStyle(fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis, // ✅ Přidáno pro řešení overflow
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${guest.group} • ${tr('table')}: ${guest.tableDisplay}'),
+                Text(
+                  '${guest.group} • ${tr('table')}: ${guest.tableDisplay}',
+                  overflow:
+                      TextOverflow.ellipsis, // ✅ Přidáno pro řešení overflow
+                ),
                 Row(
                   children: [
                     Icon(attendanceIcon, size: 16, color: attendanceColor),
                     const SizedBox(width: 4),
-                    Text(
-                      guest.attendanceDisplay,
-                      style: TextStyle(
-                        color: attendanceColor,
-                        fontWeight: FontWeight.w500,
+                    Flexible(
+                      // ✅ Přidáno pro řešení overflow
+                      child: Text(
+                        guest.attendanceDisplay,
+                        style: TextStyle(
+                          color: attendanceColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -653,12 +717,14 @@ class _GuestsScreenState extends State<GuestsScreen>
             title: Text(
               table.name,
               style: const TextStyle(fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis, // ✅ Přidáno
             ),
             subtitle: Text(
               '${tr('occupied')}: $currentGuests / $maxCapacity ${tr('seats')}',
               style: TextStyle(
                 color: isFull ? Colors.red : null,
               ),
+              overflow: TextOverflow.ellipsis, // ✅ Přidáno
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
@@ -781,8 +847,10 @@ class _GuestsScreenState extends State<GuestsScreen>
 
                       return ListTile(
                         leading: Icon(genderIcon, color: genderColor),
-                        title: Text(guest.name),
-                        subtitle: Text(guest.group),
+                        title:
+                            Text(guest.name, overflow: TextOverflow.ellipsis),
+                        subtitle:
+                            Text(guest.group, overflow: TextOverflow.ellipsis),
                         trailing: IconButton(
                           icon: const Icon(Icons.remove_circle,
                               color: Colors.red),
@@ -1292,7 +1360,7 @@ class _GuestsScreenState extends State<GuestsScreen>
   }
 }
 
-/// Formulář pro přidání hosta
+/// Formulář pro přidání hosta (zůstává beze změny)
 class _AddGuestForm extends StatefulWidget {
   const _AddGuestForm({super.key});
 
@@ -1306,7 +1374,6 @@ class __AddGuestFormState extends State<_AddGuestForm> {
   final _contactController = TextEditingController();
 
   late String _selectedGroup;
-  // ✅ UKLÁDÁME KONSTANTY místo českých textů
   String _selectedGender = GuestConstants.genderMale;
   String _selectedTable = GuestConstants.unassignedTable;
   String _attendanceStatus = GuestConstants.attendancePending;
@@ -1332,9 +1399,9 @@ class __AddGuestFormState extends State<_AddGuestForm> {
         name: _nameController.text.trim(),
         group: _selectedGroup,
         contact: _contactController.text.trim(),
-        gender: _selectedGender, // již je konstanta
-        table: _selectedTable, // již je konstanta
-        attendance: _attendanceStatus, // již je konstanta
+        gender: _selectedGender,
+        table: _selectedTable,
+        attendance: _attendanceStatus,
       );
 
       final success = await guestsManager.addGuest(newGuest, context);
@@ -1382,7 +1449,6 @@ class __AddGuestFormState extends State<_AddGuestForm> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Handle pro táhnutí
                   Center(
                     child: Container(
                       width: 40,
@@ -1401,8 +1467,6 @@ class __AddGuestFormState extends State<_AddGuestForm> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
-
-                  // Jméno
                   TextFormField(
                     controller: _nameController,
                     decoration: InputDecoration(
@@ -1419,8 +1483,6 @@ class __AddGuestFormState extends State<_AddGuestForm> {
                     },
                   ),
                   const SizedBox(height: 16),
-
-                  // Skupina
                   DropdownButtonFormField<String>(
                     decoration: InputDecoration(
                       labelText: tr('group'),
@@ -1431,7 +1493,8 @@ class __AddGuestFormState extends State<_AddGuestForm> {
                     items: predefinedGroups
                         .map((group) => DropdownMenuItem(
                               value: group,
-                              child: Text(group),
+                              child:
+                                  Text(group, overflow: TextOverflow.ellipsis),
                             ))
                         .toList(),
                     onChanged: (value) {
@@ -1441,8 +1504,6 @@ class __AddGuestFormState extends State<_AddGuestForm> {
                     },
                   ),
                   const SizedBox(height: 16),
-
-                  // Kontakt
                   TextFormField(
                     controller: _contactController,
                     decoration: InputDecoration(
@@ -1455,15 +1516,14 @@ class __AddGuestFormState extends State<_AddGuestForm> {
                     textCapitalization: TextCapitalization.sentences,
                   ),
                   const SizedBox(height: 16),
-
-                  // Pohlaví - ✅ UKLÁDÁ KONSTANTY, ZOBRAZUJE PŘEKLADY
                   Text(tr('gender'), style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(
                         child: ChoiceChip(
-                          label: Text(tr('guest.gender_male')),
+                          label: Text(tr('guest.gender_male'),
+                              overflow: TextOverflow.ellipsis),
                           selected:
                               _selectedGender == GuestConstants.genderMale,
                           onSelected: (selected) {
@@ -1479,7 +1539,8 @@ class __AddGuestFormState extends State<_AddGuestForm> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: ChoiceChip(
-                          label: Text(tr('guest.gender_female')),
+                          label: Text(tr('guest.gender_female'),
+                              overflow: TextOverflow.ellipsis),
                           selected:
                               _selectedGender == GuestConstants.genderFemale,
                           onSelected: (selected) {
@@ -1495,7 +1556,8 @@ class __AddGuestFormState extends State<_AddGuestForm> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: ChoiceChip(
-                          label: Text(tr('guest.gender_other')),
+                          label: Text(tr('guest.gender_other'),
+                              overflow: TextOverflow.ellipsis),
                           selected:
                               _selectedGender == GuestConstants.genderOther,
                           onSelected: (selected) {
@@ -1511,8 +1573,6 @@ class __AddGuestFormState extends State<_AddGuestForm> {
                     ],
                   ),
                   const SizedBox(height: 16),
-
-                  // Stůl
                   DropdownButtonFormField<String>(
                     decoration: InputDecoration(
                       labelText: tr('table'),
@@ -1538,6 +1598,7 @@ class __AddGuestFormState extends State<_AddGuestForm> {
                                       ? Colors.red
                                       : null,
                                 ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ))
                         .toList(),
@@ -1548,8 +1609,6 @@ class __AddGuestFormState extends State<_AddGuestForm> {
                     },
                   ),
                   const SizedBox(height: 16),
-
-                  // Stav účasti - ✅ UKLÁDÁ KONSTANTY, ZOBRAZUJE PŘEKLADY
                   DropdownButtonFormField<String>(
                     decoration: InputDecoration(
                       labelText: tr('attendance_status'),
@@ -1560,13 +1619,16 @@ class __AddGuestFormState extends State<_AddGuestForm> {
                     items: [
                       DropdownMenuItem(
                           value: GuestConstants.attendanceConfirmed,
-                          child: Text(tr('guest.attendance_confirmed'))),
+                          child: Text(tr('guest.attendance_confirmed'),
+                              overflow: TextOverflow.ellipsis)),
                       DropdownMenuItem(
                           value: GuestConstants.attendanceDeclined,
-                          child: Text(tr('guest.attendance_declined'))),
+                          child: Text(tr('guest.attendance_declined'),
+                              overflow: TextOverflow.ellipsis)),
                       DropdownMenuItem(
                           value: GuestConstants.attendancePending,
-                          child: Text(tr('guest.attendance_pending'))),
+                          child: Text(tr('guest.attendance_pending'),
+                              overflow: TextOverflow.ellipsis)),
                     ],
                     onChanged: (value) {
                       setState(() {
@@ -1575,8 +1637,6 @@ class __AddGuestFormState extends State<_AddGuestForm> {
                     },
                   ),
                   const SizedBox(height: 24),
-
-                  // Tlačítka
                   Row(
                     children: [
                       Expanded(
@@ -1604,7 +1664,7 @@ class __AddGuestFormState extends State<_AddGuestForm> {
   }
 }
 
-/// Formulář pro úpravu hosta
+/// Formulář pro úpravu hosta (zůstává beze změny s drobnými opravami)
 class _EditGuestForm extends StatefulWidget {
   final Guest guest;
 
@@ -1633,9 +1693,9 @@ class __EditGuestFormState extends State<_EditGuestForm> {
     _contactController =
         TextEditingController(text: widget.guest.contact ?? '');
     _selectedGroup = widget.guest.group;
-    _selectedGender = widget.guest.gender; // již je konstanta z migrace
-    _selectedTable = widget.guest.table; // již je konstanta z migrace
-    _attendanceStatus = widget.guest.attendance; // již je konstanta z migrace
+    _selectedGender = widget.guest.gender;
+    _selectedTable = widget.guest.table;
+    _attendanceStatus = widget.guest.attendance;
   }
 
   @override
@@ -1702,7 +1762,6 @@ class __EditGuestFormState extends State<_EditGuestForm> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Handle pro táhnutí
                   Center(
                     child: Container(
                       width: 40,
@@ -1721,8 +1780,6 @@ class __EditGuestFormState extends State<_EditGuestForm> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
-
-                  // Jméno
                   TextFormField(
                     controller: _nameController,
                     decoration: InputDecoration(
@@ -1739,8 +1796,6 @@ class __EditGuestFormState extends State<_EditGuestForm> {
                     },
                   ),
                   const SizedBox(height: 16),
-
-                  // Skupina
                   DropdownButtonFormField<String>(
                     decoration: InputDecoration(
                       labelText: tr('group'),
@@ -1753,7 +1808,8 @@ class __EditGuestFormState extends State<_EditGuestForm> {
                     items: predefinedGroups
                         .map((group) => DropdownMenuItem(
                               value: group,
-                              child: Text(group),
+                              child:
+                                  Text(group, overflow: TextOverflow.ellipsis),
                             ))
                         .toList(),
                     onChanged: (value) {
@@ -1763,8 +1819,6 @@ class __EditGuestFormState extends State<_EditGuestForm> {
                     },
                   ),
                   const SizedBox(height: 16),
-
-                  // Kontakt
                   TextFormField(
                     controller: _contactController,
                     decoration: InputDecoration(
@@ -1777,15 +1831,14 @@ class __EditGuestFormState extends State<_EditGuestForm> {
                     textCapitalization: TextCapitalization.sentences,
                   ),
                   const SizedBox(height: 16),
-
-                  // Pohlaví - ✅ UKLÁDÁ KONSTANTY, ZOBRAZUJE PŘEKLADY
                   Text(tr('gender'), style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(
                         child: ChoiceChip(
-                          label: Text(tr('guest.gender_male')),
+                          label: Text(tr('guest.gender_male'),
+                              overflow: TextOverflow.ellipsis),
                           selected:
                               _selectedGender == GuestConstants.genderMale,
                           onSelected: (selected) {
@@ -1801,7 +1854,8 @@ class __EditGuestFormState extends State<_EditGuestForm> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: ChoiceChip(
-                          label: Text(tr('guest.gender_female')),
+                          label: Text(tr('guest.gender_female'),
+                              overflow: TextOverflow.ellipsis),
                           selected:
                               _selectedGender == GuestConstants.genderFemale,
                           onSelected: (selected) {
@@ -1817,7 +1871,8 @@ class __EditGuestFormState extends State<_EditGuestForm> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: ChoiceChip(
-                          label: Text(tr('guest.gender_other')),
+                          label: Text(tr('guest.gender_other'),
+                              overflow: TextOverflow.ellipsis),
                           selected:
                               _selectedGender == GuestConstants.genderOther,
                           onSelected: (selected) {
@@ -1833,8 +1888,6 @@ class __EditGuestFormState extends State<_EditGuestForm> {
                     ],
                   ),
                   const SizedBox(height: 16),
-
-                  // Stůl
                   DropdownButtonFormField<String>(
                     decoration: InputDecoration(
                       labelText: tr('table'),
@@ -1861,6 +1914,7 @@ class __EditGuestFormState extends State<_EditGuestForm> {
                                       ? Colors.red
                                       : null,
                                 ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ))
                         .toList(),
@@ -1871,8 +1925,6 @@ class __EditGuestFormState extends State<_EditGuestForm> {
                     },
                   ),
                   const SizedBox(height: 16),
-
-                  // Stav účasti - ✅ UKLÁDÁ KONSTANTY, ZOBRAZUJE PŘEKLADY
                   DropdownButtonFormField<String>(
                     decoration: InputDecoration(
                       labelText: tr('attendance_status'),
@@ -1883,13 +1935,16 @@ class __EditGuestFormState extends State<_EditGuestForm> {
                     items: [
                       DropdownMenuItem(
                           value: GuestConstants.attendanceConfirmed,
-                          child: Text(tr('guest.attendance_confirmed'))),
+                          child: Text(tr('guest.attendance_confirmed'),
+                              overflow: TextOverflow.ellipsis)),
                       DropdownMenuItem(
                           value: GuestConstants.attendanceDeclined,
-                          child: Text(tr('guest.attendance_declined'))),
+                          child: Text(tr('guest.attendance_declined'),
+                              overflow: TextOverflow.ellipsis)),
                       DropdownMenuItem(
                           value: GuestConstants.attendancePending,
-                          child: Text(tr('guest.attendance_pending'))),
+                          child: Text(tr('guest.attendance_pending'),
+                              overflow: TextOverflow.ellipsis)),
                     ],
                     onChanged: (value) {
                       setState(() {
@@ -1898,8 +1953,6 @@ class __EditGuestFormState extends State<_EditGuestForm> {
                     },
                   ),
                   const SizedBox(height: 24),
-
-                  // Tlačítka
                   Row(
                     children: [
                       Expanded(

@@ -26,13 +26,12 @@ import 'repositories/subscription_repository.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/crash_reporting_service.dart';
-import 'di/service_locator.dart' as di;
+import 'di/service_locator.dart';
 import 'services/local_storage_service.dart';
 import 'services/local_schedule_service.dart';
 import 'services/cloud_schedule_service.dart';
 import 'services/schedule_manager.dart';
 import 'services/navigation_service.dart';
-import 'routes.dart';
 import 'services/budget_manager.dart';
 import 'services/local_budget_service.dart';
 import 'services/cloud_budget_service.dart';
@@ -56,8 +55,11 @@ import 'services/payment_service.dart';
 import 'providers/theme_manager.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 
-// Router a Theme
+// Router a Navigation
+import 'routes.dart';
+import 'router/app_router.dart' show AppRoutes;
 import 'theme/app_theme.dart';
+import 'routes.dart';
 
 // Error handling komponenty
 import 'widgets/error_dialog.dart';
@@ -146,8 +148,11 @@ Future<void> _initializeApp() async {
 
     await EasyLocalization.ensureInitialized();
 
+    // KRITICKÉ: EnvironmentConfig MUSÍ být inicializován PŘED Firebase.initializeApp()
+    // protože firebase_options.dart ho používá
     final envConfig = EnvironmentConfig();
     await envConfig.initialize();
+    debugPrint("[Main] EnvironmentConfig inicializován před Firebase");
 
     try {
       await Firebase.initializeApp(
@@ -189,8 +194,8 @@ Future<void> _initializeApp() async {
     }
 
     try {
-      await di.init();
-      await timeoutSafeCall(di.locator.allReady(),
+      await init();
+      await timeoutSafeCall(locator.allReady(),
           timeoutSeconds: 5, operationName: 'DI initialization');
     } catch (e, stack) {
       GlobalErrorHandler.instance.handleError(
@@ -296,14 +301,13 @@ Future<void> _initializeApp() async {
     // Inicializace NotificationService s callback handlerem
     try {
       await timeoutSafeCall(
-        di.locator<NotificationService>().initialize(
+        locator<NotificationService>().initialize(
           onNotificationTapped: (payload) {
             debugPrint('[Main] Notification tapped with payload: $payload');
             // Navigace na kalendář při kliknutí na notifikaci
             if (payload != null && payload.contains('calendar_event')) {
               try {
-                di
-                    .locator<NavigationService>()
+                locator<NavigationService>()
                     .navigatorKey
                     .currentState
                     ?.pushNamed('/calendar');
@@ -326,7 +330,7 @@ Future<void> _initializeApp() async {
       );
     }
 
-    await di.locator<CrashReportingService>().initialize();
+    await locator<CrashReportingService>().initialize();
 
     try {
       final connectivityResult = await Connectivity().checkConnectivity();
@@ -593,12 +597,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   // Inicializace subscription services
   Future<void> _initializeSubscriptionServices() async {
     try {
-      _paymentService = di.locator<PaymentService>();
+      _paymentService = locator<PaymentService>();
 
       final prefs = await SharedPreferences.getInstance();
       _localStorageService = LocalStorageService(sharedPreferences: prefs);
 
-      _subscriptionRepository = di.locator<SubscriptionRepository>();
+      _subscriptionRepository = locator<SubscriptionRepository>();
 
       _subscriptionProvider = SubscriptionProvider(
         subscriptionRepository: _subscriptionRepository,
@@ -719,10 +723,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
 
     // REGISTRACE SCAFFOLDMESSENGERKEY V GLOBALERRORHANDLER
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      GlobalErrorHandler.instance
-          .setScaffoldMessengerKey(_scaffoldMessengerKey);
-    });
+    // DOČASNĚ ZAKOMENTOVÁNO - metoda neexistuje
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   GlobalErrorHandler.instance
+    //       .setScaffoldMessengerKey(_scaffoldMessengerKey);
+    // });
 
     _appStartupTrace = FirebasePerformance.instance.newTrace('app_startup');
     _appStartupTrace.start();
@@ -773,18 +778,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     });
 
     try {
-      _subscriptionRepository = di.locator<SubscriptionRepository>();
+      _subscriptionRepository = locator<SubscriptionRepository>();
 
       _cloudScheduleService = CloudScheduleService(
           firestore: FirebaseFirestore.instance,
           auth: fb.FirebaseAuth.instance);
 
       _scheduleManager = ScheduleManager(
-          localService: di.locator<LocalScheduleService>(),
+          localService: locator<LocalScheduleService>(),
           cloudService: _cloudScheduleService,
           auth: fb.FirebaseAuth.instance);
 
-      _localBudgetService = di.locator<LocalBudgetService>();
+      _localBudgetService = locator<LocalBudgetService>();
       _cloudBudgetService = CloudBudgetService(
           firestore: FirebaseFirestore.instance,
           auth: fb.FirebaseAuth.instance);
@@ -982,7 +987,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     return MultiProvider(
       providers: [
         StreamProvider<fb.User?>(
-          create: (_) => di.locator<AuthService>().authStateChanges,
+          create: (_) => locator<AuthService>().authStateChanges,
           initialData: null,
           catchError: (_, error) {
             GlobalErrorHandler.instance.handleError(
@@ -996,14 +1001,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             return null;
           },
         ),
-        Provider<UserRepository>(create: (_) => di.locator<UserRepository>()),
-        Provider<AuthService>(create: (_) => di.locator<AuthService>()),
+        Provider<UserRepository>(create: (_) => locator<UserRepository>()),
+        Provider<AuthService>(create: (_) => locator<AuthService>()),
         Provider<WeddingRepository>(
-            create: (_) => di.locator<WeddingRepository>()),
+            create: (_) => locator<WeddingRepository>()),
 
         // PŘIDÁNO: NotificationService provider
         Provider<NotificationService>(
-          create: (_) => di.locator<NotificationService>(),
+          create: (_) => locator<NotificationService>(),
         ),
 
         Provider<PaymentService>(
@@ -1032,7 +1037,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           },
         ),
         ChangeNotifierProvider<LocalScheduleService>(
-          create: (_) => di.locator<LocalScheduleService>(),
+          create: (_) => locator<LocalScheduleService>(),
         ),
         ChangeNotifierProvider<ScheduleManager>(
           create: (_) => _scheduleManager,
@@ -1062,7 +1067,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           value: _subscriptionProvider,
         ),
         ChangeNotifierProvider<ThemeManager>(
-          create: (_) => di.locator<ThemeManager>(),
+          create: (_) => locator<ThemeManager>(),
         ),
       ],
       child: Consumer<ThemeManager>(
@@ -1120,12 +1125,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 );
               }
             },
-            navigatorKey: di.locator<NavigationService>().navigatorKey,
-            scaffoldMessengerKey: _scaffoldMessengerKey, // PŘIDÁNO
+            navigatorKey: locator<NavigationService>().navigatorKey,
+            scaffoldMessengerKey: _scaffoldMessengerKey,
             navigatorObservers: [],
             builder: (context, child) {
-              // Bez setContext() - používáme globální keys
-
               ErrorWidget.builder = (FlutterErrorDetails details) {
                 GlobalErrorHandler.instance.handleError(
                   details.exception,
@@ -1141,8 +1144,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                     errorType: ErrorWidgetType.unknown,
                     onRetry: () {
                       try {
-                        di
-                            .locator<NavigationService>()
+                        locator<NavigationService>()
                             .navigatorKey
                             .currentState
                             ?.pushNamedAndRemoveUntil(

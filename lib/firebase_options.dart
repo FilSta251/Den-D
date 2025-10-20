@@ -3,20 +3,38 @@
 // ignore_for_file: type=lint
 
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
-import '../services/environment_config.dart';
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform, debugPrint;
+
+import 'services/environment_config.dart';
 
 /// [DefaultFirebaseOptions] poskytuje konfiguraci Firebase aplikace
-/// podle platformy, na kterĂ© běťí vaĹˇe aplikace.
+/// podle platformy, na které běží vaše aplikace.
 ///
-/// Pokud budete potřebovat podporu pro web nebo jinĂ© platformy, spusšte znovu FlutterFire CLI,
-/// aby se konfigurace aktualizovala podle poťadavků vaĹˇí aplikace.
+/// BEZPEČNÁ VERZE: Pokud EnvironmentConfig není inicializovaný,
+/// použijí se výchozí hodnoty z jeho defaultní konfigurace.
 class DefaultFirebaseOptions {
+  /// Bezpečně získá hodnotu z EnvironmentConfig nebo vrátí fallback
+  static String _getSafeValue(String key, String fallback) {
+    try {
+      final config = EnvironmentConfig();
+      if (config.isInitialized) {
+        return config.getValue<String>(key, defaultValue: fallback);
+      } else {
+        // EnvironmentConfig není inicializovaný, použijeme fallback
+        debugPrint(
+            '[Firebase] EnvironmentConfig není inicializovaný, používám fallback pro $key');
+        return fallback;
+      }
+    } catch (e) {
+      debugPrint('[Firebase] Chyba při čtení $key z EnvironmentConfig: $e');
+      return fallback;
+    }
+  }
+
   /// Vrací [FirebaseOptions] odpovídající aktuální platformě.
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      // Pro webovou podporu odkomentujte níťe uvedenou řádku a nakonfigurujte webovĂ© moťnosti.
-      // return web;
       throw UnsupportedError(
         'FirebaseOptions for web are not configured. Run FlutterFire CLI to configure web options.',
       );
@@ -46,39 +64,52 @@ class DefaultFirebaseOptions {
   }
 
   /// Firebase konfigurace pro Android.
+  /// Používá EnvironmentConfig pokud je dostupný, jinak fallback hodnoty.
   static FirebaseOptions get android {
-    final config = EnvironmentConfig();
     return FirebaseOptions(
-      apiKey: config.getValue<String>('firebase.apiKey'),  // ZMďšNA
-      appId: config.getValue<String>('firebase.appId'),  // ZMďšNA
-      messagingSenderId: config.getValue<String>('firebase.messagingSenderId'),  // ZMďšNA
-      projectId: config.getValue<String>('firebase.projectId'),  // ZMďšNA
-      storageBucket: config.getValue<String>('firebase.storageBucket'),  // ZMďšNA
+      apiKey: _getSafeValue('firebase.apiKey',
+          'AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'), // ✏️ ZMĚŇ na svůj Android API Key
+      appId: _getSafeValue('firebase.appId',
+          '1:123456789012:android:abcdef1234567890'), // ✏️ ZMĚŇ na svůj Android App ID
+      messagingSenderId: _getSafeValue('firebase.messagingSenderId',
+          '123456789012'), // ✏️ ZMĚŇ na svůj Messaging Sender ID
+      projectId: _getSafeValue('firebase.projectId',
+          'tvuj-projekt-id'), // ✏️ ZMĚŇ na svůj Project ID
+      storageBucket: _getSafeValue('firebase.storageBucket',
+          'tvuj-projekt-id.appspot.com'), // ✏️ ZMĚŇ na svůj Storage Bucket
     );
   }
 
+  /// Firebase konfigurace pro iOS.
+  /// Používá EnvironmentConfig pokud je dostupný, jinak fallback hodnoty.
   static FirebaseOptions get ios {
-    final config = EnvironmentConfig();
     return FirebaseOptions(
-      apiKey: config.getValue<String>('firebase.apiKey'),  // ZMďšNA
-      appId: config.getValue<String>('firebase.ios.appId', defaultValue: config.getValue<String>('firebase.appId')),  // ZMďšNA
-      messagingSenderId: config.getValue<String>('firebase.messagingSenderId'),  // ZMďšNA
-      projectId: config.getValue<String>('firebase.projectId'),  // ZMďšNA
-      storageBucket: config.getValue<String>('firebase.storageBucket'),  // ZMďšNA
-      iosBundleId: config.getValue<String>('firebase.ios.bundleId', defaultValue: 'com.example.svatebni-planovac'),  // ZMďšNA
+      apiKey: _getSafeValue('firebase.apiKey',
+          'AIzaSyYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY'), // ✏️ ZMĚŇ na svůj iOS API Key
+      appId: _getSafeValue(
+          'firebase.ios.appId',
+          _getSafeValue('firebase.appId',
+              '1:123456789012:ios:abcdef1234567890')), // ✏️ ZMĚŇ na svůj iOS App ID
+      messagingSenderId: _getSafeValue('firebase.messagingSenderId',
+          '123456789012'), // ✏️ ZMĚŇ (stejné jako Android)
+      projectId: _getSafeValue('firebase.projectId',
+          'tvuj-projekt-id'), // ✏️ ZMĚŇ (stejné jako Android)
+      storageBucket: _getSafeValue('firebase.storageBucket',
+          'tvuj-projekt-id.appspot.com'), // ✏️ ZMĚŇ (stejné jako Android)
+      iosBundleId: _getSafeValue('firebase.ios.bundleId',
+          'com.svatebni.planovac'), // ✏️ ZMĚŇ na svůj iOS Bundle ID
     );
   }
 
   // Pro podporu webu odkomentujte a nakonfigurujte následující sekci:
   /*
   static FirebaseOptions get web {
-    final config = EnvironmentConfig();
     return FirebaseOptions(
-      apiKey: config.getValue<String>('FIREBASE_WEB_API_KEY'),
-      appId: config.getValue<String>('FIREBASE_WEB_APP_ID'),
-      messagingSenderId: config.getValue<String>('FIREBASE_MESSAGING_SENDER_ID'),
-      projectId: config.getValue<String>('FIREBASE_PROJECT_ID'),
-      storageBucket: config.getValue<String>('FIREBASE_STORAGE_BUCKET'),
+      apiKey: _getSafeValue('firebase.apiKey', 'YOUR_WEB_API_KEY'),
+      appId: _getSafeValue('firebase.appId', 'YOUR_WEB_APP_ID'),
+      messagingSenderId: _getSafeValue('firebase.messagingSenderId', 'YOUR_MESSAGING_SENDER_ID'),
+      projectId: _getSafeValue('firebase.projectId', 'YOUR_PROJECT_ID'),
+      storageBucket: _getSafeValue('firebase.storageBucket', 'YOUR_PROJECT_ID.appspot.com'),
     );
   }
   */

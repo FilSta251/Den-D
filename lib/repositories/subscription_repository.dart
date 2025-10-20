@@ -67,7 +67,7 @@ class SubscriptionRepository {
   /// Vrací Stream<Subscription?> s aktuálním stavem předplatnč‚©ho
   Stream<Subscription?> watch(String uid) {
     if (uid.isEmpty) {
-      return Stream.error(ArgumentError('UID nesmí být prázdnč‚©'));
+      return Stream.error(ArgumentError('error_uid_empty'.tr()));
     }
 
     debugPrint(
@@ -95,7 +95,7 @@ class SubscriptionRepository {
       String uid, PurchaseDetails purchaseDetails) async {
     try {
       if (uid.isEmpty) {
-        throw ArgumentError('UID nesmí být prázdnč‚©');
+        throw ArgumentError('error_uid_empty'.tr());
       }
 
       debugPrint(
@@ -107,7 +107,8 @@ class SubscriptionRepository {
           : Billing.productPremiumYearlyIOS;
 
       if (purchaseDetails.productID != expectedProductId) {
-        throw Exception('Nepodporovaný produkt: ${purchaseDetails.productID}');
+        throw Exception(
+            '${'error_unsupported_product'.tr()}: ${purchaseDetails.productID}');
       }
 
       // Vytvoříme Premium předplatnč‚©

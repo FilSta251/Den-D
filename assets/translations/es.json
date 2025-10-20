@@ -655,6 +655,14 @@
   "attendance_pending": "Pendiente",
   "unassigned_table": "Sin asignar"
 },
-"error_operation_failed_max_retries": "Operación falló después del número máximo de intentos"
+"error_operation_failed_max_retries": "Operación falló después del número máximo de intentos",
+  "wedding_couple": "Pareja de novios",
+  "venue": "Lugar",
+  "error_iap_not_available": "Las compras dentro de la aplicación no están disponibles en este dispositivo",
+"error_payment_service_not_initialized": "El servicio de pago no está inicializado",
+"error_loading_products": "Error al cargar productos",
+"error_cannot_open_manage_subscriptions": "No se puede abrir la gestión de suscripciones",
+"error_uid_empty": "El UID no debe estar vacío",
+"error_unsupported_product": "Producto no compatible"
 
 }
