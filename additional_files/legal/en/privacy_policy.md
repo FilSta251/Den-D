@@ -7,7 +7,7 @@
 This Privacy Policy explains how **"This Day" Wedding Planner** (the "App") collects, uses, stores, and protects your personal data. This App is provided by:
 
 **Filip Šťastný**
-Email: info@stastnyfoto.com
+Email: app@stastnyfoto.com
 Website: www.stastnyfoto.com
 
 We are committed to protecting your privacy and complying with the General Data Protection Regulation (GDPR) and other applicable data protection laws.
@@ -19,7 +19,7 @@ We are committed to protecting your privacy and complying with the General Data 
 The data controller responsible for your personal data is:
 
 **Filip Šťastný**
-Email: info@stastnyfoto.com
+Email: app@stastnyfoto.com
 
 For any questions regarding your personal data or this Privacy Policy, please contact us at the email above.
 
@@ -145,7 +145,7 @@ You have the following rights regarding your personal data:
 | **Withdraw Consent** (Art. 7) | Withdraw consent for optional processing |
 
 **How to Exercise Your Rights:**
-Email us at: **info@stastnyfoto.com**
+Email us at: **app@stastnyfoto.com**
 
 We will respond within **30 days** as required by GDPR.
 
@@ -190,7 +190,7 @@ Your data may be processed in countries outside the European Economic Area (EEA)
 
 The App is **not intended for children under 16**. We do not knowingly collect data from children under 16 without parental consent.
 
-If you believe we have collected data from a child under 16, contact us immediately at **info@stastnyfoto.com**, and we will delete it promptly.
+If you believe we have collected data from a child under 16, contact us immediately at **app@stastnyfoto.com**, and we will delete it promptly.
 
 ---
 
@@ -220,7 +220,7 @@ Continued use of the App after changes constitutes acceptance of the updated pol
 For questions, concerns, or to exercise your GDPR rights:
 
 **Filip Šťastný**
-Email: **info@stastnyfoto.com**
+Email: **app@stastnyfoto.com**
 Website: **www.stastnyfoto.com**
 
 **Response Time:** We aim to respond within 48 hours for general inquiries and within 30 days for GDPR rights requests.

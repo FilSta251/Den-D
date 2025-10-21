@@ -7,7 +7,7 @@
 Niniejsza Polityka Prywatności wyjaśnia, w jaki sposób **"This Day" Planer Ślubny** ("Aplikacja") zbiera, wykorzystuje, przechowuje i chroni Twoje dane osobowe. Aplikacja jest udostępniana przez:
 
 **Filip Šťastný**
-E-mail: info@stastnyfoto.com
+E-mail: app@stastnyfoto.com
 Strona internetowa: www.stastnyfoto.com
 
 Zobowiązujemy się do ochrony Twojej prywatności i przestrzegania Ogólnego Rozporządzenia o Ochronie Danych (RODO) oraz innych obowiązujących przepisów o ochronie danych.
@@ -19,7 +19,7 @@ Zobowiązujemy się do ochrony Twojej prywatności i przestrzegania Ogólnego Ro
 Administratorem Twoich danych osobowych jest:
 
 **Filip Šťastný**
-E-mail: info@stastnyfoto.com
+E-mail: app@stastnyfoto.com
 
 W przypadku pytań dotyczących Twoich danych osobowych lub niniejszej Polityki Prywatności, prosimy o kontakt pod powyższym adresem e-mail.
 
@@ -145,7 +145,7 @@ Posiadasz następujące prawa dotyczące Twoich danych osobowych:
 | **Wycofanie Zgody** (Art. 7) | Wycofanie zgody na opcjonalne przetwarzanie |
 
 **Jak Skorzystać z Praw:**
-Wyślij nam e-mail na: **info@stastnyfoto.com**
+Wyślij nam e-mail na: **app@stastnyfoto.com**
 
 Odpowiemy w ciągu **30 dni** zgodnie z wymaganiami RODO.
 
@@ -190,7 +190,7 @@ Twoje dane mogą być przetwarzane w krajach poza Europejskim Obszarem Gospodarc
 
 Aplikacja **nie jest przeznaczona dla dzieci poniżej 16 roku życia**. Nie zbieramy świadomie danych od dzieci poniżej 16 roku życia bez zgody rodziców.
 
-Jeśli uważasz, że zebraliśmy dane od dziecka poniżej 16 roku życia, skontaktuj się z nami natychmiast pod adresem **info@stastnyfoto.com**, a my je niezwłocznie usuniemy.
+Jeśli uważasz, że zebraliśmy dane od dziecka poniżej 16 roku życia, skontaktuj się z nami natychmiast pod adresem **app@stastnyfoto.com**, a my je niezwłocznie usuniemy.
 
 ---
 
@@ -220,7 +220,7 @@ Kontynuowanie korzystania z Aplikacji po wprowadzeniu zmian oznacza akceptację 
 W przypadku pytań, wątpliwości lub w celu skorzystania z praw RODO:
 
 **Filip Šťastný**
-E-mail: **info@stastnyfoto.com**
+E-mail: **app@stastnyfoto.com**
 Strona internetowa: **www.stastnyfoto.com**
 
 **Czas Odpowiedzi:** Staramy się odpowiadać w ciągu 48 godzin na ogólne zapytania i w ciągu 30 dni na żądania dotyczące praw RODO.

@@ -8,7 +8,7 @@ Bienvenue dans **"This Day" Planificateur de Mariage** (l'"Application"). Ces Co
 
 **Fournisseur de Service:**
 **Filip Šťastný**
-Email: info@stastnyfoto.com
+Email: app@stastnyfoto.com
 Site web: www.stastnyfoto.com
 ID Commercial: 17364612
 
@@ -98,7 +98,7 @@ En vertu de la Directive sur les Droits des Consommateurs de l'UE (2011/83/UE), 
 
 **Exception:** En téléchargeant et en utilisant immédiatement l'Application, vous renoncez à ce droit car le service est entièrement exécuté (Code Civil Tchèque § 1837(l)).
 
-Pour les demandes de remboursement, contactez: **info@stastnyfoto.com**
+Pour les demandes de remboursement, contactez: **app@stastnyfoto.com**
 
 ---
 
@@ -243,7 +243,7 @@ Si une disposition de ces Conditions est jugée invalide ou inapplicable, les di
 Pour des questions, du support ou des plaintes:
 
 **Filip Šťastný**
-Email: **info@stastnyfoto.com**
+Email: **app@stastnyfoto.com**
 Site web: **www.stastnyfoto.com**
 
 **Temps de Réponse du Support Client:** Dans les 48 heures pour les demandes générales, 30 jours pour les plaintes (comme requis par la loi tchèque).

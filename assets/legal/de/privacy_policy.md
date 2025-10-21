@@ -7,7 +7,7 @@
 Diese Datenschutzerklärung erklärt, wie **"This Day" Hochzeitsplaner** (die "App") Ihre personenbezogenen Daten sammelt, verwendet, speichert und schützt. Diese App wird bereitgestellt von:
 
 **Filip Šťastný**
-E-Mail: info@stastnyfoto.com
+E-Mail: app@stastnyfoto.com
 Website: www.stastnyfoto.com
 
 Wir verpflichten uns, Ihre Privatsphäre zu schützen und die Datenschutz-Grundverordnung (DSGVO) sowie andere geltende Datenschutzgesetze einzuhalten.
@@ -19,7 +19,7 @@ Wir verpflichten uns, Ihre Privatsphäre zu schützen und die Datenschutz-Grundv
 Der für Ihre personenbezogenen Daten Verantwortliche ist:
 
 **Filip Šťastný**
-E-Mail: info@stastnyfoto.com
+E-Mail: app@stastnyfoto.com
 
 Für Fragen zu Ihren personenbezogenen Daten oder dieser Datenschutzerklärung kontaktieren Sie uns bitte unter der oben genannten E-Mail-Adresse.
 
@@ -145,7 +145,7 @@ Sie haben folgende Rechte in Bezug auf Ihre personenbezogenen Daten:
 | **Widerruf der Einwilligung** (Art. 7) | Einwilligung für optionale Verarbeitung widerrufen |
 
 **So üben Sie Ihre Rechte aus:**
-Senden Sie uns eine E-Mail an: **info@stastnyfoto.com**
+Senden Sie uns eine E-Mail an: **app@stastnyfoto.com**
 
 Wir antworten innerhalb von **30 Tagen** gemäß den Anforderungen der DSGVO.
 
@@ -190,7 +190,7 @@ Ihre Daten können in Ländern außerhalb des Europäischen Wirtschaftsraums (EW
 
 Die App ist **nicht für Kinder unter 16 Jahren bestimmt**. Wir sammeln wissentlich keine Daten von Kindern unter 16 Jahren ohne Zustimmung der Eltern.
 
-Wenn Sie glauben, dass wir Daten von einem Kind unter 16 Jahren gesammelt haben, kontaktieren Sie uns bitte umgehend unter **info@stastnyfoto.com**, und wir werden sie unverzüglich löschen.
+Wenn Sie glauben, dass wir Daten von einem Kind unter 16 Jahren gesammelt haben, kontaktieren Sie uns bitte umgehend unter **app@stastnyfoto.com**, und wir werden sie unverzüglich löschen.
 
 ---
 
@@ -220,7 +220,7 @@ Die weitere Nutzung der App nach Änderungen stellt die Akzeptanz der aktualisie
 Für Fragen, Bedenken oder zur Ausübung Ihrer DSGVO-Rechte:
 
 **Filip Šťastný**
-E-Mail: **info@stastnyfoto.com**
+E-Mail: **app@stastnyfoto.com**
 Website: **www.stastnyfoto.com**
 
 **Antwortzeit:** Wir bemühen uns, innerhalb von 48 Stunden bei allgemeinen Anfragen und innerhalb von 30 Tagen bei DSGVO-Rechtsanfragen zu antworten.

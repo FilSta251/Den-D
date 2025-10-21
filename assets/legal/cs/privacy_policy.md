@@ -7,7 +7,7 @@
 Tyto Zásady ochrany osobních údajů vysvětlují, jak aplikace **"Den D" Svatební plánovač** (dále jen "Aplikace") shromažďuje, používá, ukládá a chrání vaše osobní údaje. Tuto aplikaci poskytuje:
 
 **Filip Šťastný**
-E-mail: info@stastnyfoto.com
+E-mail: app@stastnyfoto.com
 Web: www.stastnyfoto.com
 
 Zavazujeme se chránit vaše soukromí a dodržovat Obecné nařízení o ochraně osobních údajů (GDPR) a další použitelné zákony o ochraně osobních údajů.
@@ -19,7 +19,7 @@ Zavazujeme se chránit vaše soukromí a dodržovat Obecné nařízení o ochran
 Správcem vašich osobních údajů je:
 
 **Filip Šťastný**
-E-mail: info@stastnyfoto.com
+E-mail: app@stastnyfoto.com
 
 Pro jakékoli dotazy týkající se vašich osobních údajů nebo těchto Zásad nás prosím kontaktujte na výše uvedeném e-mailu.
 
@@ -145,7 +145,7 @@ Máte následující práva týkající se vašich osobních údajů:
 | **Odvolání souhlasu** (Čl. 7) | Odvolat souhlas s volitelným zpracováním |
 
 **Jak uplatnit svá práva:**
-Pošlete nám e-mail na: **info@stastnyfoto.com**
+Pošlete nám e-mail na: **app@stastnyfoto.com**
 
 Odpovíme do **30 dnů** podle požadavků GDPR.
 
@@ -190,7 +190,7 @@ Vaše údaje mohou být zpracovávány v zemích mimo Evropský hospodářský p
 
 Aplikace **není určena pro děti mladší 16 let**. Vědomě neshromažďujeme údaje od dětí mladších 16 let bez souhlasu rodičů.
 
-Pokud se domníváte, že jsme shromáždili údaje od dítěte mladšího 16 let, okamžitě nás kontaktujte na **info@stastnyfoto.com** a my je neprodleně smažeme.
+Pokud se domníváte, že jsme shromáždili údaje od dítěte mladšího 16 let, okamžitě nás kontaktujte na **app@stastnyfoto.com** a my je neprodleně smažeme.
 
 ---
 
@@ -220,7 +220,7 @@ Pokračováním v používání Aplikace po změnách vyjadřujete souhlas s akt
 Pro otázky, obavy nebo uplatnění vašich práv podle GDPR:
 
 **Filip Šťastný**
-E-mail: **info@stastnyfoto.com**
+E-mail: **app@stastnyfoto.com**
 Web: **www.stastnyfoto.com**
 
 **Doba odezvy:** Snažíme se odpovědět do 48 hodin u obecných dotazů a do 30 dnů u žádostí o práva podle GDPR.

@@ -159,7 +159,7 @@ Future<void> init() async {
     // Security service
     if (!locator.isRegistered<SecurityService>()) {
       final securityService = SecurityService();
-      await securityService.initialize();
+      // Inicializace se provede v main.dart, ne tady
       locator.registerSingleton<SecurityService>(securityService);
     }
 

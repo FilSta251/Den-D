@@ -7,7 +7,7 @@
 Esta Política de Privacidad explica cómo **"This Day" Planificador de Bodas** (la "Aplicación") recopila, utiliza, almacena y protege sus datos personales. Esta Aplicación es proporcionada por:
 
 **Filip Šťastný**
-Correo electrónico: info@stastnyfoto.com
+Correo electrónico: app@stastnyfoto.com
 Sitio web: www.stastnyfoto.com
 
 Nos comprometemos a proteger su privacidad y cumplir con el Reglamento General de Protección de Datos (RGPD) y otras leyes aplicables de protección de datos.
@@ -19,7 +19,7 @@ Nos comprometemos a proteger su privacidad y cumplir con el Reglamento General d
 El responsable del tratamiento de sus datos personales es:
 
 **Filip Šťastný**
-Correo electrónico: info@stastnyfoto.com
+Correo electrónico: app@stastnyfoto.com
 
 Para cualquier pregunta relacionada con sus datos personales o esta Política de Privacidad, contáctenos en el correo electrónico anterior.
 
@@ -145,7 +145,7 @@ Tiene los siguientes derechos con respecto a sus datos personales:
 | **Retirar Consentimiento** (Art. 7) | Retirar el consentimiento para procesamiento opcional |
 
 **Cómo Ejercer Sus Derechos:**
-Envíenos un correo electrónico a: **info@stastnyfoto.com**
+Envíenos un correo electrónico a: **app@stastnyfoto.com**
 
 Responderemos dentro de **30 días** según lo requerido por el RGPD.
 
@@ -190,7 +190,7 @@ Sus datos pueden ser procesados en países fuera del Espacio Económico Europeo 
 
 La Aplicación **no está destinada a niños menores de 16 años**. No recopilamos conscientemente datos de niños menores de 16 años sin consentimiento parental.
 
-Si cree que hemos recopilado datos de un niño menor de 16 años, contáctenos inmediatamente en **info@stastnyfoto.com**, y los eliminaremos prontamente.
+Si cree que hemos recopilado datos de un niño menor de 16 años, contáctenos inmediatamente en **app@stastnyfoto.com**, y los eliminaremos prontamente.
 
 ---
 
@@ -220,7 +220,7 @@ El uso continuado de la Aplicación después de los cambios constituye la acepta
 Para preguntas, inquietudes o para ejercer sus derechos del RGPD:
 
 **Filip Šťastný**
-Correo electrónico: **info@stastnyfoto.com**
+Correo electrónico: **app@stastnyfoto.com**
 Sitio web: **www.stastnyfoto.com**
 
 **Tiempo de Respuesta:** Nuestro objetivo es responder dentro de 48 horas para consultas generales y dentro de 30 días para solicitudes de derechos del RGPD.

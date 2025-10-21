@@ -8,7 +8,7 @@ Welcome to **"This Day" Wedding Planner** (the "App"). These Terms of Service ("
 
 **Service Provider:**
 **Filip Šťastný**
-Email: info@stastnyfoto.com
+Email: app@stastnyfoto.com
 Website: www.stastnyfoto.com
 Business ID: 17364612
 
@@ -98,7 +98,7 @@ Under EU Consumer Rights Directive (2011/83/EU), you have **14 days** to withdra
 
 **Exception:** By downloading and immediately using the App, you waive this right as the service is fully performed (Czech Civil Code § 1837(l)).
 
-For refund requests, contact: **info@stastnyfoto.com**
+For refund requests, contact: **app@stastnyfoto.com**
 
 ---
 
@@ -243,7 +243,7 @@ If any provision of these Terms is found invalid or unenforceable, the remaining
 For questions, support, or complaints:
 
 **Filip Šťastný**
-Email: **info@stastnyfoto.com**
+Email: **app@stastnyfoto.com**
 Website: **www.stastnyfoto.com**
 
 **Customer Support Response Time:** Within 48 hours for general inquiries, 30 days for complaints (as required by Czech law).

@@ -8,7 +8,7 @@ Witamy w **"This Day" Planer Ślubny** ("Aplikacja"). Niniejszy Regulamin ("Regu
 
 **Dostawca Usługi:**
 **Filip Šťastný**
-E-mail: info@stastnyfoto.com
+E-mail: app@stastnyfoto.com
 Strona internetowa: www.stastnyfoto.com
 ID Biznesowe: 17364612
 
@@ -98,7 +98,7 @@ Zgodnie z Dyrektywą UE o Prawach Konsumentów (2011/83/UE), masz **14 dni** na 
 
 **Wyjątek:** Pobierając i natychmiast używając Aplikacji, rezygnujesz z tego prawa, ponieważ usługa jest w pełni wykonana (czeski Kodeks Cywilny § 1837(l)).
 
-W sprawie zwrotów skontaktuj się: **info@stastnyfoto.com**
+W sprawie zwrotów skontaktuj się: **app@stastnyfoto.com**
 
 ---
 
@@ -243,7 +243,7 @@ Jeśli jakiekolwiek postanowienie niniejszego Regulaminu zostanie uznane za niew
 W przypadku pytań, wsparcia lub skarg:
 
 **Filip Šťastný**
-E-mail: **info@stastnyfoto.com**
+E-mail: **app@stastnyfoto.com**
 Strona internetowa: **www.stastnyfoto.com**
 
 **Czas Odpowiedzi Obsługi Klienta:** W ciągu 48 godzin na ogólne zapytania, 30 dni na skargi (zgodnie z wymogami czeskiego prawa).

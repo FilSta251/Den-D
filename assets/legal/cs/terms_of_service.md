@@ -8,7 +8,7 @@ Vítejte v aplikaci **"Den D" Svatební plánovač** (dále jen "Aplikace"). Tyt
 
 **Poskytovatel služby:**
 **Filip Šťastný**
-E-mail: info@stastnyfoto.com
+E-mail: app@stastnyfoto.com
 Web: www.stastnyfoto.com
 IČO: 17364612
 
@@ -98,7 +98,7 @@ Podle Směrnice EU o právech spotřebitelů (2011/83/EU) máte **14 dní** na o
 
 **Výjimka:** Stažením a okamžitým používáním Aplikace se vzdáváte tohoto práva, protože služba je plně poskytnuta (český občanský zákoník § 1837 písm. l)).
 
-Pro žádosti o vrácení peněz kontaktujte: **info@stastnyfoto.com**
+Pro žádosti o vrácení peněz kontaktujte: **app@stastnyfoto.com**
 
 ---
 
@@ -243,7 +243,7 @@ Pokud je jakékoli ustanovení těchto Podmínek shledáno neplatným nebo nevym
 Pro otázky, podporu nebo stížnosti:
 
 **Filip Šťastný**
-E-mail: **info@stastnyfoto.com**
+E-mail: **app@stastnyfoto.com**
 Web: **www.stastnyfoto.com**
 
 **Doba odezvy zákaznické podpory:** Do 48 hodin pro obecné dotazy, 30 dnů pro stížnosti (podle požadavků českého práva).

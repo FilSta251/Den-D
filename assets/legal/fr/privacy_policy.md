@@ -7,7 +7,7 @@
 Cette Politique de Confidentialité explique comment **"This Day" Planificateur de Mariage** (l'"Application") collecte, utilise, stocke et protège vos données personnelles. Cette Application est fournie par:
 
 **Filip Šťastný**
-Email: info@stastnyfoto.com
+Email: app@stastnyfoto.com
 Site web: www.stastnyfoto.com
 
 Nous nous engageons à protéger votre vie privée et à respecter le Règlement Général sur la Protection des Données (RGPD) et les autres lois applicables en matière de protection des données.
@@ -19,7 +19,7 @@ Nous nous engageons à protéger votre vie privée et à respecter le Règlement
 Le responsable du traitement de vos données personnelles est:
 
 **Filip Šťastný**
-Email: info@stastnyfoto.com
+Email: app@stastnyfoto.com
 
 Pour toute question concernant vos données personnelles ou cette Politique de Confidentialité, veuillez nous contacter à l'adresse email ci-dessus.
 
@@ -145,7 +145,7 @@ Vous disposez des droits suivants concernant vos données personnelles:
 | **Retrait du Consentement** (Art. 7) | Retirer le consentement pour un traitement optionnel |
 
 **Comment Exercer Vos Droits:**
-Envoyez-nous un email à: **info@stastnyfoto.com**
+Envoyez-nous un email à: **app@stastnyfoto.com**
 
 Nous répondrons dans un délai de **30 jours** comme requis par le RGPD.
 
@@ -190,7 +190,7 @@ Vos données peuvent être traitées dans des pays en dehors de l'Espace Économ
 
 L'Application **n'est pas destinée aux enfants de moins de 16 ans**. Nous ne collectons pas sciemment de données auprès d'enfants de moins de 16 ans sans le consentement parental.
 
-Si vous pensez que nous avons collecté des données auprès d'un enfant de moins de 16 ans, contactez-nous immédiatement à **info@stastnyfoto.com**, et nous les supprimerons rapidement.
+Si vous pensez que nous avons collecté des données auprès d'un enfant de moins de 16 ans, contactez-nous immédiatement à **app@stastnyfoto.com**, et nous les supprimerons rapidement.
 
 ---
 
@@ -220,7 +220,7 @@ L'utilisation continue de l'Application après les modifications constitue l'acc
 Pour des questions, préoccupations ou pour exercer vos droits RGPD:
 
 **Filip Šťastný**
-Email: **info@stastnyfoto.com**
+Email: **app@stastnyfoto.com**
 Site web: **www.stastnyfoto.com**
 
 **Temps de Réponse:** Nous visons à répondre dans les 48 heures pour les demandes générales et dans les 30 jours pour les demandes de droits RGPD.

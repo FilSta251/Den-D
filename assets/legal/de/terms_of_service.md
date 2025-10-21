@@ -8,7 +8,7 @@ Willkommen bei **"This Day" Hochzeitsplaner** (die "App"). Diese Allgemeinen Ges
 
 **Dienstanbieter:**
 **Filip Šťastný**
-E-Mail: info@stastnyfoto.com
+E-Mail: app@stastnyfoto.com
 Website: www.stastnyfoto.com
 Geschäfts-ID: 17364612
 
@@ -98,7 +98,7 @@ Gemäß der EU-Verbraucherrechterichtlinie (2011/83/EU) haben Sie **14 Tage** Ze
 
 **Ausnahme:** Durch das Herunterladen und sofortige Verwenden der App verzichten Sie auf dieses Recht, da die Dienstleistung vollständig erbracht wird (tschechisches Bürgerliches Gesetzbuch § 1837(l)).
 
-Für Rückerstattungsanfragen kontaktieren Sie: **info@stastnyfoto.com**
+Für Rückerstattungsanfragen kontaktieren Sie: **app@stastnyfoto.com**
 
 ---
 
@@ -243,7 +243,7 @@ Sollte eine Bestimmung dieser Bedingungen als ungültig oder nicht durchsetzbar 
 Für Fragen, Support oder Beschwerden:
 
 **Filip Šťastný**
-E-Mail: **info@stastnyfoto.com**
+E-Mail: **app@stastnyfoto.com**
 Website: **www.stastnyfoto.com**
 
 **Antwortzeit des Kundensupports:** Innerhalb von 48 Stunden für allgemeine Anfragen, 30 Tage für Beschwerden (wie nach tschechischem Recht erforderlich).
