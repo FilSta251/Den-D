@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'chatbot_screen.dart';
 import '../services/onboarding_manager.dart';
 
@@ -30,6 +31,7 @@ class _AppIntroductionScreenState extends State<AppIntroductionScreen> {
   int _currentPage = 0;
   bool _isNavigating = false;
   bool _isInitialized = false;
+  String? _userId;
 
   late final List<IntroductionPage> _pages = [
     IntroductionPage(
@@ -52,22 +54,66 @@ class _AppIntroductionScreenState extends State<AppIntroductionScreen> {
   @override
   void initState() {
     super.initState();
-    _checkOnboardingStatus();
+    _initializeOnboarding();
+  }
+
+  /// Inicializace - získání userId a migrace dat
+  Future<void> _initializeOnboarding() async {
+    if (_isInitialized) return;
+
+    try {
+      // Získání aktuálního userId
+      final currentUser = fb.FirebaseAuth.instance.currentUser;
+      _userId = currentUser?.uid;
+
+      if (_userId != null) {
+        debugPrint('[AppIntroScreen] User ID: $_userId');
+
+        // Migrace existujících lokálních dat do Firestore
+        await OnboardingManager.migrateToFirestore(_userId!);
+
+        // Synchronizace s Firestore
+        await OnboardingManager.syncWithFirestore(_userId!);
+      } else {
+        debugPrint('[AppIntroScreen] Uživatel není přihlášen');
+      }
+
+      // Kontrola onboarding statusu
+      await _checkOnboardingStatus();
+    } catch (e) {
+      debugPrint('[AppIntroScreen] Chyba při inicializaci: $e');
+      setState(() {
+        _isInitialized = true;
+      });
+    }
   }
 
   Future<void> _checkOnboardingStatus() async {
     if (_isInitialized) return;
 
     try {
-      final bool introCompleted = await OnboardingManager.isIntroCompleted();
-      final bool chatbotCompleted =
-          await OnboardingManager.isChatbotCompleted();
+      final bool introCompleted = await OnboardingManager.isIntroCompleted(
+        userId: _userId,
+      );
+      final bool chatbotCompleted = await OnboardingManager.isChatbotCompleted(
+        userId: _userId,
+      );
       final bool subscriptionShown =
-          await OnboardingManager.isSubscriptionShown();
+          await OnboardingManager.isSubscriptionShown(
+        userId: _userId,
+      );
       final bool onboardingCompleted =
-          await OnboardingManager.isOnboardingCompleted();
+          await OnboardingManager.isOnboardingCompleted(
+        userId: _userId,
+      );
 
       if (!mounted) return;
+
+      debugPrint('[AppIntroScreen] Status - '
+          'intro: $introCompleted, '
+          'chatbot: $chatbotCompleted, '
+          'subscription: $subscriptionShown, '
+          'completed: $onboardingCompleted');
 
       if (onboardingCompleted) {
         _navigateToMainApp();
@@ -93,7 +139,7 @@ class _AppIntroductionScreenState extends State<AppIntroductionScreen> {
         _isInitialized = true;
       });
     } catch (e) {
-      print('Chyba při kontrole onboarding statusu: $e');
+      debugPrint('[AppIntroScreen] Chyba při kontrole onboarding statusu: $e');
       setState(() {
         _isInitialized = true;
       });
@@ -135,7 +181,9 @@ class _AppIntroductionScreenState extends State<AppIntroductionScreen> {
     });
 
     try {
-      await OnboardingManager.markIntroCompleted();
+      // Označení intro jako dokončeného s userId
+      await OnboardingManager.markIntroCompleted(userId: _userId);
+
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
@@ -143,7 +191,7 @@ class _AppIntroductionScreenState extends State<AppIntroductionScreen> {
         (route) => false,
       );
     } catch (e) {
-      print('Chyba při dokončování onboardingu: $e');
+      debugPrint('[AppIntroScreen] Chyba při dokončování onboardingu: $e');
       if (mounted) {
         setState(() {
           _isNavigating = false;
@@ -159,7 +207,9 @@ class _AppIntroductionScreenState extends State<AppIntroductionScreen> {
     });
 
     try {
-      await OnboardingManager.markIntroCompleted();
+      // Označení intro jako dokončeného s userId
+      await OnboardingManager.markIntroCompleted(userId: _userId);
+
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
@@ -167,7 +217,7 @@ class _AppIntroductionScreenState extends State<AppIntroductionScreen> {
         (route) => false,
       );
     } catch (e) {
-      print('Chyba při přeskakování onboardingu: $e');
+      debugPrint('[AppIntroScreen] Chyba při přeskakování onboardingu: $e');
       if (mounted) {
         setState(() {
           _isNavigating = false;

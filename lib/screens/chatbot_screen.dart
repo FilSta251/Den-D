@@ -101,8 +101,11 @@ class _ChatBotScreenState extends State<ChatBotScreen>
 
     setState(() => _isChatComplete = true);
 
-    await OnboardingManager.markChatbotCompleted();
-    debugPrint('[ChatBotScreen] Chatbot marked as completed');
+    // ===== AKTUALIZOVÁNO: Přidán userId pro synchronizaci =====
+    final userId = fb.FirebaseAuth.instance.currentUser?.uid;
+    await OnboardingManager.markChatbotCompleted(userId: userId);
+    debugPrint('[ChatBotScreen] Chatbot marked as completed for user: $userId');
+    // =========================================================
 
     try {
       debugPrint(

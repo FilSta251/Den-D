@@ -205,7 +205,8 @@ class _AuthScreenState extends State<AuthScreen> {
         return;
       }
 
-      final introCompleted = await OnboardingManager.isIntroCompleted();
+      final introCompleted =
+          await OnboardingManager.isIntroCompleted(userId: uid);
       debugPrint('App Introduction dokončena: $introCompleted');
 
       if (!mounted) return;
@@ -216,7 +217,8 @@ class _AuthScreenState extends State<AuthScreen> {
         return;
       }
 
-      final chatbotCompleted = await OnboardingManager.isChatbotCompleted();
+      final chatbotCompleted =
+          await OnboardingManager.isChatbotCompleted(userId: uid);
       debugPrint('Chatbot dokončen: $chatbotCompleted');
 
       if (!mounted) return;

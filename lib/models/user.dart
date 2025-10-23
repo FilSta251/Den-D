@@ -3,24 +3,24 @@ library;
 
 import 'dart:convert';
 
-/// Třída reprezentující uťivatele s pokročilými funkcemi a optimalizovanou strukturou.
+/// Třída reprezentující uživatele s pokročilými funkcemi a optimalizovanou strukturou.
 class User {
-  /// Unikátní identifikátor uťivatele.
+  /// Unikátní identifikátor uživatele.
   final String id;
 
-  /// JmĂ©no uťivatele.
+  /// Jméno uživatele.
   final String name;
 
-  /// Email uťivatele.
+  /// Email uživatele.
   final String email;
 
-  /// URL profilovĂ©ho obrázku.
+  /// URL profilového obrázku.
   final String profilePictureUrl;
 
   /// Datum svatby (volitelně).
   final DateTime? weddingDate;
 
-  /// Role uťivatele (např. svatebčan, pomocník apod.).
+  /// Role uživatele (např. svatebčan, pomocník apod.).
   final String? role;
 
   /// Místo svatby (volitelně).
@@ -28,6 +28,23 @@ class User {
 
   /// Rozpočet pro svatbu (volitelně).
   final double? budget;
+
+  // ===== NOVÁ POLE PRO ONBOARDING =====
+
+  /// Byl dokončen celý onboarding proces?
+  final bool onboardingCompleted;
+
+  /// Byla dokončena úvodní obrazovka (intro)?
+  final bool introCompleted;
+
+  /// Byl dokončen chatbot tutorial?
+  final bool chatbotCompleted;
+
+  /// Byla zobrazena nabídka předplatného?
+  final bool subscriptionShown;
+
+  /// Datum posledního dokončení onboardingu
+  final DateTime? onboardingCompletedAt;
 
   /// Primární konstruktor.
   const User({
@@ -39,9 +56,15 @@ class User {
     this.role,
     this.weddingVenue,
     this.budget,
+    // Výchozí hodnoty pro onboarding
+    this.onboardingCompleted = false,
+    this.introCompleted = false,
+    this.chatbotCompleted = false,
+    this.subscriptionShown = false,
+    this.onboardingCompletedAt,
   });
 
-  /// Vytvoří instanci uťivatele ze struktury JSON.
+  /// Vytvoří instanci uživatele ze struktury JSON.
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'] as String? ?? '',
@@ -55,10 +78,18 @@ class User {
       weddingVenue: json['weddingVenue'] as String?,
       budget:
           json['budget'] != null ? (json['budget'] as num).toDouble() : null,
+      // Načtení onboarding polí
+      onboardingCompleted: json['onboardingCompleted'] as bool? ?? false,
+      introCompleted: json['introCompleted'] as bool? ?? false,
+      chatbotCompleted: json['chatbotCompleted'] as bool? ?? false,
+      subscriptionShown: json['subscriptionShown'] as bool? ?? false,
+      onboardingCompletedAt: json['onboardingCompletedAt'] != null
+          ? DateTime.tryParse(json['onboardingCompletedAt'] as String)
+          : null,
     );
   }
 
-  /// Vrací instanci uťivatele jako JSON mapu.
+  /// Vrací instanci uživatele jako JSON mapu.
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -69,10 +100,16 @@ class User {
       'role': role,
       'weddingVenue': weddingVenue,
       'budget': budget,
+      // Onboarding data
+      'onboardingCompleted': onboardingCompleted,
+      'introCompleted': introCompleted,
+      'chatbotCompleted': chatbotCompleted,
+      'subscriptionShown': subscriptionShown,
+      'onboardingCompletedAt': onboardingCompletedAt?.toIso8601String(),
     };
   }
 
-  /// Vytvoří novou instanci s moťností přepsat některĂ© hodnoty.
+  /// Vytvoří novou instanci s možností přepsat některé hodnoty.
   User copyWith({
     String? id,
     String? name,
@@ -82,6 +119,11 @@ class User {
     String? role,
     String? weddingVenue,
     double? budget,
+    bool? onboardingCompleted,
+    bool? introCompleted,
+    bool? chatbotCompleted,
+    bool? subscriptionShown,
+    DateTime? onboardingCompletedAt,
   }) {
     return User(
       id: id ?? this.id,
@@ -92,10 +134,16 @@ class User {
       role: role ?? this.role,
       weddingVenue: weddingVenue ?? this.weddingVenue,
       budget: budget ?? this.budget,
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      introCompleted: introCompleted ?? this.introCompleted,
+      chatbotCompleted: chatbotCompleted ?? this.chatbotCompleted,
+      subscriptionShown: subscriptionShown ?? this.subscriptionShown,
+      onboardingCompletedAt:
+          onboardingCompletedAt ?? this.onboardingCompletedAt,
     );
   }
 
-  /// PřepíĹˇe operátor rovnosti pro správnĂ© porovnání instancí.
+  /// Přepíše operátor rovnosti pro správné porovnání instancí.
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -108,10 +156,15 @@ class User {
         other.weddingDate == weddingDate &&
         other.role == role &&
         other.weddingVenue == weddingVenue &&
-        other.budget == budget;
+        other.budget == budget &&
+        other.onboardingCompleted == onboardingCompleted &&
+        other.introCompleted == introCompleted &&
+        other.chatbotCompleted == chatbotCompleted &&
+        other.subscriptionShown == subscriptionShown &&
+        other.onboardingCompletedAt == onboardingCompletedAt;
   }
 
-  /// PřepíĹˇe hashCode pro správnĂ© porovnávání instancí.
+  /// Přepíše hashCode pro správné porovnávání instancí.
   @override
   int get hashCode {
     return id.hashCode ^
@@ -121,13 +174,20 @@ class User {
         weddingDate.hashCode ^
         role.hashCode ^
         weddingVenue.hashCode ^
-        budget.hashCode;
+        budget.hashCode ^
+        onboardingCompleted.hashCode ^
+        introCompleted.hashCode ^
+        chatbotCompleted.hashCode ^
+        subscriptionShown.hashCode ^
+        onboardingCompletedAt.hashCode;
   }
 
-  /// Vrací textovou reprezentaci instance (uťitečnĂ© pro debugování).
+  /// Vrací textovou reprezentaci instance (užitečné pro debugování).
   @override
   String toString() {
     return 'User(id: $id, name: $name, email: $email, profilePictureUrl: $profilePictureUrl, '
-        'weddingDate: $weddingDate, role: $role, weddingVenue: $weddingVenue, budget: $budget)';
+        'weddingDate: $weddingDate, role: $role, weddingVenue: $weddingVenue, budget: $budget, '
+        'onboardingCompleted: $onboardingCompleted, introCompleted: $introCompleted, '
+        'chatbotCompleted: $chatbotCompleted, subscriptionShown: $subscriptionShown)';
   }
 }

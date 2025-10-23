@@ -1,10 +1,10 @@
-/// lib/screens/splash_screen.dart - OPRAVENÁ VERZE
+/// lib/screens/splash_screen.dart - AKTUALIZOVANÁ VERZE
 library;
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import '../services/onboarding_manager.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -56,29 +56,67 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     // Kontrola přihlášeného uživatele
-    final user = FirebaseAuth.instance.currentUser;
+    final user = fb.FirebaseAuth.instance.currentUser;
 
     if (user != null) {
-      // Uživatel je přihlášen - zkontrolovat stav onboardingu
-      final onboardingCompleted =
-          await OnboardingManager.isOnboardingCompleted();
+      final userId = user.uid;
+      debugPrint('[SplashScreen] User logged in: $userId');
+
+      try {
+        // DŮLEŽITÉ: Migrace existujících lokálních dat do Firestore
+        debugPrint('[SplashScreen] Starting onboarding migration...');
+        await OnboardingManager.migrateToFirestore(userId);
+
+        // Synchronizace s Firestore
+        debugPrint('[SplashScreen] Syncing onboarding state...');
+        await OnboardingManager.syncWithFirestore(userId);
+
+        debugPrint('[SplashScreen] Onboarding initialization complete');
+      } catch (e) {
+        debugPrint('[SplashScreen] Error during onboarding init: $e');
+        // Pokračujeme i při chybě - offline režim
+      }
+
+      // Kontrola stavu onboardingu s userId
+      final onboardingCompleted = await OnboardingManager.isOnboardingCompleted(
+        userId: userId,
+      );
+
+      debugPrint('[SplashScreen] Onboarding completed: $onboardingCompleted');
 
       if (onboardingCompleted) {
         Navigator.of(context).pushReplacementNamed('/brideGroomMain');
       } else {
         // Zkontrolovat kde v onboardingu je
-        final chatbotCompleted = await OnboardingManager.isChatbotCompleted();
-        final subscriptionShown = await OnboardingManager.isSubscriptionShown();
+        final chatbotCompleted = await OnboardingManager.isChatbotCompleted(
+          userId: userId,
+        );
+        final subscriptionShown = await OnboardingManager.isSubscriptionShown(
+          userId: userId,
+        );
+
+        debugPrint(
+            '[SplashScreen] Chatbot: $chatbotCompleted, Subscription: $subscriptionShown');
 
         if (subscriptionShown) {
           Navigator.of(context).pushReplacementNamed('/brideGroomMain');
         } else if (chatbotCompleted) {
           Navigator.of(context).pushReplacementNamed('/subscription');
         } else {
-          Navigator.of(context).pushReplacementNamed('/chatbot');
+          // Kontrola intro
+          final introCompleted = await OnboardingManager.isIntroCompleted(
+            userId: userId,
+          );
+
+          if (introCompleted) {
+            Navigator.of(context).pushReplacementNamed('/chatbot');
+          } else {
+            Navigator.of(context).pushReplacementNamed('/appIntroduction');
+          }
         }
       }
     } else {
+      debugPrint('[SplashScreen] No user logged in, going to auth');
       // Uživatel není přihlášen - jít na auth
       Navigator.of(context).pushReplacementNamed('/auth');
     }

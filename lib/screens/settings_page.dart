@@ -424,7 +424,8 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _resetOnboarding() async {
     debugPrint('[SettingsPage] Resetting onboarding flow');
     try {
-      await OnboardingManager.resetOnboarding();
+      final userId = fb.FirebaseAuth.instance.currentUser?.uid;
+      await OnboardingManager.resetOnboarding(userId: userId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(tr('onboarding_reset_success'))),
