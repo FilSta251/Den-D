@@ -23,7 +23,6 @@
   "export": "Export",
   "details": "Details",
   "type": "Type",
-  "message": "Message",
   "detail": "Detail",
   "error": "Error",
   "time": "Time",
@@ -664,5 +663,16 @@
 "error_loading_products": "Error loading products",
 "error_cannot_open_manage_subscriptions": "Cannot open subscription management",
 "error_uid_empty": "UID must not be empty",
-"error_unsupported_product": "Unsupported product"
+"error_unsupported_product": "Unsupported product",
+  "blocked_title": "Cannot switch to Free",
+  "blocked_message": "You have an active Premium subscription. You cannot switch to the free version while the subscription is active.",
+  "how_to_cancel": "To cancel your subscription, go to the Google Play Store or the App Store and cancel it there.",
+  "back_to_app": "Back to app",
+  "manage_subscription": "Manage subscription",
+
+  "title": "You already have Premium",
+  "message": "Your Premium subscription is active!",
+  "info": "You can continue using all premium features.",
+  "manage": "Manage subscription",
+  "continue_app": "Continue to app"
 }

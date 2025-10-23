@@ -23,7 +23,6 @@
   "export": "Exportieren",
   "details": "Details",
   "type": "Typ",
-  "message": "Nachricht",
   "detail": "Detail",
   "error": "Fehler",
   "time": "Zeit",
@@ -665,5 +664,16 @@
 "error_loading_products": "Fehler beim Laden der Produkte",
 "error_cannot_open_manage_subscriptions": "Abonnementverwaltung kann nicht geöffnet werden",
 "error_uid_empty": "UID darf nicht leer sein",
-"error_unsupported_product": "Nicht unterstütztes Produkt"
+"error_unsupported_product": "Nicht unterstütztes Produkt",
+  "blocked_title": "Wechsel zu Kostenlos nicht möglich",
+  "blocked_message": "Du hast ein aktives Premium-Abonnement. Ein Wechsel zur kostenlosen Version ist nicht möglich, solange das Abonnement aktiv ist.",
+  "how_to_cancel": "Um dein Abonnement zu kündigen, öffne den Google Play Store oder den App Store und kündige es dort.",
+  "back_to_app": "Zurück zur App",
+  "manage_subscription": "Abonnement verwalten",
+
+  "title": "Du hast bereits Premium",
+  "message": "Dein Premium-Abonnement ist aktiv!",
+  "info": "Du kannst alle Premium-Funktionen weiterhin nutzen.",
+  "manage": "Abonnement verwalten",
+  "continue_app": "Weiter zur App"
 }

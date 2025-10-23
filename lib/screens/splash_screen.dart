@@ -111,7 +111,7 @@ class _SplashScreenState extends State<SplashScreen>
           if (introCompleted) {
             Navigator.of(context).pushReplacementNamed('/chatbot');
           } else {
-            Navigator.of(context).pushReplacementNamed('/appIntroduction');
+            Navigator.of(context).pushReplacementNamed('/introduction');
           }
         }
       }

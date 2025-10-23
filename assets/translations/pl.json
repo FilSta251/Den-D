@@ -23,7 +23,6 @@
   "export": "Eksportuj",
   "details": "Szczegóły",
   "type": "Typ",
-  "message": "Wiadomość",
   "detail": "Szczegół",
   "error": "Błąd",
   "time": "Czas",
@@ -665,5 +664,16 @@
 "error_loading_products": "Błąd podczas ładowania produktów",
 "error_cannot_open_manage_subscriptions": "Nie można otworzyć zarządzania subskrypcjami",
 "error_uid_empty": "UID nie może być pusty",
-"error_unsupported_product": "Nieobsługiwany produkt"
+"error_unsupported_product": "Nieobsługiwany produkt",
+  "blocked_title": "Nie można przejść na wersję Free",
+  "blocked_message": "Masz aktywną subskrypcję Premium. Nie możesz przejść na wersję bezpłatną, dopóki subskrypcja jest aktywna.",
+  "how_to_cancel": "Aby anulować subskrypcję, przejdź do Sklepu Google Play lub App Store i anuluj ją tam.",
+  "back_to_app": "Wróć do aplikacji",
+  "manage_subscription": "Zarządzaj subskrypcją",
+
+  "title": "Masz już Premium",
+  "message": "Twoja subskrypcja Premium jest aktywna!",
+  "info": "Możesz dalej korzystać ze wszystkich funkcji premium.",
+  "manage": "Zarządzaj subskrypcją",
+  "continue_app": "Kontynuuj do aplikacji"
 }

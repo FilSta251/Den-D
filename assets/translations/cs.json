@@ -23,7 +23,7 @@
   "export": "Exportovat",
   "details": "Detaily",
   "type": "Typ",
-  "message": "Zpráva",
+
   "detail": "Detail",
   "error": "Chyba",
   "time": "Čas",
@@ -663,5 +663,16 @@
 "error_loading_products": "Chyba při načítání produktů",
 "error_cannot_open_manage_subscriptions": "Nelze otevřít správu předplatného",
 "error_uid_empty": "UID nesmí být prázdné",
-"error_unsupported_product": "Nepodporovaný produkt"
+"error_unsupported_product": "Nepodporovaný produkt",
+  "blocked_title": "Nelze změnit na Free",
+  "blocked_message": "Máte aktivní Premium předplatné. Nelze přejít na bezplatnou verzi dokud je předplatné aktivní.",
+  "how_to_cancel": "Pro zrušení předplatného přejděte do Google Play Obchodu nebo App Storu a zrušte tam své předplatné.",
+  "back_to_app": "Zpět do aplikace",
+  "manage_subscription": "Spravovat předplatné",
+
+  "title": "Již máte Premium",
+  "message": "Vaše Premium předplatné je aktivní!",
+  "info": "Můžete pokračovat v používání všech prémiových funkcí.",
+  "manage": "Spravovat předplatné",
+  "continue_app": "Pokračovat do aplikace"
 }

@@ -23,7 +23,6 @@
   "export": "Exportar",
   "details": "Detalles",
   "type": "Tipo",
-  "message": "Mensaje",
   "detail": "Detalle",
   "error": "Error",
   "time": "Hora",
@@ -663,6 +662,17 @@
 "error_loading_products": "Error al cargar productos",
 "error_cannot_open_manage_subscriptions": "No se puede abrir la gestión de suscripciones",
 "error_uid_empty": "El UID no debe estar vacío",
-"error_unsupported_product": "Producto no compatible"
+"error_unsupported_product": "Producto no compatible",
+  "blocked_title": "No se puede cambiar a Gratis",
+  "blocked_message": "Tienes una suscripción Premium activa. No puedes cambiar a la versión gratuita mientras la suscripción esté activa.",
+  "how_to_cancel": "Para cancelar la suscripción, ve a Google Play Store o App Store y cancélala allí.",
+  "back_to_app": "Volver a la app",
+  "manage_subscription": "Gestionar suscripción",
+
+  "title": "Ya tienes Premium",
+  "message": "¡Tu suscripción Premium está activa!",
+  "info": "Puedes seguir usando todas las funciones premium.",
+  "manage": "Gestionar suscripción",
+  "continue_app": "Continuar a la app"
 
 }

@@ -1,16 +1,15 @@
-/// lib/screens/subscription_page.dart - AKTUALIZOVANÁ VERZE S ONBOARDING
+/// lib/screens/subscription_page.dart původní
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:firebase_auth/firebase_auth.dart' as fb; // ← PŘIDÁNO
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 
-import '../models/subscription.dart';
 import '../providers/subscription_provider.dart';
 import '../services/payment_service.dart';
-import '../services/onboarding_manager.dart'; // ← PŘIDÁNO
+import '../services/onboarding_manager.dart';
 import '../router/app_router.dart';
 import '../routes.dart';
 
@@ -27,18 +26,19 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   ProductDetails? _premiumProduct;
   bool _purchaseSuccess = false;
   String _selectedPlan = 'premium';
-  String? _userId; // ← PŘIDÁNO
-
+  String? _userId;
   @override
   void initState() {
     super.initState();
 
-    // ===== PŘIDÁNO: Získání userId =====
+    // Získání userId
     _userId = fb.FirebaseAuth.instance.currentUser?.uid;
     debugPrint('[SubscriptionPage] User ID: $_userId');
-    // ==================================
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Kontrola zda už má uživatel premium
+      _checkExistingPremium();
+
       final args =
           ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args?['showFreeOption'] == true) {
@@ -49,6 +49,84 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     });
 
     _loadProducts();
+  }
+
+  Future<void> _checkExistingPremium() async {
+    final subscriptionProvider =
+        Provider.of<SubscriptionProvider>(context, listen: false);
+
+    // Pokud už má premium, zobraz dialog a vrať ho zpět
+    if (subscriptionProvider.isPremium) {
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.star, color: Colors.amber.shade700, size: 28),
+              const SizedBox(width: 8),
+              Text(tr('subs.already_premium.title')),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.check_circle,
+                color: Colors.green.shade600,
+                size: 64,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                tr('subs.already_premium.message'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                tr('subs.already_premium.info'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _openManageSubscriptions();
+              },
+              child: Text(tr('subs.already_premium.manage')),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.pink.shade600,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  RoutePaths.brideGroomMain,
+                  (route) => false,
+                );
+              },
+              child: Text(tr('subs.already_premium.continue_app')),
+            ),
+          ],
+        ),
+      );
+
+      // Po zavření dialogu přejdi zpět do aplikace
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          RoutePaths.brideGroomMain,
+          (route) => false,
+        );
+      }
+    }
   }
 
   Future<void> _loadProducts() async {
@@ -87,9 +165,6 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       final paymentService =
           Provider.of<PaymentService>(context, listen: false);
       await paymentService.buyPremium(_premiumProduct!);
-
-      // Po úspěšném nákupu označíme onboarding jako dokončený
-      // (Volá se automaticky v StreamBuilder při detekci úspěšného nákupu)
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -122,12 +197,11 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     try {
       await subscriptionProvider.setFreeTier();
 
-      // ===== PŘIDÁNO: Označení onboardingu jako dokončeného =====
+      // Označení onboardingu jako dokončeného
       debugPrint('[SubscriptionPage] Marking subscription as shown (FREE)');
       await OnboardingManager.markSubscriptionShown(userId: _userId);
       await OnboardingManager.markOnboardingCompleted(userId: _userId);
       debugPrint('[SubscriptionPage] Onboarding completed for user: $_userId');
-      // =========================================================
 
       Navigator.of(context).pushNamedAndRemoveUntil(
         RoutePaths.brideGroomMain,
@@ -153,43 +227,73 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           context: context,
           barrierDismissible: false,
           builder: (context) => AlertDialog(
-            title: Text(tr('subs.downgrade.warning_title')),
+            title: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 28),
+                const SizedBox(width: 8),
+                Expanded(child: Text(tr('subs.downgrade.blocked_title'))),
+              ],
+            ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.warning_amber_rounded,
-                  color: Colors.orange,
-                  size: 48,
+                  Icons.block,
+                  color: Colors.red.shade400,
+                  size: 64,
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  tr('subs.downgrade.warning_message'),
+                  tr('subs.downgrade.blocked_message'),
                   textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  tr('subs.downgrade.features_lost'),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade200),
                   ),
-                  textAlign: TextAlign.center,
+                  child: Column(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.blue.shade700),
+                      const SizedBox(height: 8),
+                      Text(
+                        tr('subs.downgrade.how_to_cancel'),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.blue.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text(tr('subs.downgrade.keep_premium')),
+                onPressed: () {
+                  Navigator.of(context).pop(false);
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    RoutePaths.brideGroomMain,
+                    (route) => false,
+                  );
+                },
+                child: Text(tr('subs.downgrade.back_to_app')),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
+                  backgroundColor: Colors.blue.shade600,
                   foregroundColor: Colors.white,
                 ),
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text(tr('subs.downgrade.confirm_downgrade')),
+                onPressed: () {
+                  Navigator.of(context).pop(false);
+                  _openManageSubscriptions();
+                },
+                child: Text(tr('subs.downgrade.manage_subscription')),
               ),
             ],
           ),
@@ -231,40 +335,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     }
   }
 
-  // ===== PŘIDÁNO: Handler po úspěšném nákupu =====
-  Future<void> _handlePurchaseSuccess() async {
-    debugPrint(
-        '[SubscriptionPage] Purchase successful, marking onboarding complete');
-
-    try {
-      await OnboardingManager.markSubscriptionShown(userId: _userId);
-      await OnboardingManager.markOnboardingCompleted(userId: _userId);
-      debugPrint('[SubscriptionPage] Onboarding completed for user: $_userId');
-
-      // Počkáme chvíli a pak přejdeme na hlavní obrazovku
-      await Future.delayed(const Duration(seconds: 2));
-
-      if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          RoutePaths.brideGroomMain,
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      debugPrint('[SubscriptionPage] Error marking onboarding complete: $e');
-    }
-  }
-  // =============================================
-
   Widget _buildSuccessState() {
-    // ===== PŘIDÁNO: Automatické volání po zobrazení success =====
-    if (_purchaseSuccess) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _handlePurchaseSuccess();
-      });
-    }
-    // ===========================================================
-
     return Container(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -277,39 +348,74 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.check_circle_outline,
-              size: 100,
-              color: Colors.green.shade600,
+              Icons.check_circle,
+              size: 80,
+              color: Colors.green[600],
             ),
           ),
           const SizedBox(height: 24),
           Text(
             tr('subs.success.title'),
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green[700],
+                ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Text(
             tr('subs.success.message'),
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey.shade700,
-            ),
+            style: Theme.of(context).textTheme.bodyLarge,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
-          const CircularProgressIndicator(), // Zobrazí loading dokud se neukončí onboarding
-          const SizedBox(height: 16),
-          Text(
-            tr('subs.success.redirecting'),
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade600,
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                RoutePaths.brideGroomMain,
+                (route) => false,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              backgroundColor: Colors.green[600],
+              foregroundColor: Colors.white,
             ),
+            child: Text(tr('subs.success.continue')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBenefitRow({
+    required IconData icon,
+    required String text,
+    bool isPremium = true,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, color: isPremium ? Colors.pink : Colors.grey, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: isPremium ? Colors.black87 : Colors.grey[600],
+                decoration: isPremium
+                    ? TextDecoration.none
+                    : TextDecoration.lineThrough,
+              ),
+            ),
+          ),
+          Icon(
+            isPremium ? Icons.check_circle : Icons.cancel,
+            color: isPremium ? Colors.green.shade600 : Colors.red.shade400,
+            size: 20,
           ),
         ],
       ),
@@ -317,85 +423,108 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   }
 
   Widget _buildFeatureComparison() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildFeatureRow(
-              icon: Icons.check_circle,
-              title: tr('subs.features.basic_features'),
-              free: true,
-              premium: true,
-            ),
-            _buildFeatureRow(
-              icon: Icons.people_outline,
-              title: tr('subs.features.unlimited_guests'),
-              free: false,
-              premium: true,
-            ),
-            _buildFeatureRow(
-              icon: Icons.budget,
-              title: tr('subs.features.budget_tracking'),
-              free: false,
-              premium: true,
-            ),
-            _buildFeatureRow(
-              icon: Icons.table_chart_outlined,
-              title: tr('subs.features.seating_chart'),
-              free: false,
-              premium: true,
-            ),
-            _buildFeatureRow(
-              icon: Icons.cloud_upload_outlined,
-              title: tr('subs.features.cloud_sync'),
-              free: false,
-              premium: true,
-            ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade200.withOpacity(0.5),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildFeatureRow({
-    required IconData icon,
-    required String title,
-    required bool free,
-    required bool premium,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.pink.shade600, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(fontSize: 14),
+          Text(
+            tr('subs.comparison.title'),
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
             ),
           ),
-          SizedBox(
-            width: 60,
-            child: Center(
-              child: Icon(
-                free ? Icons.check : Icons.close,
-                color: free ? Colors.green : Colors.grey,
-                size: 20,
-              ),
+          const SizedBox(height: 16),
+
+          // Free verze - zvýrazněné omezení
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.lock, color: Colors.orange.shade700, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      tr('subs.comparison.free_title'),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildBenefitRow(
+                  icon: Icons.lock_outline,
+                  text: tr('subs.free.limited_features'),
+                  isPremium: false,
+                ),
+              ],
             ),
           ),
-          SizedBox(
-            width: 60,
-            child: Center(
-              child: Icon(
-                premium ? Icons.check : Icons.close,
-                color: premium ? Colors.green : Colors.grey,
-                size: 20,
-              ),
+
+          const SizedBox(height: 16),
+
+          // Premium verze - zelené zvýraznění
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.star, color: Colors.pink, size: 20),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Premium',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.pink,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildBenefitRow(
+                  icon: Icons.all_inclusive,
+                  text: tr('subs.premium.unlimited_functions'),
+                ),
+                _buildBenefitRow(
+                  icon: Icons.block,
+                  text: tr('subs.premium.no_ads'),
+                ),
+                _buildBenefitRow(
+                  icon: Icons.cloud_sync,
+                  text: tr('subs.premium.cloud_sync'),
+                ),
+              ],
             ),
           ),
         ],
@@ -404,121 +533,280 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   }
 
   Widget _buildPlanSelector() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Column(
+    final subscriptionProvider = Provider.of<SubscriptionProvider>(context);
+    final hasActivePremium = subscriptionProvider.isPremium;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      child: Row(
         children: [
-          _buildPlanOption(
-            title: tr('subs.free.title'),
-            price: tr('subs.free.price'),
-            description: tr('subs.free.description'),
-            value: 'free',
-            backgroundColor: Colors.grey.shade100,
+          Expanded(
+            child: Opacity(
+              opacity: hasActivePremium ? 0.5 : 1.0,
+              child: _buildPlanCard(
+                title: tr('subs.plan.free_title'),
+                subtitle: tr('subs.plan.free_subtitle'),
+                price: tr('subs.plan.free_price'),
+                period: tr('subs.plan.free_period'),
+                isSelected: _selectedPlan == 'free',
+                onTap: hasActivePremium
+                    ? () => _showActivePremiumWarning()
+                    : () => setState(() => _selectedPlan = 'free'),
+                gradient: LinearGradient(
+                  colors: [Colors.grey.shade300, Colors.grey.shade400],
+                ),
+                showYearlyBadge: false,
+              ),
+            ),
           ),
-          const Divider(height: 1),
-          _buildPlanOption(
-            title: tr('subs.premium.title'),
-            price: _premiumProduct != null
-                ? _premiumProduct!.price
-                : tr('subs.loading.price'),
-            description: tr('subs.premium.description'),
-            value: 'premium',
-            backgroundColor: Colors.pink.shade50,
-            recommended: true,
+          const SizedBox(width: 16),
+          Expanded(
+            child: _buildPlanCard(
+              title: tr('subs.plan.premium_title'),
+              subtitle: tr('subs.plan.premium_subtitle'),
+              price: _premiumProduct?.price ?? tr('subs.plan.premium_price'),
+              period: tr('subs.plan.premium_period'),
+              isSelected: _selectedPlan == 'premium',
+              onTap: () => setState(() => _selectedPlan = 'premium'),
+              gradient: LinearGradient(
+                colors: [Colors.pink.shade400, Colors.pink.shade600],
+              ),
+              showYearlyBadge: true,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPlanOption({
-    required String title,
-    required String price,
-    required String description,
-    required String value,
-    required Color backgroundColor,
-    bool recommended = false,
-  }) {
-    final isSelected = _selectedPlan == value;
-    return InkWell(
-      onTap: () => setState(() => _selectedPlan = value),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color:
-              isSelected ? backgroundColor.withOpacity(0.3) : backgroundColor,
-          border: isSelected
-              ? Border.all(color: Colors.pink.shade600, width: 2)
-              : null,
-          borderRadius: value == 'free'
-              ? const BorderRadius.vertical(top: Radius.circular(12))
-              : const BorderRadius.vertical(bottom: Radius.circular(12)),
+  void _showActivePremiumWarning() {
+    final subscriptionProvider =
+        Provider.of<SubscriptionProvider>(context, listen: false);
+    final expiresAt = subscriptionProvider.subscription?.expiresAt;
+    final daysLeft = subscriptionProvider.subscription?.daysLeft ?? 0;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
         ),
-        child: Row(
+        title: Row(
           children: [
-            Radio<String>(
-              value: value,
-              groupValue: _selectedPlan,
-              onChanged: (val) => setState(() => _selectedPlan = val!),
-              activeColor: Colors.pink.shade600,
-            ),
+            Icon(Icons.check_circle, color: Colors.green.shade600, size: 28),
+            const SizedBox(width: 12),
             Expanded(
+              child: Text(
+                tr('subs.active.title'),
+                style: TextStyle(
+                  color: Colors.green.shade700,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              tr('subs.active.message'),
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade200),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
+                      Icon(Icons.star, color: Colors.pink, size: 20),
+                      const SizedBox(width: 8),
                       Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 18,
+                        'Premium',
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
+                          color: Colors.pink.shade700,
                         ),
                       ),
-                      if (recommended) ...[
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  if (expiresAt != null) ...[
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_today,
+                            size: 16, color: Colors.grey.shade600),
                         const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.pink.shade600,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            tr('subs.premium.recommended'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        Text(
+                          '${tr('subs.active.expires')}: ${DateFormat('dd.MM.yyyy').format(expiresAt)}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
                           ),
                         ),
                       ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    price,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.pink.shade600,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.access_time,
+                            size: 16, color: Colors.grey.shade600),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${tr('subs.active.days_left')}: $daysLeft ${daysLeft == 1 ? tr('subs.active.day') : tr('subs.active.days')}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              tr('subs.active.ok'),
+              style: TextStyle(
+                color: Colors.green.shade600,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanCard({
+    required String title,
+    required String subtitle,
+    required String price,
+    required String period,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required LinearGradient gradient,
+    required bool showYearlyBadge,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? Colors.white : Colors.transparent,
+            width: 3,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.pink.shade300.withOpacity(0.5),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (showYearlyBadge)
+              Align(
+                alignment: Alignment.topRight,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade600,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    tr('subs.badge.yearly'),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                price,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            if (showYearlyBadge)
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  period,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )
+            else
+              Text(
+                period,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                ),
+              ),
+            if (isSelected)
+              const Align(
+                alignment: Alignment.bottomRight,
+                child: Icon(
+                  Icons.check_circle,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
           ],
         ),
       ),
@@ -531,7 +819,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         width: double.infinity,
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.grey.shade700,
+            backgroundColor: Colors.grey[600],
             foregroundColor: Colors.white,
             minimumSize: const Size.fromHeight(50),
             shape: RoundedRectangleBorder(
@@ -614,9 +902,22 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                     p.status == PurchaseStatus.restored);
 
                 if (successfulPurchase && !_purchaseSuccess) {
-                  setState(() {
-                    _purchaseSuccess = true;
-                    _isProcessing = false;
+                  // Označení nákupu jako úspěšného a dokončení onboardingu
+                  WidgetsBinding.instance.addPostFrameCallback((_) async {
+                    setState(() {
+                      _purchaseSuccess = true;
+                      _isProcessing = false;
+                    });
+
+                    // Označení onboardingu jako dokončeného
+                    debugPrint(
+                        '[SubscriptionPage] Marking subscription as shown (PREMIUM)');
+                    await OnboardingManager.markSubscriptionShown(
+                        userId: _userId);
+                    await OnboardingManager.markOnboardingCompleted(
+                        userId: _userId);
+                    debugPrint(
+                        '[SubscriptionPage] Onboarding completed for user: $_userId');
                   });
                 }
               }

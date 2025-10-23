@@ -1,25 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 
 import '../repositories/user_repository.dart';
 import '../services/onboarding_manager.dart';
 import '../widgets/permission_error_banner.dart';
 import 'home_screen.dart';
 import 'checklist_screen.dart';
-// Import pro SuppliersListPage byl odstraněn
 import 'guests_screen.dart';
 import 'budget_screen.dart';
-import 'profile_page.dart';
-import 'settings_page.dart';
-import 'subscription_page.dart';
 import 'wedding_schedule_screen.dart';
 
 class BrideGroomMainMenu extends StatefulWidget {
   const BrideGroomMainMenu({super.key});
 
   @override
-  _BrideGroomMainMenuState createState() => _BrideGroomMainMenuState();
+  State<BrideGroomMainMenu> createState() => _BrideGroomMainMenuState();
 }
 
 class _BrideGroomMainMenuState extends State<BrideGroomMainMenu> {
@@ -39,7 +36,7 @@ class _BrideGroomMainMenuState extends State<BrideGroomMainMenu> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _selectedIndex);
-    // Ujistíme se, ťe onboarding je oznáčen jako dokončený
+    // Ujistíme se, že onboarding je označen jako dokončený
     _ensureOnboardingCompleted();
   }
 
@@ -79,13 +76,18 @@ class _BrideGroomMainMenuState extends State<BrideGroomMainMenu> {
 
   Widget _buildDrawer() {
     final userRepo = Provider.of<UserRepository>(context);
+    final currentUser = fb.FirebaseAuth.instance.currentUser;
+    final userEmail =
+        currentUser?.email ?? userRepo.cachedUser?.email ?? "Nepřihlášen";
+    final userName = userRepo.cachedUser?.name ?? "";
+
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
           UserAccountsDrawerHeader(
-            accountName: Text(userRepo.cachedUser?.name ?? tr('user')),
-            accountEmail: Text(userRepo.cachedUser?.email ?? ""),
+            accountName: Text(userEmail),
+            accountEmail: userName.isNotEmpty ? Text(userName) : null,
             currentAccountPicture: CircleAvatar(
               backgroundImage:
                   (userRepo.cachedUser?.profilePictureUrl != null &&
@@ -156,10 +158,9 @@ class _BrideGroomMainMenuState extends State<BrideGroomMainMenu> {
               Navigator.pushNamed(context, '/weddingInfo');
             },
           ),
-          // Poloťka DodavatelĂ© byla kompletně odstraněna
           ListTile(
             leading: const Icon(Icons.settings),
-            title: Text(userRepo.cachedUser?.name ?? tr('settings')),
+            title: Text(tr('settings')),
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, '/settings');

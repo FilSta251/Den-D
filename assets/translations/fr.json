@@ -23,7 +23,6 @@
   "export": "Exporter",
   "details": "Détails",
   "type": "Type",
-  "message": "Message",
   "detail": "Détail",
   "error": "Erreur",
   "time": "Heure",
@@ -664,5 +663,16 @@
 "error_loading_products": "Erreur lors du chargement des produits",
 "error_cannot_open_manage_subscriptions": "Impossible d'ouvrir la gestion des abonnements",
 "error_uid_empty": "L'UID ne doit pas être vide",
-"error_unsupported_product": "Produit non pris en charge"
+"error_unsupported_product": "Produit non pris en charge",
+  "blocked_title": "Impossible de passer à Gratuit",
+  "blocked_message": "Vous avez un abonnement Premium actif. Vous ne pouvez pas passer à la version gratuite tant que l’abonnement est actif.",
+  "how_to_cancel": "Pour annuler votre abonnement, allez sur le Google Play Store ou l’App Store et annulez-le là-bas.",
+  "back_to_app": "Retour à l’app",
+  "manage_subscription": "Gérer l’abonnement",
+
+  "title": "Vous avez déjà Premium",
+  "message": "Votre abonnement Premium est actif !",
+  "info": "Vous pouvez continuer à utiliser toutes les fonctionnalités premium.",
+  "manage": "Gérer l’abonnement",
+  "continue_app": "Continuer vers l’app"
 }
