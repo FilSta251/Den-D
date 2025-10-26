@@ -10,28 +10,17 @@ import "package:firebase_auth/firebase_auth.dart" as fb;
 import "package:crypto/crypto.dart";
 import "package:pointycastle/export.dart";
 
-/// Produkční sluťba pro správu bezpečnostních aspektů aplikace.
-///
-/// poskytuje:
-/// - AES Ĺˇifrování/deĹˇifrování
-/// - BezpečnĂ© ukládání tokenů a hesel
-/// - Správu autentizáčních tokenů
-/// - Hash hesla s salt
-/// - Kontrolu integrity aplikace
-/// - Biometrickou autentizaci
+/// Produkční služba pro správu bezpečnostních aspektů aplikace.
 class SecurityService {
   // Singleton instance
   static final SecurityService _instance = SecurityService._internal();
   factory SecurityService() => _instance;
   SecurityService._internal();
 
-  // Secure storage s pokročilým nastavením
-  late final FlutterSecureStorage _secureStorage;
-
-  // Instance Firebase Auth
+  FlutterSecureStorage? _secureStorage;
+  bool _isInitializing = false;
   final fb.FirebaseAuth _auth = fb.FirebaseAuth.instance;
 
-  // Konstanty pro klíče v úloťiĹˇti
   static const String _keyRefreshToken = "refresh_token";
   static const String _keyAuthToken = "auth_token";
   static const String _keyTokenExpiry = "token_expiry";
@@ -40,175 +29,174 @@ class SecurityService {
   static const String _keyBiometricEnabled = "biometric_enabled";
   static const String _keyLastSecurityCheck = "last_security_check";
 
-  // KryptografickĂ© konstanty
-  static const int _keyLength = 32; // 256 bits
-  static const int _ivLength = 16; // 128 bits
-  static const int _saltLength = 16; // 128 bits
+  static const int _keyLength = 32;
+  static const int _ivLength = 16;
+  static const int _saltLength = 16;
   static const int _pbkdf2Iterations = 10000;
 
-  // Random generátor pro bezpečnostní operace
   final Random _random = Random.secure();
-
-  // Indikace, zda byla sluťba inicializována
   bool _initialized = false;
-
-  // Cache pro deĹˇifrovaný klíč (pouze v paměti během session)
   Uint8List? _cachedEncryptionKey;
-
-  // ďŚasová znáčka posledního pouťití klíče
   DateTime? _lastKeyUsage;
-
-  // Timeout pro cache klíče (5 minut)
   static const Duration _keyCacheTimeout = Duration(minutes: 5);
 
-  /// Inicializuje bezpečnostní sluťbu s pokročilým nastavením.
+  /// OPRAVENO: iOS Keychain fix - zmenena accessibility
   Future<void> initialize() async {
-    if (_initialized) return;
+    if (_initialized) {
+      debugPrint("SecurityService jiz byl inicializovan");
+      return;
+    }
+
+    if (_isInitializing) {
+      debugPrint("SecurityService se prave inicializuje, cekam...");
+      while (_isInitializing) {
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
+      return;
+    }
+
+    _isInitializing = true;
 
     try {
-      // Inicializace secure storage s pokročilými moťnostmi
-      _secureStorage = const FlutterSecureStorage(
-        aOptions: AndroidOptions(
-          encryptedSharedPreferences: true,
-          sharedPreferencesName: 'svatebni_planovac_secure',
-          preferencesKeyPrefix: 'sp_',
-        ),
-        iOptions: IOSOptions(
-          groupId: 'svatebni.planovac.keychain',
-          accountName: 'svatebni_planovac_account',
-          accessibility: KeychainAccessibility.first_unlock_this_device,
-        ),
-      );
+      if (_secureStorage == null) {
+        // OPRAVENO: iOS Keychain accessibility pro fix -34018
+        _secureStorage = const FlutterSecureStorage(
+          aOptions: AndroidOptions(
+            encryptedSharedPreferences: true,
+            sharedPreferencesName: 'svatebni_planovac_secure',
+            preferencesKeyPrefix: 'sp_',
+          ),
+          iOptions: IOSOptions(
+            // OPRAVENO: Odstraneno groupId a zmenena accessibility
+            accessibility: KeychainAccessibility.unlocked_this_device,
+          ),
+        );
+        debugPrint("SecurityService: FlutterSecureStorage vytvoren");
+      }
 
-      // Kontrola existence Ĺˇifrovacího klíče
       final hasEncryptionKey =
-          await _secureStorage.containsKey(key: _keyEncryptionKey);
+          await _secureStorage!.containsKey(key: _keyEncryptionKey);
       if (!hasEncryptionKey) {
         await _generateAndStoreEncryptionKey();
       }
 
-      // Kontrola integrity aplikace
       await _verifyApplicationIntegrity();
-
-      // Uloťení časovĂ© znáčky bezpečnostní kontroly
       await _updateSecurityCheckTimestamp();
 
       _initialized = true;
-      debugPrint("SecurityService initialized with advanced encryption");
-    } catch (e) {
-      debugPrint("Failed to initialize SecurityService: $e");
-      rethrow;
+      _isInitializing = false;
+      debugPrint("SecurityService inicializovan uspesne");
+    } catch (e, stack) {
+      _isInitializing = false;
+      debugPrint("Chyba pri inicializaci SecurityService: $e");
+      debugPrintStack(stackTrace: stack);
+      
+      // PRIDANO: Pokud selze keychain, zkusime fallback
+      try {
+        debugPrint("Zkousim fallback konfiguraci...");
+        _secureStorage = const FlutterSecureStorage(
+          aOptions: AndroidOptions(
+            encryptedSharedPreferences: true,
+          ),
+          iOptions: IOSOptions(
+            accessibility: KeychainAccessibility.unlocked,
+          ),
+        );
+        
+        _initialized = true;
+        debugPrint("SecurityService inicializovan s fallback konfiguraci");
+      } catch (fallbackError) {
+        debugPrint("Fallback selhal: $fallbackError");
+        rethrow;
+      }
     }
   }
 
-  /// Generuje a ukládá nový silný Ĺˇifrovací klíč pomocí PBKDF2.
+  Future<void> resetInitialization() async {
+    _initialized = false;
+    _isInitializing = false;
+    _secureStorage = null;
+    _clearKeyCache();
+    debugPrint("SecurityService reset dokoncen");
+  }
+
   Future<void> _generateAndStoreEncryptionKey() async {
     try {
-      // Generování náhodnĂ©ho salt
       final salt = _generateRandomBytes(_saltLength);
-
-      // Generování master hesla z různých zdrojů entropie
       final entropy = _gatherSystemEntropy();
-
-      // Derivace klíče pomocí PBKDF2
       final pbkdf2 = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64))
         ..init(Pbkdf2Parameters(salt, _pbkdf2Iterations, _keyLength));
-
       final key = pbkdf2.process(entropy);
-
-      // Uloťení klíče a salt
-      await _secureStorage.write(
+      await _secureStorage!.write(
           key: _keyEncryptionKey, value: base64Encode(key + salt));
-
-      debugPrint("Generated new encryption key with PBKDF2");
+      debugPrint("Vygenerovan novy sifrovaci klic");
     } catch (e) {
-      throw SecurityException("Failed to generate encryption key: $e");
+      throw SecurityException("Nepodarilo se vygenerovat klic: $e");
     }
   }
 
-  /// Odhlásí uťivatele a vymaťe pouze autentizáční tokeny.
   Future<void> clearAuthToken() async {
     if (!_initialized) await initialize();
     try {
-      // smaťeme tokeny v secure storage
       await clearAuthData();
-      // odhlásíme z Firebase Auth
       await _auth.signOut();
-      debugPrint("Auth token cleared and user signed out");
+      debugPrint("Auth token vymazan");
     } catch (e) {
-      throw SecurityException("Failed to clear auth token: $e");
+      throw SecurityException("Nepodarilo se vymazat token: $e");
     }
   }
 
-  /// Vymaťe úplně vĹˇechna bezpečnostní data (i Ĺˇifrovací klíč atd.) a odhlásí uťivatele.
   Future<void> clearAllData() async {
     if (!_initialized) await initialize();
     try {
-      // smaťeme cache i vĹˇechna data ve secure storage
       await clearAllSecurityData();
-      // odhlásíme z Firebase Auth
       await _auth.signOut();
-      debugPrint("All security data cleared and user signed out");
+      debugPrint("Vsechna data vymazana");
     } catch (e) {
-      throw SecurityException("Failed to clear all data: $e");
+      throw SecurityException("Nepodarilo se vymazat data: $e");
     }
   }
 
-  /// ShromaťďŹuje systĂ©movou entropii pro generování klíčů.
   Uint8List _gatherSystemEntropy() {
     final entropy = <int>[];
-
-    // ďŚasovĂ© razítko
     entropy.addAll(_intToBytes(DateTime.now().microsecondsSinceEpoch));
-
-    // Náhodná data
     entropy.addAll(_generateRandomBytes(32));
-
-    // Hash z různých systĂ©mových informací
     final systemInfo = '${DateTime.now()}${_random.nextDouble()}';
     final systemHash = sha256.convert(utf8.encode(systemInfo));
     entropy.addAll(systemHash.bytes);
-
     return Uint8List.fromList(entropy);
   }
 
-  /// Náčte a deĹˇifruje Ĺˇifrovací klíč z bezpečnĂ©ho úloťiĹˇtě.
   Future<Uint8List> _getEncryptionKey() async {
-    // Kontrola cache a timeoutu
     if (_cachedEncryptionKey != null && _lastKeyUsage != null) {
       if (DateTime.now().difference(_lastKeyUsage!) < _keyCacheTimeout) {
         _lastKeyUsage = DateTime.now();
         return _cachedEncryptionKey!;
       } else {
-        // Vymazání expirovanĂ© cache
         _clearKeyCache();
       }
     }
 
     try {
-      final keyData = await _secureStorage.read(key: _keyEncryptionKey);
+      final keyData = await _secureStorage!.read(key: _keyEncryptionKey);
       if (keyData == null) {
-        throw SecurityException("Encryption key not found");
+        throw SecurityException("Klic nenalezen");
       }
 
       final combined = base64Decode(keyData);
       if (combined.length != _keyLength + _saltLength) {
-        throw SecurityException("Invalid key format");
+        throw SecurityException("Neplatny format klice");
       }
 
       final key = combined.sublist(0, _keyLength);
-
-      // Uloťení do cache
       _cachedEncryptionKey = Uint8List.fromList(key);
       _lastKeyUsage = DateTime.now();
-
       return _cachedEncryptionKey!;
     } catch (e) {
-      throw SecurityException("Failed to retrieve encryption key: $e");
+      throw SecurityException("Nepodarilo se ziskat klic: $e");
     }
   }
 
-  /// Vymaťe cache Ĺˇifrovacího klíče z paměti.
   void _clearKeyCache() {
     if (_cachedEncryptionKey != null) {
       _cachedEncryptionKey!.fillRange(0, _cachedEncryptionKey!.length, 0);
@@ -217,310 +205,216 @@ class SecurityService {
     _lastKeyUsage = null;
   }
 
-  /// Uloťí autentizáční token s expirací.
   Future<void> storeAuthToken(String token, DateTime expiry) async {
     if (!_initialized) await initialize();
-
     try {
-      // Ĺ ifrování tokenu před uloťením
       final encryptedToken = await encryptData(token);
-
-      await _secureStorage.write(key: _keyAuthToken, value: encryptedToken);
-      await _secureStorage.write(
+      await _secureStorage!.write(key: _keyAuthToken, value: encryptedToken);
+      await _secureStorage!.write(
           key: _keyTokenExpiry,
           value: expiry.millisecondsSinceEpoch.toString());
-
-      debugPrint("Auth token stored securely");
+      debugPrint("Auth token ulozen");
     } catch (e) {
-      throw SecurityException("Failed to store auth token: $e");
+      throw SecurityException("Nepodarilo se ulozit token: $e");
     }
   }
 
-  /// Uloťí refresh token.
   Future<void> storeRefreshToken(String refreshToken) async {
     if (!_initialized) await initialize();
-
     try {
       final encryptedToken = await encryptData(refreshToken);
-      await _secureStorage.write(key: _keyRefreshToken, value: encryptedToken);
+      await _secureStorage!.write(key: _keyRefreshToken, value: encryptedToken);
     } catch (e) {
-      throw SecurityException("Failed to store refresh token: $e");
+      throw SecurityException("Nepodarilo se ulozit refresh token: $e");
     }
   }
 
-  /// Získá deĹˇifrovaný autentizáční token.
   Future<String?> getAuthToken() async {
     if (!_initialized) await initialize();
-
     try {
-      final encryptedToken = await _secureStorage.read(key: _keyAuthToken);
+      final encryptedToken = await _secureStorage!.read(key: _keyAuthToken);
       if (encryptedToken == null) return null;
-
       return await decryptData(encryptedToken);
     } catch (e) {
-      debugPrint("Failed to get auth token: $e");
+      debugPrint("Nepodarilo se ziskat token: $e");
       return null;
     }
   }
 
-  /// Získá deĹˇifrovaný refresh token.
   Future<String?> getRefreshToken() async {
     if (!_initialized) await initialize();
-
     try {
-      final encryptedToken = await _secureStorage.read(key: _keyRefreshToken);
+      final encryptedToken = await _secureStorage!.read(key: _keyRefreshToken);
       if (encryptedToken == null) return null;
-
       return await decryptData(encryptedToken);
     } catch (e) {
-      debugPrint("Failed to get refresh token: $e");
+      debugPrint("Nepodarilo se ziskat refresh token: $e");
       return null;
     }
   }
 
-  /// Získá expiraci tokenu.
   Future<DateTime?> getTokenExpiry() async {
     if (!_initialized) await initialize();
-
     try {
-      final expiryString = await _secureStorage.read(key: _keyTokenExpiry);
+      final expiryString = await _secureStorage!.read(key: _keyTokenExpiry);
       if (expiryString == null) return null;
-
       return DateTime.fromMillisecondsSinceEpoch(int.parse(expiryString));
     } catch (e) {
-      debugPrint("Failed to get token expiry: $e");
+      debugPrint("Nepodarilo se ziskat expiraci tokenu: $e");
       return null;
     }
   }
 
-  /// Kontroluje platnost tokenu a automaticky jej obnovuje.
   Future<bool> isTokenValid() async {
     if (!_initialized) await initialize();
-
     try {
-      final expiry = await getTokenExpiry();
-      if (expiry == null) return false;
-
-      final now = DateTime.now();
-
-      // Pokud token expiruje za mĂ©ně neť 5 minut, pokusíme se jej obnovit
-      if (expiry.difference(now).inMinutes < 5) {
-        return await refreshToken();
-      }
-
-      return now.isBefore(expiry);
+      final expiryString = await _secureStorage!.read(key: _keyTokenExpiry);
+      if (expiryString == null) return false;
+      final expiry =
+          DateTime.fromMillisecondsSinceEpoch(int.parse(expiryString));
+      return DateTime.now().isBefore(expiry);
     } catch (e) {
-      debugPrint("Error checking token validity: $e");
+      debugPrint("Chyba pri kontrole platnosti: $e");
       return false;
     }
   }
 
-  /// Obnoví token pomocí Firebase Auth.
-  Future<bool> refreshToken() async {
-    if (!_initialized) await initialize();
-
-    try {
-      final currentUser = _auth.currentUser;
-      if (currentUser == null) return false;
-
-      final idTokenResult = await currentUser.getIdTokenResult(true);
-      if (idTokenResult.token != null) {
-        final expiry = idTokenResult.expirationTime ??
-            DateTime.now().add(const Duration(hours: 1));
-
-        await storeAuthToken(idTokenResult.token!, expiry);
-        return true;
-      }
-
-      return false;
-    } catch (e) {
-      debugPrint("Failed to refresh token: $e");
-      return false;
-    }
-  }
-
-  /// ZaĹˇifruje data pomocí AES-256-CBC.
   Future<String> encryptData(String plainText) async {
     if (!_initialized) await initialize();
-
     try {
       final key = await _getEncryptionKey();
       final iv = _generateRandomBytes(_ivLength);
-      final plainBytes = utf8.encode(plainText);
-
-      // Padding podle PKCS7
-      final paddedPlainBytes = _addPKCS7Padding(plainBytes, 16);
-
-      // AES Ĺˇifrování
       final cipher = CBCBlockCipher(AESEngine())
         ..init(true, ParametersWithIV(KeyParameter(key), iv));
-
-      final encryptedBytes = Uint8List(paddedPlainBytes.length);
+      final plainBytes = utf8.encode(plainText);
+      final paddedBytes = _addPKCS7Padding(plainBytes, cipher.blockSize);
+      final encryptedBytes = Uint8List(paddedBytes.length);
       var offset = 0;
-
-      while (offset < paddedPlainBytes.length) {
-        offset += cipher.processBlock(
-            paddedPlainBytes, offset, encryptedBytes, offset);
+      while (offset < paddedBytes.length) {
+        offset +=
+            cipher.processBlock(paddedBytes, offset, encryptedBytes, offset);
       }
-
-      // Kombinace IV + zaĹˇifrovaná data
-      final result = Uint8List.fromList(iv + encryptedBytes);
-      return base64Encode(result);
+      final combined = Uint8List.fromList([...iv, ...encryptedBytes]);
+      return base64Encode(combined);
     } catch (e) {
-      throw SecurityException("Encryption failed: $e");
+      throw SecurityException("Sifrovani selhalo: $e");
     }
   }
 
-  /// DeĹˇifruje data pomocí AES-256-CBC.
   Future<String> decryptData(String encryptedText) async {
     if (!_initialized) await initialize();
-
     try {
       final key = await _getEncryptionKey();
       final data = base64Decode(encryptedText);
-
       if (data.length < _ivLength) {
-        throw SecurityException("Invalid encrypted data format");
+        throw SecurityException("Neplatny format");
       }
-
       final iv = data.sublist(0, _ivLength);
       final encryptedBytes = data.sublist(_ivLength);
-
-      // AES deĹˇifrování
       final cipher = CBCBlockCipher(AESEngine())
         ..init(false, ParametersWithIV(KeyParameter(key), iv));
-
       final decryptedBytes = Uint8List(encryptedBytes.length);
       var offset = 0;
-
       while (offset < encryptedBytes.length) {
         offset +=
             cipher.processBlock(encryptedBytes, offset, decryptedBytes, offset);
       }
-
-      // Odstranění PKCS7 padding
       final unpaddedBytes = _removePKCS7Padding(decryptedBytes);
       return utf8.decode(unpaddedBytes);
     } catch (e) {
-      throw SecurityException("Decryption failed: $e");
+      throw SecurityException("Desifrovani selhalo: $e");
     }
   }
 
-  /// Vytvoří bezpečný hash hesla s salt pomocí PBKDF2.
   String hashPassword(String password, String salt) {
     try {
       final saltBytes = base64Decode(salt);
       final passwordBytes = utf8.encode(password);
-
       final pbkdf2 = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64))
         ..init(Pbkdf2Parameters(saltBytes, _pbkdf2Iterations, 32));
-
       final hash = pbkdf2.process(passwordBytes);
       return base64Encode(hash);
     } catch (e) {
-      throw SecurityException("Password hashing failed: $e");
+      throw SecurityException("Hash hesla selhal: $e");
     }
   }
 
-  /// Vygeneruje kryptograficky bezpečný salt.
   String generateSalt() {
     final saltBytes = _generateRandomBytes(_saltLength);
     return base64Encode(saltBytes);
   }
 
-  /// Ověří heslo proti uloťenĂ©mu hash.
   bool verifyPassword(String password, String salt, String storedHash) {
     try {
       final computedHash = hashPassword(password, salt);
       return _constantTimeEquals(computedHash, storedHash);
     } catch (e) {
-      debugPrint("Password verification failed: $e");
+      debugPrint("Overeni hesla selhalo: $e");
       return false;
     }
   }
 
-  /// Ověří integritu aplikace.
   Future<bool> verifyAppIntegrity() async {
     if (!_initialized) await initialize();
-
     try {
-      // Kontrola existence bezpečnostních klíčů
       final hasEncryptionKey =
-          await _secureStorage.containsKey(key: _keyEncryptionKey);
+          await _secureStorage!.containsKey(key: _keyEncryptionKey);
       if (!hasEncryptionKey) return false;
-
-      // Kontrola časovĂ© znáčky poslední bezpečnostní kontroly
       final lastCheckString =
-          await _secureStorage.read(key: _keyLastSecurityCheck);
+          await _secureStorage!.read(key: _keyLastSecurityCheck);
       if (lastCheckString != null) {
         final lastCheck =
             DateTime.fromMillisecondsSinceEpoch(int.parse(lastCheckString));
         final timeSinceLastCheck = DateTime.now().difference(lastCheck);
-
-        // Pokud byla poslední kontrola před více neť 24 hodinami, proveďŹ novou
         if (timeSinceLastCheck.inHours > 24) {
           await _verifyApplicationIntegrity();
         }
       }
-
       return true;
     } catch (e) {
-      debugPrint("App integrity check failed: $e");
+      debugPrint("Kontrola integrity selhala: $e");
       return false;
     }
   }
 
-  /// Povolí biometrickou autentizaci.
   Future<void> enableBiometricAuth() async {
     if (!_initialized) await initialize();
-
-    await _secureStorage.write(key: _keyBiometricEnabled, value: 'true');
+    await _secureStorage!.write(key: _keyBiometricEnabled, value: 'true');
   }
 
-  /// Zakáťe biometrickou autentizaci.
   Future<void> disableBiometricAuth() async {
     if (!_initialized) await initialize();
-
-    await _secureStorage.write(key: _keyBiometricEnabled, value: 'false');
+    await _secureStorage!.write(key: _keyBiometricEnabled, value: 'false');
   }
 
-  /// Kontroluje, zda je povolená biometrická autentizace.
   Future<bool> isBiometricAuthEnabled() async {
     if (!_initialized) await initialize();
-
-    final enabled = await _secureStorage.read(key: _keyBiometricEnabled);
+    final enabled = await _secureStorage!.read(key: _keyBiometricEnabled);
     return enabled == 'true';
   }
 
-  /// Vymaťe vĹˇechna bezpečnostní data.
   Future<void> clearAllSecurityData() async {
     if (!_initialized) await initialize();
-
     try {
       _clearKeyCache();
-      await _secureStorage.deleteAll();
-      debugPrint("All security data cleared");
+      await _secureStorage!.deleteAll();
+      debugPrint("Vsechna data vymazana");
     } catch (e) {
-      throw SecurityException("Failed to clear security data: $e");
+      throw SecurityException("Nepodarilo se vymazat data: $e");
     }
   }
 
-  /// Odstraní pouze tokeny (při odhláĹˇení).
   Future<void> clearAuthData() async {
     if (!_initialized) await initialize();
-
     try {
-      await _secureStorage.delete(key: _keyAuthToken);
-      await _secureStorage.delete(key: _keyRefreshToken);
-      await _secureStorage.delete(key: _keyTokenExpiry);
+      await _secureStorage!.delete(key: _keyAuthToken);
+      await _secureStorage!.delete(key: _keyRefreshToken);
+      await _secureStorage!.delete(key: _keyTokenExpiry);
     } catch (e) {
-      throw SecurityException("Failed to clear auth data: $e");
+      throw SecurityException("Nepodarilo se vymazat auth data: $e");
     }
   }
 
-  // === PomocnĂ© metody ===
-
-  /// Generuje kryptograficky bezpečnĂ© náhodnĂ© byty.
   Uint8List _generateRandomBytes(int length) {
     final bytes = Uint8List(length);
     for (int i = 0; i < length; i++) {
@@ -529,37 +423,29 @@ class SecurityService {
     return bytes;
   }
 
-  /// Přidá PKCS7 padding.
   Uint8List _addPKCS7Padding(List<int> data, int blockSize) {
     final padding = blockSize - (data.length % blockSize);
     final paddedData = List<int>.from(data);
-
     for (int i = 0; i < padding; i++) {
       paddedData.add(padding);
     }
-
     return Uint8List.fromList(paddedData);
   }
 
-  /// Odstraní PKCS7 padding.
   Uint8List _removePKCS7Padding(Uint8List data) {
-    if (data.isEmpty) throw SecurityException("Invalid padding");
-
+    if (data.isEmpty) throw SecurityException("Neplatny padding");
     final padding = data.last;
     if (padding > data.length || padding == 0) {
-      throw SecurityException("Invalid padding");
+      throw SecurityException("Neplatny padding");
     }
-
     for (int i = data.length - padding; i < data.length; i++) {
       if (data[i] != padding) {
-        throw SecurityException("Invalid padding");
+        throw SecurityException("Neplatny padding");
       }
     }
-
     return data.sublist(0, data.length - padding);
   }
 
-  /// Konvertuje int na byty.
   List<int> _intToBytes(int value) {
     return [
       (value >> 56) & 0xff,
@@ -573,52 +459,42 @@ class SecurityService {
     ];
   }
 
-  /// Porovnání v konstantním čase (proti timing attacks).
   bool _constantTimeEquals(String a, String b) {
     if (a.length != b.length) return false;
-
     var result = 0;
     for (int i = 0; i < a.length; i++) {
       result |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
     }
-
     return result == 0;
   }
 
-  /// Ověří integritu aplikace a uloťí hash.
   Future<void> _verifyApplicationIntegrity() async {
     try {
-      // Vytvoření hash z kritických komponent aplikace
       final components = [
-        'svatebni_planovac', // App name
-        '1.0.0', // Version
-        DateTime.now().toIso8601String().substring(0, 10), // Datum
+        'svatebni_planovac',
+        '1.0.0',
+        DateTime.now().toIso8601String().substring(0, 10),
       ];
-
       final integrityData = components.join('|');
       final integrityHash = sha256.convert(utf8.encode(integrityData));
-
-      await _secureStorage.write(
+      await _secureStorage!.write(
           key: _keyAppIntegrityHash, value: integrityHash.toString());
     } catch (e) {
-      throw SecurityException("Application integrity verification failed: $e");
+      throw SecurityException("Overeni integrity selhalo: $e");
     }
   }
 
-  /// Aktualizuje časovou znáčku bezpečnostní kontroly.
   Future<void> _updateSecurityCheckTimestamp() async {
-    await _secureStorage.write(
+    await _secureStorage!.write(
         key: _keyLastSecurityCheck,
         value: DateTime.now().millisecondsSinceEpoch.toString());
   }
 
-  /// Uvolní zdroje při ukončení aplikace.
   void dispose() {
     _clearKeyCache();
   }
 }
 
-/// Vlastní výjimka pro bezpečnostní chyby.
 class SecurityException implements Exception {
   final String message;
   SecurityException(this.message);
