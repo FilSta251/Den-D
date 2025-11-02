@@ -1,8 +1,6 @@
 /// lib/models/user.dart
 library;
 
-import 'dart:convert';
-
 /// Třída reprezentující uživatele s pokročilými funkcemi a optimalizovanou strukturou.
 class User {
   /// Unikátní identifikátor uživatele.

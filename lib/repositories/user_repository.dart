@@ -6,7 +6,7 @@ import 'dart:async';
 import 'package:intl/intl.dart';
 
 import '../models/user.dart';
-import '../utils/logger.dart'; // Import vaĹˇeho loggeru
+import '../utils/logger.dart'; // Import vašeho loggeru
 
 /// Výjimky pro UserRepository
 class UserRepositoryException implements Exception {
@@ -26,7 +26,7 @@ class UserValidationException extends UserRepositoryException {
 
 class UserNotFoundException extends UserRepositoryException {
   UserNotFoundException(String userId)
-      : super('Uťivatel "$userId" nebyl nalezen', code: 'USER_NOT_FOUND');
+      : super('Uživatel "$userId" nebyl nalezen', code: 'USER_NOT_FOUND');
 }
 
 class NetworkException extends UserRepositoryException {
@@ -73,7 +73,7 @@ class _BatchUpdateParams {
   _BatchUpdateParams({required this.users, required this.firestore});
 }
 
-/// Validátor pro uťivatelská data
+/// Validátor pro uživatelská data
 class UserValidator {
   static const int minNameLength = 2;
   static const int maxNameLength = 50;
@@ -93,29 +93,29 @@ class UserValidator {
   /// Validuje User ID
   static void validateUserId(String userId) {
     if (userId.isEmpty) {
-      throw UserValidationException('User ID nesmí být prázdnĂ©');
+      throw UserValidationException('User ID nesmí být prázdné');
     }
     if (userId.length < 10) {
       throw UserValidationException('User ID má neplatný formát');
     }
   }
 
-  /// Validuje jmĂ©no uťivatele
+  /// Validuje jméno uživatele
   static void validateName(String name) {
     if (name.trim().isEmpty) {
-      throw UserValidationException('JmĂ©no nesmí být prázdnĂ©');
+      throw UserValidationException('Jméno nesmí být prázdné');
     }
     if (name.trim().length < minNameLength) {
       throw UserValidationException(
-          'JmĂ©no musí mít alespoĹ $minNameLength znaky');
+          'Jméno musí mít alespoň $minNameLength znaky');
     }
     if (name.length > maxNameLength) {
       throw UserValidationException(
-          'JmĂ©no nesmí být delĹˇí neť $maxNameLength znaků');
+          'Jméno nesmí být delší než $maxNameLength znaků');
     }
-    if (!RegExp(r'^[a-ťA-Ĺ˝\s]+$', unicode: true).hasMatch(name.trim())) {
+    if (!RegExp(r'^[a-žA-Ž\s]+$', unicode: true).hasMatch(name.trim())) {
       throw UserValidationException(
-          'JmĂ©no smí obsahovat pouze písmena a mezery');
+          'Jméno smí obsahovat pouze písmena a mezery');
     }
   }
 
@@ -136,26 +136,26 @@ class UserValidator {
     final maxDate = DateTime(now.year + 10);
 
     if (weddingDate.isBefore(minDate)) {
-      throw UserValidationException('Datum svatby je příliĹˇ starĂ©');
+      throw UserValidationException('Datum svatby je příliš staré');
     }
     if (weddingDate.isAfter(maxDate)) {
-      throw UserValidationException('Datum svatby je příliĹˇ vzdálenĂ©');
+      throw UserValidationException('Datum svatby je příliš vzdálené');
     }
   }
 
   /// Validuje heslo
   static void validatePassword(String password) {
     if (password.length < 8) {
-      throw UserValidationException('Heslo musí mít alespoĹ 8 znaků');
+      throw UserValidationException('Heslo musí mít alespoň 8 znaků');
     }
     if (!RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)').hasMatch(password)) {
       throw UserValidationException(
-          'Heslo musí obsahovat malĂ© písmeno, velkĂ© písmeno a číslo');
+          'Heslo musí obsahovat malé písmeno, velké písmeno a číslo');
     }
   }
 }
 
-/// Optimalizovaný UserRepository s validací dat a lepĹˇím error handlingem
+/// Optimalizovaný UserRepository s validací dat a lepším error handlingem
 class UserRepository {
   final FirebaseFirestore _firestore;
   final fb.FirebaseAuth _auth;
@@ -176,10 +176,6 @@ class UserRepository {
   DateTime? _lastFetchTime;
   static const Duration _minFetchInterval = Duration(seconds: 1);
 
-  /// Počítadlo pokusů pro různĂ© operace
-  final Map<String, int> _operationAttempts = {};
-  static const int _maxOperationAttempts = 3;
-
   UserRepository({
     FirebaseFirestore? firestore,
     fb.FirebaseAuth? auth,
@@ -196,7 +192,7 @@ class UserRepository {
     _logger.info('UserRepository initialized', category: 'user_repository');
   }
 
-  /// Getter pro cached uťivatele s TTL kontrolou
+  /// Getter pro cached uživatele s TTL kontrolou
   User? get cachedUser {
     if (_cachedUser != null && _cacheTimestamp != null) {
       final isExpired =
@@ -222,7 +218,7 @@ class UserRepository {
   //  FETCH A UPDATE s optimalizacemi
   // ---------------------------------------------------------------------------
 
-  /// OptimalizovanĂ© náčtení profilu s cache, rate limiting a retry
+  /// Optimalizované načtení profilu s cache, rate limiting a retry
   Future<User> fetchUserProfile({
     required String userId,
     bool forceRefresh = false,
@@ -293,19 +289,19 @@ class UserRepository {
           if (e is UserValidationException) {
             _logger.error('User validation failed',
                 category: 'user_repository',
-                exception: e, // OPRAVENO: změněno z 'error' na 'exception'
+                exception: e,
                 extra: {'userId': userId});
             rethrow;
           }
 
           _logger.warning('Fetch attempt $attempts failed',
               category: 'user_repository',
-              exception: e, // OPRAVENO: změněno z 'error' na 'exception'
+              exception: e,
               extra: {'userId': userId, 'attempt': attempts});
 
           if (attempts >= maxAttempts) {
             throw NetworkException(
-              'Nepodařilo se náčíst profil uťivatele ani po $attempts pokusech',
+              'Nepodařilo se načíst profil uživatele ani po $attempts pokusech',
               originalError: e,
             );
           }
@@ -323,12 +319,10 @@ class UserRepository {
         }
       }
 
-      throw NetworkException('Neznámá chyba při náčítání uťivatele');
+      throw NetworkException('Neznámá chyba při načítání uživatele');
     } catch (e) {
       _logger.error('Failed to fetch user profile',
-          category: 'user_repository',
-          exception: e, // OPRAVENO: změněno z 'error' na 'exception'
-          extra: {'userId': userId});
+          category: 'user_repository', exception: e, extra: {'userId': userId});
       rethrow;
     }
   }
@@ -356,7 +350,7 @@ class UserRepository {
       return User.fromJson(data);
     } catch (e) {
       if (e is UserNotFoundException) rethrow;
-      throw NetworkException('Chyba při náčítání z Firestore',
+      throw NetworkException('Chyba při načítání z Firestore',
           originalError: e);
     }
   }
@@ -387,7 +381,7 @@ class UserRepository {
 
       await compute(_updateUserProfileIsolate, params);
 
-      // Aktualizovat cache pouze pokud je to stejný uťivatel
+      // Aktualizovat cache pouze pokud je to stejný uživatel
       if (_cachedUser?.id == user.id) {
         _cachedUser = user;
         _cacheTimestamp = DateTime.now();
@@ -402,13 +396,13 @@ class UserRepository {
     } catch (e) {
       _logger.error('Failed to update user profile',
           category: 'user_repository',
-          exception: e, // OPRAVENO: změněno z 'error' na 'exception'
+          exception: e,
           extra: {'userId': user.id});
 
       if (e is UserValidationException) {
         rethrow;
       }
-      throw NetworkException('Chyba při aktualizaci profilu uťivatele',
+      throw NetworkException('Chyba při aktualizaci profilu uživatele',
           originalError: e);
     }
   }
@@ -435,7 +429,7 @@ class UserRepository {
     }
   }
 
-  /// Batch aktualizace více uťivatelů
+  /// Batch aktualizace více uživatelů
   Future<void> updateUsersProfilesBatch(List<User> users) async {
     if (users.isEmpty) return;
 
@@ -464,7 +458,7 @@ class UserRepository {
     } catch (e) {
       _logger.error('Failed to batch update user profiles',
           category: 'user_repository',
-          exception: e, // OPRAVENO: změněno z 'error' na 'exception'
+          exception: e,
           extra: {'userCount': users.length});
       throw NetworkException('Chyba při batch aktualizaci', originalError: e);
     }
@@ -535,7 +529,7 @@ class UserRepository {
           } catch (e) {
             _logger.error('Error in user stream',
                 category: 'user_repository',
-                exception: e, // OPRAVENO: změněno z 'error' na 'exception'
+                exception: e,
                 extra: {'userId': userId});
             controller.addError(e);
           }
@@ -543,7 +537,7 @@ class UserRepository {
         onError: (error) {
           _logger.error('User stream error',
               category: 'user_repository',
-              exception: error, // OPRAVENO: změněno z 'error' na 'exception'
+              exception: error,
               extra: {'userId': userId});
           controller.addError(NetworkException('Chyba v real-time streamu',
               originalError: error));
@@ -553,9 +547,7 @@ class UserRepository {
       return controller.stream;
     } catch (e) {
       _logger.error('Failed to create user stream',
-          category: 'user_repository',
-          exception: e, // OPRAVENO: změněno z 'error' na 'exception'
-          extra: {'userId': userId});
+          category: 'user_repository', exception: e, extra: {'userId': userId});
       rethrow;
     }
   }
@@ -565,10 +557,10 @@ class UserRepository {
   }
 
   // ---------------------------------------------------------------------------
-  //  REGISTRACE, PĹIHLĂĹ ENĂŤ, ODHLĂĹ ENĂŤ s validací
+  //  REGISTRACE, PŘIHLÁŠENÍ, ODHLÁŠENÍ s validací
   // ---------------------------------------------------------------------------
 
-  /// OptimalizovanĂ© přihláĹˇení s validací
+  /// Optimalizované přihlášení s validací
   Future<User> signInWithEmail(String email, String password) async {
     final stopwatch = Stopwatch()..start();
 
@@ -588,7 +580,7 @@ class UserRepository {
       final fbUser = result.user;
       if (fbUser == null) {
         throw UserRepositoryException(
-            "PřihláĹˇení selhalo (UserCredential.user == null).");
+            "Přihlášení selhalo (UserCredential.user == null).");
       }
 
       _logger.info('Firebase auth successful',
@@ -612,7 +604,7 @@ class UserRepository {
     } catch (e) {
       _logger.error('Sign in failed',
           category: 'user_repository',
-          exception: e, // OPRAVENO: změněno z 'error' na 'exception'
+          exception: e,
           extra: {'email': email.trim()});
       rethrow;
     }
@@ -682,7 +674,7 @@ class UserRepository {
     } catch (e) {
       _logger.error('Sign up failed',
           category: 'user_repository',
-          exception: e, // OPRAVENO: změněno z 'error' na 'exception'
+          exception: e,
           extra: {'email': email.trim()});
       rethrow;
     }
@@ -702,7 +694,7 @@ class UserRepository {
     }
   }
 
-  /// OptimalizovanĂ© odhláĹˇení
+  /// Optimalizované odhlášení
   Future<void> signOut() async {
     final stopwatch = Stopwatch()..start();
 
@@ -721,17 +713,16 @@ class UserRepository {
       _logger.userAction('sign_out');
     } catch (e) {
       _logger.error('Sign out failed',
-          category: 'user_repository',
-          exception: e); // OPRAVENO: změněno z 'error' na 'exception'
+          category: 'user_repository', exception: e);
       rethrow;
     }
   }
 
   // ---------------------------------------------------------------------------
-  //  LOKĂLNĂŤ ULOĹ˝ENĂŤ optimalizovanĂ©
+  //  LOKÁLNÍ ULOŽENÍ optimalizované
   // ---------------------------------------------------------------------------
 
-  /// OptimalizovanĂ© lokální uloťení s validací
+  /// Optimalizované lokální uložení s validací
   Future<void> saveUserLocally(User user) async {
     try {
       UserValidator.validateUser(user);
@@ -744,7 +735,7 @@ class UserRepository {
     } catch (e) {
       _logger.error('Failed to save user locally',
           category: 'user_repository',
-          exception: e, // OPRAVENO: změněno z 'error' na 'exception'
+          exception: e,
           extra: {'userId': user.id});
       throw UserRepositoryException('Chyba při ukládání lokálních dat',
           originalError: e);
@@ -754,7 +745,7 @@ class UserRepository {
   static Future<void> _saveUserLocallyIsolate(User user) async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Uloťení s prefixem pro lepĹˇí organizaci
+    // Uložení s prefixem pro lepší organizaci
     await prefs.setString('user_id', user.id);
     await prefs.setString('user_name', user.name);
     await prefs.setString('user_email', user.email);
@@ -768,7 +759,7 @@ class UserRepository {
     }
   }
 
-  /// OptimalizovanĂ© náčtení z lokálního úloťiĹˇtě
+  /// Optimalizované načtení z lokálního úložiště
   Future<User?> loadUserFromLocal() async {
     try {
       _logger.debug('Loading user from local storage',
@@ -789,8 +780,7 @@ class UserRepository {
               });
         } catch (e) {
           _logger.warning('Invalid local user data, clearing',
-              category: 'user_repository',
-              exception: e); // OPRAVENO: změněno z 'error' na 'exception'
+              category: 'user_repository', exception: e);
           await clearLocalData();
           return null;
         }
@@ -799,9 +789,8 @@ class UserRepository {
       return localUser;
     } catch (e) {
       _logger.error('Failed to load user from local storage',
-          category: 'user_repository',
-          exception: e); // OPRAVENO: změněno z 'error' na 'exception'
-      throw UserRepositoryException('Chyba při náčítání lokálních dat',
+          category: 'user_repository', exception: e);
+      throw UserRepositoryException('Chyba při načítání lokálních dat',
           originalError: e);
     }
   }
@@ -823,7 +812,7 @@ class UserRepository {
     if (savedAtStr != null) {
       final savedAt = DateTime.tryParse(savedAtStr);
       if (savedAt != null && DateTime.now().difference(savedAt).inDays > 7) {
-        return null; // PříliĹˇ stará data
+        return null; // Příliš stará data
       }
     }
 
@@ -838,7 +827,7 @@ class UserRepository {
     );
   }
 
-  /// OptimalizovanĂ© mazání lokálních dat
+  /// Optimalizované mazání lokálních dat
   Future<void> clearLocalData() async {
     try {
       _logger.debug('Clearing local data', category: 'user_repository');
@@ -846,8 +835,7 @@ class UserRepository {
       await compute(_clearLocalDataIsolate, null);
     } catch (e) {
       _logger.error('Failed to clear local data',
-          category: 'user_repository',
-          exception: e); // OPRAVENO: změněno z 'error' na 'exception'
+          category: 'user_repository', exception: e);
       throw UserRepositoryException('Chyba při mazání lokálních dat',
           originalError: e);
     }
@@ -856,7 +844,7 @@ class UserRepository {
   static Future<void> _clearLocalDataIsolate(_) async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Smazání vĹˇech user prefixovaných klíčů
+    // Smazání všech user prefixovaných klíčů
     final keys =
         prefs.getKeys().where((key) => key.startsWith('user_')).toList();
     for (final key in keys) {
@@ -874,7 +862,7 @@ class UserRepository {
     _cacheTimestamp = null;
     _lastFetchTime = null;
 
-    // Uzavřít vĹˇechny streams
+    // Uzavřít všechny streams
     for (final controller in _userStreams.values) {
       await controller.close();
     }
@@ -883,7 +871,7 @@ class UserRepository {
     _logger.debug('Cache cleared', category: 'user_repository');
   }
 
-  /// Předčítat uťivatele pro rychlejĹˇí přístup
+  /// Předčítat uživatele pro rychlejší přístup
   Future<void> prefetchUser(String userId) async {
     try {
       await fetchUserProfile(userId: userId, source: Source.cache);
@@ -942,45 +930,23 @@ class UserRepository {
     // Cache statistics
     results['cache'] = getCacheStats();
 
-    // Operation attempts
-    results['operationAttempts'] = Map.from(_operationAttempts);
-
     return results;
-  }
-
-  /// Reset počítadla pokusů operací
-  void resetOperationAttempts() {
-    _operationAttempts.clear();
-    _logger.debug('Operation attempts reset', category: 'user_repository');
-  }
-
-  /// Získat nebo zvýĹˇit počet pokusů pro operaci
-  int _getAndIncrementAttempts(String operation) {
-    _operationAttempts[operation] = (_operationAttempts[operation] ?? 0) + 1;
-    return _operationAttempts[operation]!;
-  }
-
-  /// Kontrola, zda je operace povolena (nepřekročila max pokusů)
-  bool _isOperationAllowed(String operation) {
-    final attempts = _operationAttempts[operation] ?? 0;
-    return attempts < _maxOperationAttempts;
   }
 
   /// Dispose metoda pro clean up
   Future<void> dispose() async {
     await clearCache();
-    _operationAttempts.clear();
     _logger.debug('UserRepository disposed', category: 'user_repository');
   }
 }
 
 // ---------------------------------------------------------------------------
-//  ROZĹ ĂŤĹENĂŤ PRO USER MODEL
+//  ROZŠÍŘENÍ PRO USER MODEL
 // ---------------------------------------------------------------------------
 
 /// Extension metody pro User model
 extension UserExtensions on User {
-  /// Kontrola, zda má uťivatel vyplněnĂ© vĹˇechny povinnĂ© údaje
+  /// Kontrola, zda má uživatel vyplněné všechny povinné údaje
   bool get hasCompleteProfile {
     return name.isNotEmpty && email.isNotEmpty && weddingDate != null;
   }
@@ -997,7 +963,7 @@ extension UserExtensions on User {
     return weddingDate!.isBefore(DateTime.now());
   }
 
-  /// FormátovanĂ© zobrazení data svatby
+  /// Formátované zobrazení data svatby
   String get formattedWeddingDate {
     if (weddingDate == null) return 'Datum není nastaveno';
     final formatter = DateFormat('d. MMMM yyyy', 'cs');
@@ -1021,10 +987,10 @@ extension UserExtensions on User {
 }
 
 // ---------------------------------------------------------------------------
-//  POMOCNĂ‰ TĹĂŤDY PRO BATCH OPERACE
+//  POMOCNÉ TŘÍDY PRO BATCH OPERACE
 // ---------------------------------------------------------------------------
 
-/// Batch loader pro efektivní náčítání více uťivatelů
+/// Batch loader pro efektivní načítání více uživatelů
 class UserBatchLoader {
   final UserRepository _repository;
   final Set<String> _pendingIds = {};
@@ -1033,7 +999,7 @@ class UserBatchLoader {
 
   UserBatchLoader(this._repository);
 
-  /// Naplánuje náčtení uťivatele v batchi
+  /// Naplánuje načtení uživatele v batchi
   Future<User?> loadUser(String userId) {
     if (_completerMap.containsKey(userId)) {
       return _completerMap[userId]!.future;
@@ -1050,7 +1016,7 @@ class UserBatchLoader {
     return completer.future;
   }
 
-  /// Provede batch náčtení
+  /// Provede batch načtení
   void _executeBatch() async {
     if (_pendingIds.isEmpty) return;
 
@@ -1058,10 +1024,10 @@ class UserBatchLoader {
     _pendingIds.clear();
 
     try {
-      // Náčti vĹˇechny uťivatele najednou
+      // Načti všechny uživatele najednou
       final users = await _repository._batchFetchUsers(idsToLoad);
 
-      // VyřeĹˇ completery
+      // Vyřeš completery
       for (final id in idsToLoad) {
         final user = users.firstWhere(
           (u) => u.id == id,
@@ -1071,7 +1037,7 @@ class UserBatchLoader {
         _completerMap.remove(id);
       }
     } catch (e) {
-      // V případě chyby vyřeĹˇ vĹˇechny completery s chybou
+      // V případě chyby vyřeš všechny completery s chybou
       for (final id in idsToLoad) {
         _completerMap[id]?.completeError(e);
         _completerMap.remove(id);
@@ -1092,9 +1058,9 @@ class UserBatchLoader {
   }
 }
 
-/// RozĹˇíření UserRepository o batch operace
+/// Rozšíření UserRepository o batch operace
 extension UserRepositoryBatch on UserRepository {
-  /// Batch náčtení více uťivatelů
+  /// Batch načtení více uživatelů
   Future<List<User>> _batchFetchUsers(List<String> userIds) async {
     if (userIds.isEmpty) return [];
 
@@ -1109,7 +1075,7 @@ extension UserRepositoryBatch on UserRepository {
         return User.fromJson(data);
       }).toList();
     } catch (e) {
-      throw NetworkException('Chyba při batch náčítání uťivatelů',
+      throw NetworkException('Chyba při batch načítání uživatelů',
           originalError: e);
     }
   }

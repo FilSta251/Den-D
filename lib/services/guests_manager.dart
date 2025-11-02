@@ -14,7 +14,15 @@ import '../services/cloud_guests_service.dart';
 import '../providers/subscription_provider.dart';
 import '../widgets/subscription_offer_dialog.dart';
 
-/// Manager pro synchronizaci hostů a stolů mezi lokálním úloťiĹˇtěm a cloudem.
+/// Enum pro sledování stavu synchronizace
+enum SyncState {
+  idle,
+  syncing,
+  error,
+  offline,
+}
+
+/// Manager pro synchronizaci hostů a stolů mezi lokálním úložištěm a cloudem.
 ///
 /// poskytuje kompletní správu hostů svatby včetně:
 /// - Správy seznamu hostů
@@ -27,7 +35,7 @@ class GuestsManager extends ChangeNotifier {
   final CloudGuestsService _cloudService;
   final fb.FirebaseAuth _auth;
 
-  // Synchronizáční stav
+  // Synchronizační stav
   SyncState _syncState = SyncState.idle;
   SyncState get syncState => _syncState;
   String? _syncError;
@@ -44,7 +52,6 @@ class GuestsManager extends ChangeNotifier {
   StreamSubscription? _guestsCloudSubscription;
   StreamSubscription? _tablesCloudSubscription;
   StreamSubscription? _authSubscription;
-  bool _initialized = false;
   bool _localDataLoaded = false;
   Timer? _syncTimer;
   Timer? _debounceTimer;
@@ -81,7 +88,7 @@ class GuestsManager extends ChangeNotifier {
       if (user != null) {
         final newUserId = user.uid;
         if (_currentUserId != newUserId) {
-          debugPrint("GuestsManager: Nový uťivatel přihláĹˇen: ${user.uid}");
+          debugPrint("GuestsManager: Nový uživatel přihlášen: ${user.uid}");
 
           _currentUserId = newUserId;
 
@@ -98,7 +105,7 @@ class GuestsManager extends ChangeNotifier {
           await _refreshFromCloud();
         }
       } else {
-        // Uťivatel odhláĹˇen
+        // Uživatel odhlášen
         _currentUserId = null;
 
         _localService.removeListener(_handleLocalChanges);
@@ -138,7 +145,7 @@ class GuestsManager extends ChangeNotifier {
         _isOnline = true;
         await _syncPendingChanges();
       } else if (!isConnected && _isOnline) {
-        debugPrint("GuestsManager: Offline reťim");
+        debugPrint("GuestsManager: Offline režim");
         _isOnline = false;
         _setSyncState(SyncState.offline);
       }
@@ -167,6 +174,8 @@ class GuestsManager extends ChangeNotifier {
   /// Kontrola free limitu před přidáním hosta
   Future<bool> _checkFreeLimit(BuildContext context) async {
     try {
+      if (!context.mounted) return false;
+
       final subscriptionProvider =
           Provider.of<SubscriptionProvider>(context, listen: false);
 
@@ -174,6 +183,8 @@ class GuestsManager extends ChangeNotifier {
           .registerInteraction(InteractionType.addGuest);
 
       if (!canUse) {
+        if (!context.mounted) return false;
+
         final result = await SubscriptionOfferDialog.show(
           context,
           source: 'guests_limit',
@@ -217,7 +228,7 @@ class GuestsManager extends ChangeNotifier {
     _setSyncState(SyncState.syncing);
 
     try {
-      // Zpracování konkrĂ©tních změn
+      // Zpracování konkrétních změn
       if (_pendingChanges.isNotEmpty) {
         final List<Map<String, dynamic>> changesToProcess =
             List.from(_pendingChanges);
@@ -260,7 +271,7 @@ class GuestsManager extends ChangeNotifier {
           }
         }
       }
-      // Synchronizace celĂ© kolekce
+      // Synchronizace celé kolekce
       else if (_pendingSyncOperations > 0) {
         await _cloudService.syncFromLocal(
             _localService.guests, _localService.tables);
@@ -280,14 +291,14 @@ class GuestsManager extends ChangeNotifier {
     _setSyncState(SyncState.syncing);
 
     try {
-      // Náčteme data z cloudu
+      // Načteme data z cloudu
       final cloudGuests = await _cloudService.fetchGuests();
       final cloudTables = await _cloudService.fetchTables();
 
-      // Náčteme lokální data
+      // Načteme lokální data
       await _loadLocalData();
 
-      // Pouťijeme cloudová data, pokud existují
+      // Použijeme cloudová data, pokud existují
       if (cloudGuests.isNotEmpty || cloudTables.isNotEmpty) {
         _localService.removeListener(_handleLocalChanges);
 
@@ -306,7 +317,6 @@ class GuestsManager extends ChangeNotifier {
       // Zahájíme sledování změn v cloudu
       _enableCloudSync();
 
-      _initialized = true;
       _setSyncState(SyncState.idle);
     } catch (e) {
       debugPrint("GuestsManager: Chyba při inicializaci: $e");
@@ -389,7 +399,6 @@ class GuestsManager extends ChangeNotifier {
     _guestsCloudSubscription = null;
     _tablesCloudSubscription?.cancel();
     _tablesCloudSubscription = null;
-    _initialized = false;
   }
 
   void _handleLocalChanges() {
@@ -401,9 +410,9 @@ class GuestsManager extends ChangeNotifier {
     });
   }
 
-  // === VeřejnĂ© metody pro práci s hosty (s free limit kontrolou) ===
+  // === Veřejné metody pro práci s hosty (s free limit kontrolou) ===
 
-  /// Přidá novĂ©ho hosta s kontrolou free limitu.
+  /// Přidá nového hosta s kontrolou free limitu.
   Future<bool> addGuest(Guest guest, BuildContext context) async {
     // Kontrola free limitu
     final canAdd = await _checkFreeLimit(context);
@@ -438,7 +447,7 @@ class GuestsManager extends ChangeNotifier {
     _attemptSynchronization();
   }
 
-  /// Odstraní hosta (bez kontroly limitu - odstraĹování je vťdy povoleno).
+  /// Odstraní hosta (bez kontroly limitu - odstraňování je vždy povoleno).
   void removeGuest(String guestId) {
     final guest = _localService.findItemById(guestId);
     if (guest == null) return;
@@ -455,7 +464,7 @@ class GuestsManager extends ChangeNotifier {
     _attemptSynchronization();
   }
 
-  // === VeřejnĂ© metody pro práci se stoly ===
+  // === Veřejné metody pro práci se stoly ===
 
   /// Přidá nový stůl.
   Future<void> addTable(TableArrangement table) async {
@@ -501,7 +510,7 @@ class GuestsManager extends ChangeNotifier {
     _attemptSynchronization();
   }
 
-  /// Vyčistí vĹˇechny hosty a stoly.
+  /// Vyčistí všechny hosty a stoly.
   void clearAllData() {
     final allGuests = List<Guest>.from(_localService.guests);
     final allTables = List<TableArrangement>.from(_localService.tables);
@@ -530,7 +539,7 @@ class GuestsManager extends ChangeNotifier {
     _attemptSynchronization();
   }
 
-  /// VynucenĂ© náčtení dat z cloudu.
+  /// Vynucené načtení dat z cloudu.
   Future<void> forceRefreshFromCloud() async {
     if (_auth.currentUser == null || !_isOnline) {
       if (!_isOnline) {
@@ -551,7 +560,7 @@ class GuestsManager extends ChangeNotifier {
 
       _setSyncState(SyncState.idle);
     } catch (e) {
-      debugPrint("GuestsManager: Chyba při náčítání z cloudu: $e");
+      debugPrint("GuestsManager: Chyba při načítání z cloudu: $e");
       _setSyncState(SyncState.error, e.toString());
     }
   }
@@ -596,7 +605,7 @@ class GuestsManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Vymaťe frontu nevyřízených změn.
+  /// Vymaže frontu nevyřízených změn.
   void clearPendingChanges() {
     _pendingChanges.clear();
     _pendingSyncOperations = 0;
@@ -611,7 +620,7 @@ class GuestsManager extends ChangeNotifier {
   /// Seznam stolů.
   List<TableArrangement> get tables => _localService.tables;
 
-  /// Indikátor náčítání.
+  /// Indikátor načítání.
   bool get isLoading =>
       _localService.isLoading || _syncState == SyncState.syncing;
 
@@ -638,7 +647,7 @@ class GuestsManager extends ChangeNotifier {
   /// Získá souhrn podle skupin.
   Map<String, int> getGroupSummary() => _localService.getGroupSummary();
 
-  /// Získá vyuťití stolů.
+  /// Získá využití stolů.
   Map<String, Map<String, dynamic>> getTableUtilization() =>
       _localService.getTableUtilization();
 
@@ -653,12 +662,4 @@ class GuestsManager extends ChangeNotifier {
     _localService.removeListener(_handleLocalChanges);
     super.dispose();
   }
-}
-
-/// Enum pro sledování stavu synchronizace
-enum SyncState {
-  idle,
-  syncing,
-  error,
-  offline,
 }

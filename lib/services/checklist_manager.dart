@@ -13,7 +13,15 @@ import '../services/cloud_checklist_service.dart';
 import '../providers/subscription_provider.dart';
 import '../widgets/subscription_offer_dialog.dart';
 
-/// Manager pro synchronizaci checklistu mezi lokálním úloťiĹˇtěm a cloudem.
+/// Enum pro sledování stavu synchronizace
+enum SyncState {
+  idle,
+  syncing,
+  error,
+  offline,
+}
+
+/// Manager pro synchronizaci checklistu mezi lokálním úložištěm a cloudem.
 ///
 /// poskytuje kompletní správu úkolů svatby včetně:
 /// - Správy úkolů podle kategorií
@@ -26,7 +34,7 @@ class ChecklistManager extends ChangeNotifier {
   final CloudChecklistService _cloudService;
   final fb.FirebaseAuth _auth;
 
-  // Synchronizáční stav
+  // Synchronizační stav
   SyncState _syncState = SyncState.idle;
   SyncState get syncState => _syncState;
   String? _syncError;
@@ -43,7 +51,6 @@ class ChecklistManager extends ChangeNotifier {
   StreamSubscription? _tasksCloudSubscription;
   StreamSubscription? _categoriesCloudSubscription;
   StreamSubscription? _authSubscription;
-  bool _initialized = false;
   bool _localDataLoaded = false;
   Timer? _syncTimer;
   Timer? _debounceTimer;
@@ -80,7 +87,7 @@ class ChecklistManager extends ChangeNotifier {
       if (user != null) {
         final newUserId = user.uid;
         if (_currentUserId != newUserId) {
-          debugPrint("ChecklistManager: Nový uťivatel přihláĹˇen: ${user.uid}");
+          debugPrint("ChecklistManager: Nový uživatel přihlášen: ${user.uid}");
 
           _currentUserId = newUserId;
 
@@ -97,7 +104,7 @@ class ChecklistManager extends ChangeNotifier {
           await _refreshFromCloud();
         }
       } else {
-        // Uťivatel odhláĹˇen
+        // Uživatel odhlášen
         _currentUserId = null;
 
         _localService.removeListener(_handleLocalChanges);
@@ -137,7 +144,7 @@ class ChecklistManager extends ChangeNotifier {
         _isOnline = true;
         await _syncPendingChanges();
       } else if (!isConnected && _isOnline) {
-        debugPrint("ChecklistManager: Offline reťim");
+        debugPrint("ChecklistManager: Offline režim");
         _isOnline = false;
         _setSyncState(SyncState.offline);
       }
@@ -163,9 +170,11 @@ class ChecklistManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Kontrola free limitu před přidáním checklist poloťky
+  /// Kontrola free limitu před přidáním checklist položky
   Future<bool> _checkFreeLimit(BuildContext context) async {
     try {
+      if (!context.mounted) return false;
+
       final subscriptionProvider =
           Provider.of<SubscriptionProvider>(context, listen: false);
 
@@ -173,6 +182,8 @@ class ChecklistManager extends ChangeNotifier {
           .registerInteraction(InteractionType.addChecklistItem);
 
       if (!canUse) {
+        if (!context.mounted) return false;
+
         final result = await SubscriptionOfferDialog.show(
           context,
           source: 'checklist_limit',
@@ -216,7 +227,7 @@ class ChecklistManager extends ChangeNotifier {
     _setSyncState(SyncState.syncing);
 
     try {
-      // Zpracování konkrĂ©tních změn
+      // Zpracování konkrétních změn
       if (_pendingChanges.isNotEmpty) {
         final List<Map<String, dynamic>> changesToProcess =
             List.from(_pendingChanges);
@@ -265,7 +276,7 @@ class ChecklistManager extends ChangeNotifier {
           }
         }
       }
-      // Synchronizace celĂ© kolekce
+      // Synchronizace celé kolekce
       else if (_pendingSyncOperations > 0) {
         await _cloudService.syncFromLocal(
             _localService.tasks, _localService.categories);
@@ -285,14 +296,14 @@ class ChecklistManager extends ChangeNotifier {
     _setSyncState(SyncState.syncing);
 
     try {
-      // Náčteme data z cloudu
+      // Načteme data z cloudu
       final cloudTasks = await _cloudService.fetchTasks();
       final cloudCategories = await _cloudService.fetchCategories();
 
-      // Náčteme lokální data
+      // Načteme lokální data
       await _loadLocalData();
 
-      // Pouťijeme cloudová data, pokud existují
+      // Použijeme cloudová data, pokud existují
       if (cloudTasks.isNotEmpty || cloudCategories.isNotEmpty) {
         _localService.removeListener(_handleLocalChanges);
 
@@ -312,7 +323,6 @@ class ChecklistManager extends ChangeNotifier {
       // Zahájíme sledování změn v cloudu
       _enableCloudSync();
 
-      _initialized = true;
       _setSyncState(SyncState.idle);
     } catch (e) {
       debugPrint("ChecklistManager: Chyba při inicializaci: $e");
@@ -396,7 +406,6 @@ class ChecklistManager extends ChangeNotifier {
     _tasksCloudSubscription = null;
     _categoriesCloudSubscription?.cancel();
     _categoriesCloudSubscription = null;
-    _initialized = false;
   }
 
   void _handleLocalChanges() {
@@ -408,7 +417,7 @@ class ChecklistManager extends ChangeNotifier {
     });
   }
 
-  // === VeřejnĂ© metody pro práci s úkoly (s free limit kontrolou) ===
+  // === Veřejné metody pro práci s úkoly (s free limit kontrolou) ===
 
   /// Přidá nový úkol s kontrolou free limitu.
   Future<bool> addTask(Task task, BuildContext context) async {
@@ -445,7 +454,7 @@ class ChecklistManager extends ChangeNotifier {
     _attemptSynchronization();
   }
 
-  /// Odstraní úkol (bez kontroly limitu - odstraĹování je vťdy povoleno).
+  /// Odstraní úkol (bez kontroly limitu - odstraňování je vždy povoleno).
   void removeTask(String taskId) {
     final task = _localService.findItemById(taskId);
     if (task == null) return;
@@ -462,7 +471,7 @@ class ChecklistManager extends ChangeNotifier {
     _attemptSynchronization();
   }
 
-  /// Přepne stav dokončení úkolu (bez kontroly limitu - toggle je vťdy povolen).
+  /// Přepne stav dokončení úkolu (bez kontroly limitu - toggle je vždy povolen).
   void toggleTaskDone(String taskId) {
     _localService.toggleTaskDone(taskId);
 
@@ -479,7 +488,7 @@ class ChecklistManager extends ChangeNotifier {
     }
   }
 
-  // === VeřejnĂ© metody pro práci s kategoriemi ===
+  // === Veřejné metody pro práci s kategoriemi ===
 
   /// Přidá novou kategorii.
   Future<void> addCategory(TaskCategory category) async {
@@ -529,7 +538,7 @@ class ChecklistManager extends ChangeNotifier {
     _attemptSynchronization();
   }
 
-  /// Vyčistí vĹˇechny úkoly a kategorie.
+  /// Vyčistí všechny úkoly a kategorie.
   void clearAllData() {
     final allTasks = List<Task>.from(_localService.tasks);
     final allCategories = List<TaskCategory>.from(_localService.categories);
@@ -561,7 +570,7 @@ class ChecklistManager extends ChangeNotifier {
     _attemptSynchronization();
   }
 
-  /// VynucenĂ© náčtení dat z cloudu.
+  /// Vynucené načtení dat z cloudu.
   Future<void> forceRefreshFromCloud() async {
     if (_auth.currentUser == null || !_isOnline) {
       if (!_isOnline) {
@@ -583,7 +592,7 @@ class ChecklistManager extends ChangeNotifier {
 
       _setSyncState(SyncState.idle);
     } catch (e) {
-      debugPrint("ChecklistManager: Chyba při náčítání z cloudu: $e");
+      debugPrint("ChecklistManager: Chyba při načítání z cloudu: $e");
       _setSyncState(SyncState.error, e.toString());
     }
   }
@@ -628,7 +637,7 @@ class ChecklistManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Vymaťe frontu nevyřízených změn.
+  /// Vymaže frontu nevyřízených změn.
   void clearPendingChanges() {
     _pendingChanges.clear();
     _pendingSyncOperations = 0;
@@ -643,7 +652,7 @@ class ChecklistManager extends ChangeNotifier {
   /// Seznam kategorií.
   List<TaskCategory> get categories => _localService.categories;
 
-  /// Indikátor náčítání.
+  /// Indikátor načítání.
   bool get isLoading =>
       _localService.isLoading || _syncState == SyncState.syncing;
 
@@ -651,10 +660,10 @@ class ChecklistManager extends ChangeNotifier {
   List<Task> getTasksByCategory(String categoryId) =>
       _localService.getTasksByCategory(categoryId);
 
-  /// Získá dokončenĂ© úkoly.
+  /// Získá dokončené úkoly.
   List<Task> getCompletedTasks() => _localService.getCompletedTasks();
 
-  /// Získá nedokončenĂ© úkoly.
+  /// Získá nedokončené úkoly.
   List<Task> getPendingTasks() => _localService.getPendingTasks();
 
   /// Získá úkoly podle priority.
@@ -664,7 +673,7 @@ class ChecklistManager extends ChangeNotifier {
   /// Získá úkoly s termínem.
   List<Task> getTasksWithDueDate() => _localService.getTasksWithDueDate();
 
-  /// Získá zpoťděnĂ© úkoly.
+  /// Získá zpožděné úkoly.
   List<Task> getOverdueTasks() => _localService.getOverdueTasks();
 
   /// Získá statistiky checklistu.
@@ -689,12 +698,4 @@ class ChecklistManager extends ChangeNotifier {
     _localService.removeListener(_handleLocalChanges);
     super.dispose();
   }
-}
-
-/// Enum pro sledování stavu synchronizace
-enum SyncState {
-  idle,
-  syncing,
-  error,
-  offline,
 }

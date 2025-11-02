@@ -1,15 +1,10 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
-import '../models/subscription.dart';
-import '../widgets/subscription_offer_dialog.dart';
 import '../repositories/wedding_repository.dart';
 import '../models/wedding_info.dart';
-import 'package:intl/intl.dart';
 import '../services/onboarding_manager.dart';
-import '../routes.dart';
 
 class ChatMessage {
   final String sender;
@@ -21,7 +16,7 @@ class ChatBotScreen extends StatefulWidget {
   const ChatBotScreen({super.key});
 
   @override
-  _ChatBotScreenState createState() => _ChatBotScreenState();
+  State<ChatBotScreen> createState() => _ChatBotScreenState();
 }
 
 class _ChatBotScreenState extends State<ChatBotScreen>
@@ -63,10 +58,14 @@ class _ChatBotScreenState extends State<ChatBotScreen>
 
     _addBotMessage(tr('chatbot_greeting_1'));
     Future.delayed(const Duration(seconds: 1), () {
-      _addBotMessage(tr('chatbot_greeting_2'));
+      if (mounted) {
+        _addBotMessage(tr('chatbot_greeting_2'));
+      }
     });
     Future.delayed(const Duration(seconds: 2), () {
-      _addBotMessage(_questions[_currentQuestionIndex]);
+      if (mounted) {
+        _addBotMessage(_questions[_currentQuestionIndex]);
+      }
     });
   }
 
@@ -97,15 +96,15 @@ class _ChatBotScreenState extends State<ChatBotScreen>
   }
 
   Future<void> _finishChat() async {
+    if (!mounted) return;
+
     debugPrint('[ChatBotScreen] Finishing chat and marking as completed');
 
     setState(() => _isChatComplete = true);
 
-    // ===== AKTUALIZOVÁNO: Přidán userId pro synchronizaci =====
     final userId = fb.FirebaseAuth.instance.currentUser?.uid;
     await OnboardingManager.markChatbotCompleted(userId: userId);
     debugPrint('[ChatBotScreen] Chatbot marked as completed for user: $userId');
-    // =========================================================
 
     try {
       debugPrint(
@@ -115,6 +114,8 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     } catch (e) {
       debugPrint('[ChatBotScreen] Firestore permissions test failed: $e');
     }
+
+    if (!mounted) return;
 
     debugPrint(
         '[ChatBotScreen] Navigating to subscription screen: /subscription');
@@ -182,6 +183,8 @@ class _ChatBotScreenState extends State<ChatBotScreen>
             '[ChatBotScreen] Current Firebase Auth user email: ${currentUser.email}');
         debugPrint(
             '[ChatBotScreen] Current Firebase Auth user email verified: ${currentUser.emailVerified}');
+
+        if (!mounted) return;
 
         final weddingRepo =
             Provider.of<WeddingRepository>(context, listen: false);
@@ -280,11 +283,11 @@ class _ChatBotScreenState extends State<ChatBotScreen>
   }
 
   Widget _buildBotTyping() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
-        children: const [
+        children: [
           CircleAvatar(
             backgroundImage: AssetImage('assets/images/chatbot.png'),
           ),
@@ -429,7 +432,7 @@ class TypingIndicator extends StatefulWidget {
   const TypingIndicator({super.key});
 
   @override
-  _TypingIndicatorState createState() => _TypingIndicatorState();
+  State<TypingIndicator> createState() => _TypingIndicatorState();
 }
 
 class _TypingIndicatorState extends State<TypingIndicator>

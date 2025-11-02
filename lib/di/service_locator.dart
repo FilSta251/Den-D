@@ -30,7 +30,6 @@ import '../services/firestore_subscription_service.dart';
 import '../services/payment_service.dart';
 import '../services/analytics_service.dart';
 import '../utils/error_handler.dart';
-import '../di/service_locator.dart';
 
 // Repositories
 import '../repositories/user_repository.dart';

@@ -20,16 +20,27 @@ import 'security_service.dart';
 /// V odhlášení se odhlásí ze všech poskytovatelů najednou.
 class AuthService {
   /// Instance Firebase Auth SDK.
-  final fb.FirebaseAuth _auth = fb.FirebaseAuth.instance;
+  final fb.FirebaseAuth _auth;
 
   /// Google Sign-In klient pro verzi 6.2.1
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: <String>['email', 'profile'],
-    forceCodeForRefreshToken: true,
-  );
+  final GoogleSignIn _googleSignIn;
 
   /// Instance bezpečnostní služby pro správu tokenů
-  final SecurityService _securityService = SecurityService();
+  final SecurityService _securityService;
+
+  /// Konstruktor s dependency injection
+  /// Pokud nejsou poskytnuty závislosti, použijí se výchozí produkční instance
+  AuthService({
+    fb.FirebaseAuth? auth,
+    GoogleSignIn? googleSignIn,
+    SecurityService? securityService,
+  })  : _auth = auth ?? fb.FirebaseAuth.instance,
+        _googleSignIn = googleSignIn ??
+            GoogleSignIn(
+              scopes: <String>['email', 'profile'],
+              forceCodeForRefreshToken: true,
+            ),
+        _securityService = securityService ?? SecurityService();
 
   /// Stream, který vysílá změny stavu přihlášení (příchod/odchod uživatele).
   Stream<fb.User?> get authStateChanges => _auth.authStateChanges();

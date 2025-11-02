@@ -1,8 +1,7 @@
-/// lib/screens/auth_screen.dart - FINÁLNÍ FUNKČNÍ VERZE S VÍCEJAZYČNÝMI E-MAILY + APPLE SIGN IN
+/// lib/screens/auth_screen.dart - FINÁLNÍ FUNKČNÍ VERZE S VÍCEJAZYČNÝMI E-MAILY
 library;
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,7 +13,6 @@ import '../repositories/subscription_repository.dart';
 import '../services/auth_service.dart';
 import '../services/analytics_service.dart';
 import '../utils/validators.dart';
-import '../router/app_router.dart';
 import '../services/onboarding_manager.dart';
 import '../di/service_locator.dart';
 
@@ -278,7 +276,9 @@ class _AuthScreenState extends State<AuthScreen> {
       final fb.UserCredential? userCredential =
           await _authService.signInWithEmail(email, password);
 
-      if (userCredential != null && mounted) {
+      if (!mounted) return;
+
+      if (userCredential != null) {
         if (_analyticsService != null) {
           try {
             _analyticsService!.logEvent(name: 'login_email');
@@ -332,7 +332,9 @@ class _AuthScreenState extends State<AuthScreen> {
       final fb.UserCredential? userCredential =
           await _authService.signUpWithEmail(email, password);
 
-      if (userCredential != null && mounted) {
+      if (!mounted) return;
+
+      if (userCredential != null) {
         if (_analyticsService != null) {
           try {
             _analyticsService!.logEvent(name: 'register_email');
@@ -345,14 +347,14 @@ class _AuthScreenState extends State<AuthScreen> {
         debugPrint('Odesílám ověřovací e-mail v jazyce: $currentLanguage');
         await _authService.sendEmailVerification(languageCode: currentLanguage);
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(tr('registration_successful')),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(tr('registration_successful')),
+            backgroundColor: Colors.green,
+          ),
+        );
 
         await _saveRememberedEmail(email);
         await _navigateAfterRegistration();
@@ -381,7 +383,9 @@ class _AuthScreenState extends State<AuthScreen> {
       final fb.UserCredential? userCredential =
           await _authService.signInWithGoogle();
 
-      if (userCredential != null && mounted) {
+      if (!mounted) return;
+
+      if (userCredential != null) {
         if (_analyticsService != null) {
           try {
             _analyticsService!.logEvent(name: 'login_google');
@@ -412,46 +416,47 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  Future<void> _handleAppleSignIn() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = "";
-    });
+  // ❌ APPLE SIGN IN - ZAKOMENTOVÁNO
+  // Future<void> _handleAppleSignIn() async {
+  //   setState(() {
+  //     _isLoading = true;
+  //     _errorMessage = "";
+  //   });
 
-    try {
-      final fb.UserCredential? userCredential =
-          await _authService.signInWithApple();
+  //   try {
+  //     final fb.UserCredential? userCredential =
+  //         await _authService.signInWithApple();
 
-      if (userCredential != null && mounted) {
-        if (_analyticsService != null) {
-          try {
-            _analyticsService!.logEvent(name: 'login_apple');
-          } catch (e) {
-            debugPrint('Chyba při logování analytiky: $e');
-          }
-        }
+  //     if (userCredential != null && mounted) {
+  //       if (_analyticsService != null) {
+  //         try {
+  //           _analyticsService!.logEvent(name: 'login_apple');
+  //         } catch (e) {
+  //           debugPrint('Chyba při logování analytiky: $e');
+  //         }
+  //       }
 
-        await _saveRememberedEmail(userCredential.user?.email ?? '');
+  //       await _saveRememberedEmail(userCredential.user?.email ?? '');
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(tr('login_successful')),
-            backgroundColor: Colors.green,
-          ),
-        );
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text(tr('login_successful')),
+  //           backgroundColor: Colors.green,
+  //         ),
+  //       );
 
-        await _navigateAfterLogin();
-      }
-    } on fb.FirebaseAuthException catch (e) {
-      if (mounted) _showError(e.code);
-    } on AuthException catch (e) {
-      if (mounted) _showError(e.message);
-    } catch (e) {
-      if (mounted) _showError(e.toString());
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
+  //       await _navigateAfterLogin();
+  //     }
+  //   } on fb.FirebaseAuthException catch (e) {
+  //     if (mounted) _showError(e.code);
+  //   } on AuthException catch (e) {
+  //     if (mounted) _showError(e.message);
+  //   } catch (e) {
+  //     if (mounted) _showError(e.toString());
+  //   } finally {
+  //     if (mounted) setState(() => _isLoading = false);
+  //   }
+  // }
   // endregion
 
   // region: Zapomenuté heslo
@@ -487,14 +492,14 @@ class _AuthScreenState extends State<AuthScreen> {
         }
       }
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(tr('password_reset_sent', args: [email])),
-            backgroundColor: Colors.blue,
-          ),
-        );
-      }
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr('password_reset_sent', args: [email])),
+          backgroundColor: Colors.blue,
+        ),
+      );
     } on fb.FirebaseAuthException catch (e) {
       if (mounted) _showError(e.code);
     } catch (e) {
@@ -756,20 +761,21 @@ class _AuthScreenState extends State<AuthScreen> {
             label: Text(tr('continue_with_google')),
           ),
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: _isLoading ? null : _handleAppleSignIn,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-            icon: const Icon(Icons.apple, color: Colors.white, size: 24),
-            label: Text(tr('continue_with_apple')),
-          ),
-        ),
+        // ❌ APPLE SIGN IN TLAČÍTKO - ZAKOMENTOVÁNO
+        // const SizedBox(height: 12),
+        // SizedBox(
+        //   width: double.infinity,
+        //   child: ElevatedButton.icon(
+        //     onPressed: _isLoading ? null : _handleAppleSignIn,
+        //     style: ElevatedButton.styleFrom(
+        //       backgroundColor: Colors.black,
+        //       foregroundColor: Colors.white,
+        //       padding: const EdgeInsets.symmetric(vertical: 12),
+        //     ),
+        //     icon: const Icon(Icons.apple, color: Colors.white, size: 24),
+        //     label: Text(tr('continue_with_apple')),
+        //   ),
+        // ),
       ],
     );
   }

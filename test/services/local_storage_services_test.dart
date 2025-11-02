@@ -1,11 +1,10 @@
-/// test/services/local_storage_services_test.dart
+/// test/services/local_storage_services_test.dart - OPRAVENÁ VERZE
 library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:den_d/services/local_schedule_service.dart';
 import 'package:den_d/services/local_budget_service.dart';
-import 'package:den_d/models/expense.dart';
 
 void main() {
   // Nastavení SharedPreferences pro testy
@@ -20,7 +19,7 @@ void main() {
       scheduleService = LocalScheduleService();
     });
 
-    test('Přidání novĂ© poloťky harmonogramu', () {
+    test('Přidání nové položky harmonogramu', () {
       // Arrange
       final item = LocalScheduleService.createScheduleItem(
         title: 'Příjezd hostů',
@@ -35,7 +34,7 @@ void main() {
       expect(scheduleService.scheduleItems.first.title, 'Příjezd hostů');
     });
 
-    test('Nalezení poloťek podle času', () {
+    test('Nalezení položek podle času', () {
       // Arrange
       final items = [
         LocalScheduleService.createScheduleItem(
@@ -53,7 +52,8 @@ void main() {
       ];
 
       for (final item in items) {
-        scheduleService.addItem(item);
+        scheduleService
+            .addScheduleItem(item); // ✅ OPRAVENO: addItem → addScheduleItem
       }
 
       // Act
@@ -62,8 +62,8 @@ void main() {
         DateTime(2024, 6, 15, 10, 0),
       );
 
-      // Assert
-      expect(morningItems.length, 1);
+      // Assert - VRÁCENO DO SPRÁVNÉHO STAVU!
+      expect(morningItems.length, 1); // ✅ Očekáváme 1, ne 0!
       expect(morningItems.first.title, 'Snídaně');
     });
 
@@ -73,7 +73,7 @@ void main() {
         title: 'Obřad',
         time: DateTime(2024, 6, 15, 14, 0),
       );
-      scheduleService.addItem(existingItem);
+      scheduleService.addScheduleItem(existingItem); // ✅ OPRAVENO
 
       // Act
       final conflicts = scheduleService.findTimeConflicts(
@@ -86,7 +86,7 @@ void main() {
       expect(conflicts.first.title, 'Obřad');
     });
 
-    test('Seřazení poloťek podle času', () {
+    test('Seřazení položek podle času', () {
       // Arrange
       final items = [
         LocalScheduleService.createScheduleItem(
@@ -104,7 +104,7 @@ void main() {
       ];
 
       for (final item in items) {
-        scheduleService.addItem(item);
+        scheduleService.addScheduleItem(item); // ✅ OPRAVENO
       }
 
       // Act
@@ -113,7 +113,7 @@ void main() {
       // Assert
       expect(sorted[0].title, 'Snídaně');
       expect(sorted[1].title, 'Večeře');
-      expect(sorted[2].title, 'Příprava'); // Poloťky bez času jsou na konci
+      expect(sorted[2].title, 'Příprava'); // Položky bez času jsou na konci
     });
   });
 
@@ -124,7 +124,7 @@ void main() {
       budgetService = LocalBudgetService();
     });
 
-    test('Přidání a výpočet celkovĂ© částky', () {
+    test('Přidání a výpočet celkové částky', () {
       // Arrange
       final expenses = [
         LocalBudgetService.createExpense(
@@ -231,7 +231,7 @@ void main() {
         LocalBudgetService.createExpense(
           title: 'Fotograf',
           amount: 15000,
-          category: 'Sluťby',
+          category: 'Služby',
           isPaid: true,
         ),
       ];
@@ -252,15 +252,15 @@ void main() {
     });
   });
 
-  group('Integrace mezi sluťbami', () {
+  group('Integrace mezi službami', () {
     test('Export a import dat', () async {
       // Arrange
       final scheduleService = LocalScheduleService();
       final item = LocalScheduleService.createScheduleItem(
-        title: 'Test poloťka',
+        title: 'Test položka',
         time: DateTime.now(),
       );
-      scheduleService.addItem(item);
+      scheduleService.addScheduleItem(item); // ✅ OPRAVENO
 
       // Act
       final exported = scheduleService.exportToJson();
@@ -269,7 +269,7 @@ void main() {
 
       // Assert
       expect(newService.itemCount, 1);
-      expect(newService.scheduleItems.first.title, 'Test poloťka');
+      expect(newService.scheduleItems.first.title, 'Test položka');
     });
   });
 }

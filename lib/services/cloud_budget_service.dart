@@ -6,7 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart';
 import '../models/expense.dart';
 
-/// Sluťba pro cloudovou synchronizaci rozpočtu svatby.
+/// Služba pro cloudovou synchronizaci rozpočtu svatby.
 class CloudBudgetService {
   final FirebaseFirestore _firestore;
   final fb.FirebaseAuth _auth;
@@ -15,9 +15,8 @@ class CloudBudgetService {
   static const int _maxRetries = 3;
   static const int _baseDelayMs = 500;
 
-  // Cache pro offline pouťití
+  // Cache pro offline použití
   List<Expense>? _cachedExpenses;
-  DateTime? _cacheTimestamp;
 
   CloudBudgetService({
     FirebaseFirestore? firestore,
@@ -25,18 +24,18 @@ class CloudBudgetService {
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? fb.FirebaseAuth.instance;
 
-  /// Vrací ID aktuálně přihláĹˇenĂ©ho uťivatele, nebo null pokud není nikdo přihláĹˇen.
+  /// Vrací ID aktuálně přihlášeného uživatele, nebo null pokud není nikdo přihlášen.
   String? get _userId => _auth.currentUser?.uid;
 
-  /// Vrací referenci na kolekci rozpočtu pro aktuálního uťivatele.
+  /// Vrací referenci na kolekci rozpočtu pro aktuálního uživatele.
   CollectionReference<Map<String, dynamic>> _getExpensesCollection() {
     if (_userId == null) {
-      throw Exception('Uťivatel není přihláĹˇen.');
+      throw Exception('Uživatel není přihlášen.');
     }
     return _firestore.collection('users').doc(_userId).collection('budget');
   }
 
-  /// Získá stream poloťek rozpočtu, který se aktualizuje v reálnĂ©m čase.
+  /// Získá stream položek rozpočtu, který se aktualizuje v reálném čase.
   Stream<List<Expense>> getExpensesStream() {
     try {
       if (_userId == null) {
@@ -52,19 +51,18 @@ class CloudBudgetService {
           return Expense.fromJson(data);
         }).toList();
 
-        // Aktualizujeme cache při kaťdĂ©m novĂ©m stavu
+        // Aktualizujeme cache při každém novém stavu
         _cachedExpenses = items;
-        _cacheTimestamp = DateTime.now();
 
         return items;
       });
     } catch (e) {
-      debugPrint('Chyba při získávání streamu poloťek rozpočtu: $e');
+      debugPrint('Chyba při získávání streamu položek rozpočtu: $e');
       return Stream.value(_cachedExpenses ?? []);
     }
   }
 
-  /// Náčte poloťky rozpočtu z Firestore s retry logikou.
+  /// Načte položky rozpočtu z Firestore s retry logikou.
   Future<List<Expense>> fetchExpenses() async {
     if (_userId == null) {
       return _cachedExpenses ?? [];
@@ -82,22 +80,21 @@ class CloudBudgetService {
 
         // Aktualizujeme cache
         _cachedExpenses = items;
-        _cacheTimestamp = DateTime.now();
 
         return items;
       });
     } catch (e) {
-      debugPrint('Chyba při náčítání poloťek rozpočtu: $e');
+      debugPrint('Chyba při načítání položek rozpočtu: $e');
 
       // Vracíme cache v případě chyby
       return _cachedExpenses ?? [];
     }
   }
 
-  /// Přidá novou poloťku do rozpočtu.
+  /// Přidá novou položku do rozpočtu.
   Future<void> addExpense(Expense expense) async {
     if (_userId == null) {
-      throw Exception("Uťivatel není přihláĹˇen");
+      throw Exception("Uživatel není přihlášen");
     }
 
     await _withRetry<void>(() async {
@@ -106,15 +103,14 @@ class CloudBudgetService {
       // Aktualizujeme cache
       if (_cachedExpenses != null) {
         _cachedExpenses!.add(expense);
-        _cacheTimestamp = DateTime.now();
       }
     });
   }
 
-  /// Aktualizuje existující poloťku rozpočtu.
+  /// Aktualizuje existující položku rozpočtu.
   Future<void> updateExpense(Expense expense) async {
     if (_userId == null) {
-      throw Exception("Uťivatel není přihláĹˇen");
+      throw Exception("Uživatel není přihlášen");
     }
 
     await _withRetry<void>(() async {
@@ -125,16 +121,15 @@ class CloudBudgetService {
         final index = _cachedExpenses!.indexWhere((e) => e.id == expense.id);
         if (index >= 0) {
           _cachedExpenses![index] = expense;
-          _cacheTimestamp = DateTime.now();
         }
       }
     });
   }
 
-  /// Odstraní poloťku rozpočtu.
+  /// Odstraní položku rozpočtu.
   Future<void> removeExpense(String expenseId) async {
     if (_userId == null) {
-      throw Exception("Uťivatel není přihláĹˇen");
+      throw Exception("Uživatel není přihlášen");
     }
 
     await _withRetry<void>(() async {
@@ -143,12 +138,11 @@ class CloudBudgetService {
       // Aktualizujeme cache
       if (_cachedExpenses != null) {
         _cachedExpenses!.removeWhere((e) => e.id == expenseId);
-        _cacheTimestamp = DateTime.now();
       }
     });
   }
 
-  /// Vymaťe vĹˇechny poloťky rozpočtu.
+  /// Vymaže všechny položky rozpočtu.
   Future<void> clearAllExpenses() async {
     if (_userId == null) return;
 
@@ -165,11 +159,10 @@ class CloudBudgetService {
 
       // Aktualizujeme cache
       _cachedExpenses = [];
-      _cacheTimestamp = DateTime.now();
     });
   }
 
-  /// Získá časovou znáčku poslední synchronizace z Firestore
+  /// Získá časovou značku poslední synchronizace z Firestore
   Future<DateTime?> getLastSyncTimestamp() async {
     try {
       if (_userId == null) return null;
@@ -183,12 +176,12 @@ class CloudBudgetService {
       }
       return null;
     } catch (e) {
-      debugPrint('Chyba při získávání časovĂ© znáčky: $e');
+      debugPrint('Chyba při získávání časové značky: $e');
       return null;
     }
   }
 
-  /// Uloťí časovou znáčku poslední synchronizace do Firestore
+  /// Uloží časovou značku poslední synchronizace do Firestore
   Future<void> saveLastSyncTimestamp(DateTime timestamp) async {
     try {
       if (_userId == null) return;
@@ -197,11 +190,11 @@ class CloudBudgetService {
         'lastBudgetSync': Timestamp.fromDate(timestamp),
       }, SetOptions(merge: true));
     } catch (e) {
-      debugPrint('Chyba při ukládání časovĂ© znáčky: $e');
+      debugPrint('Chyba při ukládání časové značky: $e');
     }
   }
 
-  /// Synchronizuje poloťky z lokálního úloťiĹˇtě do cloudu.
+  /// Synchronizuje položky z lokálního úložiště do cloudu.
   Future<void> syncFromLocal(List<Expense> localExpenses) async {
     if (_userId == null || localExpenses.isEmpty) return;
 
@@ -213,7 +206,7 @@ class CloudBudgetService {
       final cloudExpenseIds = snapshot.docs.map((doc) => doc.id).toSet();
       final localExpenseIds = localExpenses.map((e) => e.id).toSet();
 
-      // 2. Určíme, kterĂ© poloťky musíme přidat, aktualizovat nebo odstranit
+      // 2. Určíme, které položky musíme přidat, aktualizovat nebo odstranit
       final toAdd =
           localExpenses.where((e) => !cloudExpenseIds.contains(e.id)).toList();
       final toUpdate =
@@ -224,19 +217,19 @@ class CloudBudgetService {
       // 3. Vytvoříme batch operace pro efektivní aktualizaci
       final batch = _firestore.batch();
 
-      // Přidání nových poloťek
+      // Přidání nových položek
       for (final expense in toAdd) {
         final docRef = _getExpensesCollection().doc(expense.id);
         batch.set(docRef, expense.toJson());
       }
 
-      // Aktualizace existujících poloťek
+      // Aktualizace existujících položek
       for (final expense in toUpdate) {
         final docRef = _getExpensesCollection().doc(expense.id);
         batch.update(docRef, expense.toJson());
       }
 
-      // Odstranění chybějících poloťek
+      // Odstranění chybějících položek
       for (final id in toRemove) {
         final docRef = _getExpensesCollection().doc(id);
         batch.delete(docRef);
@@ -245,16 +238,14 @@ class CloudBudgetService {
       // 4. Provedeme batch operaci
       await batch.commit();
 
-      // 5. Uloťíme časovou znáčku synchronizace
-      final now = DateTime.now();
-      await saveLastSyncTimestamp(now);
+      // 5. Uložíme časovou značku synchronizace
+      await saveLastSyncTimestamp(DateTime.now());
 
       // Aktualizujeme cache
       _cachedExpenses = List.from(localExpenses);
-      _cacheTimestamp = now;
 
       debugPrint(
-          "Synchronizace dokončena: přidáno ${toAdd.length}, aktualizováno ${toUpdate.length}, odstraněno ${toRemove.length} poloťek");
+          "Synchronizace dokončena: přidáno ${toAdd.length}, aktualizováno ${toUpdate.length}, odstraněno ${toRemove.length} položek");
     });
   }
 

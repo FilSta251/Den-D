@@ -1,8 +1,6 @@
-/// lib/services/budget_manager.dart
-library;
+// lib/services/budget_manager.dart
 
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -21,17 +19,17 @@ enum SyncState {
   offline,
 }
 
-/// Manager pro synchronizaci poloťek rozpočtu mezi lokálním úloťiĹˇtěm a cloudem.
+/// Manager pro synchronizaci položek rozpočtu mezi lokálním úložištěm a cloudem.
 ///
-/// DĹ®LEĹ˝ITĂ‰: Tento manager spravuje pouze jednotlivĂ© poloťky výdajů (Expense),
-/// nikoliv celkový rozpočet svatby, který je uloťen v kolekci wedding_info a
+/// DŮLEŽITÉ: Tento manager spravuje pouze jednotlivé položky výdajů (Expense),
+/// nikoliv celkový rozpočet svatby, který je uložen v kolekci wedding_info a
 /// je spravován prostřednictvím WeddingRepository.
 class BudgetManager extends ChangeNotifier {
   final LocalBudgetService _localService;
   final CloudBudgetService _cloudService;
   final fb.FirebaseAuth _auth;
 
-  // Synchronizáční stav
+  // Synchronizační stav
   SyncState _syncState = SyncState.idle;
   SyncState get syncState => _syncState;
   String? _syncError;
@@ -47,7 +45,6 @@ class BudgetManager extends ChangeNotifier {
   // Interní stav
   StreamSubscription? _cloudSubscription;
   StreamSubscription? _authSubscription;
-  bool _initialized = false;
   bool _localDataLoaded = false;
   Timer? _syncTimer;
   Timer? _debounceTimer;
@@ -82,7 +79,7 @@ class BudgetManager extends ChangeNotifier {
       if (user != null) {
         final newUserId = user.uid;
         if (_currentUserId != newUserId) {
-          debugPrint("BudgetManager: Nový uťivatel přihláĹˇen: ${user.uid}");
+          debugPrint("BudgetManager: Nový uživatel přihlášen: ${user.uid}");
 
           _currentUserId = newUserId;
 
@@ -132,7 +129,7 @@ class BudgetManager extends ChangeNotifier {
         _isOnline = true;
         await _syncPendingChanges();
       } else if (!isConnected && _isOnline) {
-        debugPrint("BudgetManager: Offline reťim");
+        debugPrint("BudgetManager: Offline režim");
         _isOnline = false;
         _setSyncState(SyncState.offline);
       }
@@ -160,6 +157,8 @@ class BudgetManager extends ChangeNotifier {
   /// Kontrola free limitu před přidáním výdaje
   Future<bool> _checkFreeLimit(BuildContext context) async {
     try {
+      if (!context.mounted) return false;
+
       final subscriptionProvider =
           Provider.of<SubscriptionProvider>(context, listen: false);
 
@@ -167,6 +166,8 @@ class BudgetManager extends ChangeNotifier {
           .registerInteraction(InteractionType.addExpense);
 
       if (!canUse) {
+        if (!context.mounted) return false;
+
         final result = await SubscriptionOfferDialog.show(
           context,
           source: 'budget_limit',
@@ -248,8 +249,6 @@ class BudgetManager extends ChangeNotifier {
     _setSyncState(SyncState.syncing);
 
     try {
-      final lastCloudSync = await _cloudService.getLastSyncTimestamp();
-
       final cloudExpenses = await _cloudService.fetchExpenses();
 
       await _loadLocalData();
@@ -266,7 +265,6 @@ class BudgetManager extends ChangeNotifier {
 
       _enableCloudSync();
 
-      _initialized = true;
       _setSyncState(SyncState.idle);
     } catch (e) {
       debugPrint("BudgetManager: Chyba při inicializaci: $e");
@@ -326,7 +324,6 @@ class BudgetManager extends ChangeNotifier {
   void _disableCloudSync() {
     _cloudSubscription?.cancel();
     _cloudSubscription = null;
-    _initialized = false;
   }
 
   void _handleLocalChanges() {
@@ -338,7 +335,7 @@ class BudgetManager extends ChangeNotifier {
     });
   }
 
-  // === VeřejnĂ© metody s free limit kontrolou ===
+  // === Veřejné metody s free limit kontrolou ===
 
   /// Přidá nový výdaj do rozpočtu s kontrolou free limitu.
   Future<bool> addExpense(Expense expense, BuildContext context) async {
@@ -388,7 +385,7 @@ class BudgetManager extends ChangeNotifier {
     _attemptSynchronization();
   }
 
-  /// Vyčistí vĹˇechny výdaje rozpočtu.
+  /// Vyčistí všechny výdaje rozpočtu.
   void clearAllExpenses() {
     final allExpenses = List<Expense>.from(_localService.expenses);
 
@@ -405,7 +402,7 @@ class BudgetManager extends ChangeNotifier {
     _attemptSynchronization();
   }
 
-  /// VynucenĂ© náčtení výdajů z cloudu.
+  /// Vynucené načtení výdajů z cloudu.
   Future<void> forceRefreshFromCloud() async {
     if (_auth.currentUser == null || !_isOnline) {
       if (!_isOnline) {
@@ -429,7 +426,7 @@ class BudgetManager extends ChangeNotifier {
 
       _setSyncState(SyncState.idle);
     } catch (e) {
-      debugPrint("BudgetManager: Chyba při náčítání z cloudu: $e");
+      debugPrint("BudgetManager: Chyba při načítání z cloudu: $e");
       _setSyncState(SyncState.error, e.toString());
     }
   }
@@ -473,7 +470,7 @@ class BudgetManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Vymaťe frontu nevyřízených změn
+  /// Vymaže frontu nevyřízených změn
   void clearPendingChanges() {
     _pendingChanges.clear();
     _pendingSyncOperations = 0;
@@ -489,12 +486,12 @@ class BudgetManager extends ChangeNotifier {
     }
   }
 
-  /// Exportuje poloťky rozpočtu do JSON formátu.
+  /// Exportuje položky rozpočtu do JSON formátu.
   String exportToJson() {
     return _localService.exportToJson();
   }
 
-  /// Importuje poloťky rozpočtu z JSON formátu.
+  /// Importuje položky rozpočtu z JSON formátu.
   Future<void> importFromJson(String jsonData) async {
     await _localService.importFromJson(jsonData);
     _pendingSyncOperations++;
@@ -504,7 +501,7 @@ class BudgetManager extends ChangeNotifier {
   /// Seznam výdajů rozpočtu.
   List<Expense> get expenses => _localService.expenses;
 
-  /// Indikátor náčítání.
+  /// Indikátor načítání.
   bool get isLoading =>
       _localService.isLoading || _syncState == SyncState.syncing;
 
@@ -515,7 +512,7 @@ class BudgetManager extends ChangeNotifier {
   double get totalPending =>
       expenses.fold(0.0, (sum, exp) => sum + exp.pending);
 
-  /// Vypočítá celkovĂ© výdaje (zaplacenĂ© + očekávanĂ©)
+  /// Vypočítá celkové výdaje (zaplacené + očekávané)
   double get totalExpenses => totalPaid + totalPending;
 
   @override

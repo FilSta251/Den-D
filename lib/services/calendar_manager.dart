@@ -1,5 +1,4 @@
-/// lib/services/calendar_manager.dart
-library;
+// lib/services/calendar_manager.dart
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
@@ -9,13 +8,21 @@ import '../models/calendar_event.dart';
 import '../services/local_calendar_service.dart';
 import '../services/cloud_calendar_service.dart';
 
-/// Manager pro synchronizaci kalendáře mezi lokálním úloťiĹˇtěm a cloudem.
+/// Enum pro sledování stavu synchronizace
+enum SyncState {
+  idle,
+  syncing,
+  error,
+  offline,
+}
+
+/// Manager pro synchronizaci kalendáře mezi lokálním úložištěm a cloudem.
 class CalendarManager extends ChangeNotifier {
   final LocalCalendarService _localService;
   final CloudCalendarService _cloudService;
   final fb.FirebaseAuth _auth;
 
-  // Synchronizáční stav
+  // Synchronizační stav
   SyncState _syncState = SyncState.idle;
   SyncState get syncState => _syncState;
   String? _syncError;
@@ -31,7 +38,6 @@ class CalendarManager extends ChangeNotifier {
   // Interní stav
   StreamSubscription? _eventsCloudSubscription;
   StreamSubscription? _authSubscription;
-  bool _initialized = false;
   bool _localDataLoaded = false;
   Timer? _syncTimer;
   Timer? _debounceTimer;
@@ -68,7 +74,7 @@ class CalendarManager extends ChangeNotifier {
       if (user != null) {
         final newUserId = user.uid;
         if (_currentUserId != newUserId) {
-          debugPrint("CalendarManager: Nový uťivatel přihláĹˇen: $newUserId");
+          debugPrint("CalendarManager: Nový uživatel přihlášen: $newUserId");
           _currentUserId = newUserId;
           _localService.removeListener(_handleLocalChanges);
           _localService.clearAllItems();
@@ -99,7 +105,7 @@ class CalendarManager extends ChangeNotifier {
       _attemptSynchronization();
     });
 
-    // Registrace poslucháče lokálních změn
+    // Registrace posluchače lokálních změn
     _localService.addListener(_handleLocalChanges);
   }
 
@@ -114,7 +120,7 @@ class CalendarManager extends ChangeNotifier {
         _isOnline = true;
         await _syncPendingChanges();
       } else if (!isConnected && _isOnline) {
-        debugPrint("CalendarManager: Offline reťim");
+        debugPrint("CalendarManager: Offline režim");
         _isOnline = false;
         _setSyncState(SyncState.offline);
       }
@@ -204,7 +210,6 @@ class CalendarManager extends ChangeNotifier {
         await _cloudService.syncFromLocal(_localService.events);
       }
       _enableCloudSync();
-      _initialized = true;
       _setSyncState(SyncState.idle);
     } catch (e) {
       debugPrint("CalendarManager: Chyba při inicializaci: $e");
@@ -253,7 +258,6 @@ class CalendarManager extends ChangeNotifier {
   void _disableCloudSync() {
     _eventsCloudSubscription?.cancel();
     _eventsCloudSubscription = null;
-    _initialized = false;
   }
 
   void _handleLocalChanges() {
@@ -264,7 +268,7 @@ class CalendarManager extends ChangeNotifier {
     });
   }
 
-  // === VeřejnĂ© metody pro práci s událostmi ===
+  // === Veřejné metody pro práci s událostmi ===
 
   void addEvent(CalendarEvent event) {
     _localService.addEvent(event);
@@ -361,7 +365,7 @@ class CalendarManager extends ChangeNotifier {
       _localService.addListener(_handleLocalChanges);
       _setSyncState(SyncState.idle);
     } catch (e) {
-      debugPrint("CalendarManager: Chyba při náčítání z cloudu: $e");
+      debugPrint("CalendarManager: Chyba při načítání z cloudu: $e");
       _setSyncState(SyncState.error, e.toString());
     }
   }
@@ -435,12 +439,4 @@ class CalendarManager extends ChangeNotifier {
     _localService.removeListener(_handleLocalChanges);
     super.dispose();
   }
-}
-
-/// Enum pro sledování stavu synchronizace
-enum SyncState {
-  idle,
-  syncing,
-  error,
-  offline,
 }

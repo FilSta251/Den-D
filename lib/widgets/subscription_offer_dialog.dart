@@ -1,10 +1,10 @@
 /// lib/widgets/subscription_offer_dialog.dart
+library;
 
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import '../providers/subscription_provider.dart';
 import '../services/payment_service.dart';
 import '../router/app_router.dart';
 
@@ -59,14 +59,18 @@ class _SubscriptionOfferDialogState extends State<SubscriptionOfferDialog> {
       final products = await paymentService.loadProducts();
 
       if (products.isNotEmpty) {
-        setState(() {
-          _premiumProduct = paymentService.getPremiumProduct();
-        });
+        if (mounted) {
+          setState(() {
+            _premiumProduct = paymentService.getPremiumProduct();
+          });
+        }
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = tr('subs.error.loading_products');
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = tr('subs.error.loading_products');
+        });
+      }
     }
   }
 
@@ -84,16 +88,21 @@ class _SubscriptionOfferDialogState extends State<SubscriptionOfferDialog> {
     });
 
     try {
+      if (!mounted) return;
+
       final paymentService =
           Provider.of<PaymentService>(context, listen: false);
       await paymentService.buyPremium(_premiumProduct!);
 
+      if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (e) {
-      setState(() {
-        _errorMessage = tr('subs.error.purchase_failed');
-        _isProcessing = false;
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = tr('subs.error.purchase_failed');
+          _isProcessing = false;
+        });
+      }
     }
   }
 
@@ -255,7 +264,7 @@ class _SubscriptionOfferDialogState extends State<SubscriptionOfferDialog> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.pink.shade300.withOpacity(0.5),
+                      color: Colors.pink.shade300.withValues(alpha: 0.5),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -287,7 +296,7 @@ class _SubscriptionOfferDialogState extends State<SubscriptionOfferDialog> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -321,7 +330,7 @@ class _SubscriptionOfferDialogState extends State<SubscriptionOfferDialog> {
                       ? null
                       : _purchasePremium,
                   child: _isProcessing
-                      ? SizedBox(
+                      ? const SizedBox(
                           width: 24,
                           height: 24,
                           child: CircularProgressIndicator(

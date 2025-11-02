@@ -107,14 +107,15 @@ class CustomErrorWidget extends StatelessWidget {
                 Text(
                   detailMessage!,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
+                    color: theme.textTheme.bodyMedium?.color
+                        ?.withValues(alpha: 0.7),
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
               ],
 
-              // KĂłd chyby
+              // Kód chyby
               if (errorCode != null) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -125,7 +126,7 @@ class CustomErrorWidget extends StatelessWidget {
                     color: theme.colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: errorColor.withOpacity(0.3),
+                      color: errorColor.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
@@ -158,7 +159,7 @@ class CustomErrorWidget extends StatelessWidget {
                 const SizedBox(height: 24),
               ],
 
-              // Akční tláčítka
+              // Akční tlačítka
               Column(
                 children: [
                   // Hlavní akce (Retry)
@@ -200,7 +201,7 @@ class CustomErrorWidget extends StatelessWidget {
                   // Vlastní akce
                   if (customAction != null) customAction!,
 
-                  // Report tláčítko
+                  // Report tlačítko
                   if (showReportButton)
                     TextButton.icon(
                       onPressed:
@@ -216,12 +217,12 @@ class CustomErrorWidget extends StatelessWidget {
 
               const SizedBox(height: 32),
 
-              // Tip pro uťivatele
+              // Tip pro uživatele
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHighest
-                      .withOpacity(0.5),
+                      .withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -254,7 +255,7 @@ class CustomErrorWidget extends StatelessWidget {
       width: 80,
       height: 80,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         shape: BoxShape.circle,
       ),
       child: Icon(
@@ -287,7 +288,6 @@ class CustomErrorWidget extends StatelessWidget {
       case ErrorWidgetType.storage:
         return Icons.storage;
       case ErrorWidgetType.unknown:
-      default:
         return Icons.error;
     }
   }
@@ -314,7 +314,6 @@ class CustomErrorWidget extends StatelessWidget {
       case ErrorWidgetType.storage:
         return Colors.indigo;
       case ErrorWidgetType.unknown:
-      default:
         return theme.colorScheme.error;
     }
   }
@@ -341,7 +340,6 @@ class CustomErrorWidget extends StatelessWidget {
       case ErrorWidgetType.storage:
         return tr('error_help_storage');
       case ErrorWidgetType.unknown:
-      default:
         return tr('error_help_unknown');
     }
   }
@@ -357,7 +355,7 @@ class CustomErrorWidget extends StatelessWidget {
     );
   }
 
-  /// Zobrazí dialog pro nahláĹˇení chyby
+  /// Zobrazí dialog pro nahlášení chyby
   void _showReportDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -424,7 +422,7 @@ class CustomErrorWidget extends StatelessWidget {
   }
 }
 
-/// Factory pro rychlĂ© vytvoření běťných error widgetů
+/// Factory pro rychlé vytvoření běžných error widgetů
 class ErrorWidgetFactory {
   static Widget networkError({VoidCallback? onRetry}) {
     return CustomErrorWidget(

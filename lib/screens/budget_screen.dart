@@ -607,9 +607,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
           final expenses = budgetManager.expenses;
 
           final double paidAmount = budgetManager.totalPaid;
-          final double pendingAmount = budgetManager.totalPending;
-          final double remainingAmount =
-              totalBudget - paidAmount - pendingAmount;
+          final double remainingAmount = totalBudget - paidAmount;
           final double usedPercentage =
               (totalBudget > 0) ? (paidAmount / totalBudget).clamp(0, 1) : 0;
 
@@ -635,12 +633,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
                               "${tr('paid')}: ${paidAmount.toStringAsFixed(2)} ${tr('currency')}",
                               style: const TextStyle(
                                   color: Colors.green, fontSize: 16),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              "${tr('pending')}: ${pendingAmount.toStringAsFixed(2)} ${tr('currency')}",
-                              style: const TextStyle(
-                                  color: Colors.orange, fontSize: 16),
                             ),
                             const SizedBox(height: 4),
                             Text(

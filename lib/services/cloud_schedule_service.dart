@@ -6,13 +6,13 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart';
 import '../services/local_schedule_service.dart';
 
-/// Sluťba pro cloudovou synchronizaci harmonogramu svatby.
+/// Služba pro cloudovou synchronizaci harmonogramu svatby.
 ///
-/// UmoťĹuje:
+/// Umožňuje:
 /// - Ukládání harmonogramu do Firestore
-/// - Náčítání harmonogramu z Firestore
+/// - Načítání harmonogramu z Firestore
 /// - Synchronizaci mezi zařízeními
-/// - Sledování změn v reálnĂ©m čase
+/// - Sledování změn v reálném čase
 class CloudScheduleService {
   final FirebaseFirestore _firestore;
   final fb.FirebaseAuth _auth;
@@ -21,9 +21,8 @@ class CloudScheduleService {
   static const int _maxRetries = 3;
   static const int _baseDelayMs = 500;
 
-  // Cache pro offline pouťití
+  // Cache pro offline použití
   List<ScheduleItem>? _cachedItems;
-  DateTime? _cacheTimestamp;
 
   CloudScheduleService({
     FirebaseFirestore? firestore,
@@ -31,18 +30,18 @@ class CloudScheduleService {
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? fb.FirebaseAuth.instance;
 
-  /// Vrací ID aktuálně přihláĹˇenĂ©ho uťivatele, nebo null pokud není nikdo přihláĹˇen.
+  /// Vrací ID aktuálně přihlášeného uživatele, nebo null pokud není nikdo přihlášen.
   String? get _userId => _auth.currentUser?.uid;
 
-  /// Vrací referenci na kolekci harmonogramu pro aktuálního uťivatele.
+  /// Vrací referenci na kolekci harmonogramu pro aktuálního uživatele.
   CollectionReference<Map<String, dynamic>> _getScheduleCollection() {
     if (_userId == null) {
-      throw Exception('Uťivatel není přihláĹˇen.');
+      throw Exception('Uživatel není přihlášen.');
     }
     return _firestore.collection('users').doc(_userId).collection('schedule');
   }
 
-  /// Získá stream poloťek harmonogramu, který se aktualizuje v reálnĂ©m čase.
+  /// Získá stream položek harmonogramu, který se aktualizuje v reálném čase.
   Stream<List<ScheduleItem>> getScheduleItemsStream() {
     try {
       if (_userId == null) {
@@ -59,19 +58,18 @@ class CloudScheduleService {
           return ScheduleItem.fromJson(data);
         }).toList();
 
-        // Aktualizujeme cache při kaťdĂ©m novĂ©m stavu
+        // Aktualizujeme cache při každém novém stavu
         _cachedItems = items;
-        _cacheTimestamp = DateTime.now();
 
         return items;
       });
     } catch (e) {
-      debugPrint('Chyba při získávání streamu poloťek harmonogramu: $e');
+      debugPrint('Chyba při získávání streamu položek harmonogramu: $e');
       return Stream.value(_cachedItems ?? []);
     }
   }
 
-  /// Náčte poloťky harmonogramu z Firestore s retry logikou.
+  /// Načte položky harmonogramu z Firestore s retry logikou.
   Future<List<ScheduleItem>> fetchScheduleItems() async {
     if (_userId == null) {
       return _cachedItems ?? [];
@@ -91,22 +89,21 @@ class CloudScheduleService {
 
         // Aktualizujeme cache
         _cachedItems = items;
-        _cacheTimestamp = DateTime.now();
 
         return items;
       });
     } catch (e) {
-      debugPrint('Chyba při náčítání poloťek harmonogramu: $e');
+      debugPrint('Chyba při načítání položek harmonogramu: $e');
 
       // Vracíme cache v případě chyby
       return _cachedItems ?? [];
     }
   }
 
-  /// Přidá novou poloťku do harmonogramu.
+  /// Přidá novou položku do harmonogramu.
   Future<void> addItem(ScheduleItem item) async {
     if (_userId == null) {
-      throw Exception("Uťivatel není přihláĹˇen");
+      throw Exception("Uživatel není přihlášen");
     }
 
     await _withRetry<void>(() async {
@@ -115,15 +112,14 @@ class CloudScheduleService {
       // Aktualizujeme cache
       if (_cachedItems != null) {
         _cachedItems!.add(item);
-        _cacheTimestamp = DateTime.now();
       }
     });
   }
 
-  /// Aktualizuje existující poloťku harmonogramu.
+  /// Aktualizuje existující položku harmonogramu.
   Future<void> updateItem(ScheduleItem item) async {
     if (_userId == null) {
-      throw Exception("Uťivatel není přihláĹˇen");
+      throw Exception("Uživatel není přihlášen");
     }
 
     await _withRetry<void>(() async {
@@ -134,16 +130,15 @@ class CloudScheduleService {
         final index = _cachedItems!.indexWhere((e) => e.id == item.id);
         if (index >= 0) {
           _cachedItems![index] = item;
-          _cacheTimestamp = DateTime.now();
         }
       }
     });
   }
 
-  /// Odstraní poloťku harmonogramu.
+  /// Odstraní položku harmonogramu.
   Future<void> removeItem(String itemId) async {
     if (_userId == null) {
-      throw Exception("Uťivatel není přihláĹˇen");
+      throw Exception("Uživatel není přihlášen");
     }
 
     await _withRetry<void>(() async {
@@ -152,12 +147,11 @@ class CloudScheduleService {
       // Aktualizujeme cache
       if (_cachedItems != null) {
         _cachedItems!.removeWhere((e) => e.id == itemId);
-        _cacheTimestamp = DateTime.now();
       }
     });
   }
 
-  /// Vymaťe vĹˇechny poloťky harmonogramu.
+  /// Vymaže všechny položky harmonogramu.
   Future<void> clearAllItems() async {
     if (_userId == null) return;
 
@@ -174,11 +168,10 @@ class CloudScheduleService {
 
       // Aktualizujeme cache
       _cachedItems = [];
-      _cacheTimestamp = DateTime.now();
     });
   }
 
-  /// Získá časovou znáčku poslední synchronizace z Firestore
+  /// Získá časovou značku poslední synchronizace z Firestore
   Future<DateTime?> getLastSyncTimestamp() async {
     try {
       if (_userId == null) return null;
@@ -192,12 +185,12 @@ class CloudScheduleService {
       }
       return null;
     } catch (e) {
-      debugPrint('Chyba při získávání časovĂ© znáčky: $e');
+      debugPrint('Chyba při získávání časové značky: $e');
       return null;
     }
   }
 
-  /// Uloťí časovou znáčku poslední synchronizace do Firestore
+  /// Uloží časovou značku poslední synchronizace do Firestore
   Future<void> saveLastSyncTimestamp(DateTime timestamp) async {
     try {
       if (_userId == null) return;
@@ -206,11 +199,11 @@ class CloudScheduleService {
         'lastScheduleSync': Timestamp.fromDate(timestamp),
       }, SetOptions(merge: true));
     } catch (e) {
-      debugPrint('Chyba při ukládání časovĂ© znáčky: $e');
+      debugPrint('Chyba při ukládání časové značky: $e');
     }
   }
 
-  /// Synchronizuje poloťky z lokálního úloťiĹˇtě do cloudu.
+  /// Synchronizuje položky z lokálního úložiště do cloudu.
   Future<void> syncFromLocal(List<ScheduleItem> localItems) async {
     if (_userId == null || localItems.isEmpty) return;
 
@@ -222,7 +215,7 @@ class CloudScheduleService {
       final cloudItemIds = snapshot.docs.map((doc) => doc.id).toSet();
       final localItemIds = localItems.map((e) => e.id).toSet();
 
-      // 2. Určíme, kterĂ© poloťky musíme přidat, aktualizovat nebo odstranit
+      // 2. Určíme, které položky musíme přidat, aktualizovat nebo odstranit
       final toAdd =
           localItems.where((e) => !cloudItemIds.contains(e.id)).toList();
       final toUpdate =
@@ -233,21 +226,21 @@ class CloudScheduleService {
       // 3. Vytvoříme batch operace pro efektivní aktualizaci
       final batch = _firestore.batch();
 
-      // Přidání nových poloťek
+      // Přidání nových položek
       for (final item in toAdd) {
         final updatedItem = item.copyWith(lastModified: DateTime.now());
         final docRef = _getScheduleCollection().doc(item.id);
         batch.set(docRef, updatedItem.toJson());
       }
 
-      // Aktualizace existujících poloťek
+      // Aktualizace existujících položek
       for (final item in toUpdate) {
         final updatedItem = item.copyWith(lastModified: DateTime.now());
         final docRef = _getScheduleCollection().doc(item.id);
         batch.update(docRef, updatedItem.toJson());
       }
 
-      // Odstranění chybějících poloťek
+      // Odstranění chybějících položek
       for (final id in toRemove) {
         final docRef = _getScheduleCollection().doc(id);
         batch.delete(docRef);
@@ -256,16 +249,14 @@ class CloudScheduleService {
       // 4. Provedeme batch operaci
       await batch.commit();
 
-      // 5. Uloťíme časovou znáčku synchronizace
-      final now = DateTime.now();
-      await saveLastSyncTimestamp(now);
+      // 5. Uložíme časovou značku synchronizace
+      await saveLastSyncTimestamp(DateTime.now());
 
       // Aktualizujeme cache
       _cachedItems = List.from(localItems);
-      _cacheTimestamp = now;
 
       debugPrint(
-          "Synchronizace dokončena: přidáno ${toAdd.length}, aktualizováno ${toUpdate.length}, odstraněno ${toRemove.length} poloťek");
+          "Synchronizace dokončena: přidáno ${toAdd.length}, aktualizováno ${toUpdate.length}, odstraněno ${toRemove.length} položek");
     });
   }
 

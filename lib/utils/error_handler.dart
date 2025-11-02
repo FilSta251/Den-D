@@ -8,7 +8,6 @@ import "package:firebase_crashlytics/firebase_crashlytics.dart";
 import "package:easy_localization/easy_localization.dart";
 import "../services/navigation_service.dart";
 import "../services/crash_reporting_service.dart";
-import "../di/service_locator.dart" as di;
 import '../di/service_locator.dart' show locator;
 
 /// Globální zpracování chyb v aplikaci.

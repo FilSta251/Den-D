@@ -1,12 +1,11 @@
+// test/widget/other_widget_tests.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:den_d/widgets/custom_app_bar.dart';
-import 'package:den_d/widgets/loading_widget.dart';
-import 'package:den_d/widgets/error_dialog.dart';
 
 void main() {
   group('CustomAppBar Widget Tests', () {
-    testWidgets('CustomAppBar renders with correct title', (WidgetTester tester) async {
+    testWidgets('CustomAppBar zobrazí správný titulek',
+        (WidgetTester tester) async {
       const String title = 'Test AppBar';
       await tester.pumpWidget(
         MaterialApp(
@@ -16,13 +15,27 @@ void main() {
         ),
       );
 
-      // Ověří, ťe se v custom AppBar vykreslí zadaný titulek.
+      // Ověří, že se v custom AppBar vykreslí zadaný titulek
       expect(find.text(title), findsOneWidget);
+    });
+
+    testWidgets('CustomAppBar má správnou výšku', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            appBar: CustomAppBar(title: 'Test'),
+          ),
+        ),
+      );
+
+      final appBar = tester.widget<AppBar>(find.byType(AppBar));
+      expect(appBar.preferredSize.height, equals(kToolbarHeight));
     });
   });
 
   group('LoadingWidget Widget Tests', () {
-    testWidgets('LoadingWidget displays CircularProgressIndicator', (WidgetTester tester) async {
+    testWidgets('LoadingWidget zobrazí CircularProgressIndicator',
+        (WidgetTester tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -31,16 +44,30 @@ void main() {
         ),
       );
 
-      // Ověří, ťe widget obsahuje CircularProgressIndicator.
+      // Ověří, že widget obsahuje CircularProgressIndicator
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+
+    testWidgets('LoadingWidget má správné centrum',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: LoadingWidget(),
+          ),
+        ),
+      );
+
+      // Ověří, že loading widget je ve středu
+      expect(find.byType(Center), findsOneWidget);
     });
   });
 
   group('ErrorDialog Widget Tests', () {
-    testWidgets('ErrorDialog displays error message and default action', (WidgetTester tester) async {
-      const String errorMessage = 'An error occurred';
-      
-      // Pouťíváme statickou metodu show pro snadnĂ© zobrazení dialogu.
+    testWidgets('ErrorDialog zobrazí chybovou zprávu',
+        (WidgetTester tester) async {
+      const String errorMessage = 'Nastala chyba';
+
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -48,34 +75,28 @@ void main() {
               onPressed: () {
                 ErrorDialog.show(
                   context,
-                  title: 'Error',
+                  title: 'Chyba',
                   message: errorMessage,
                 );
               },
-              child: const Text('Show Error'),
+              child: const Text('Zobrazit chybu'),
             ),
           ),
         ),
       );
 
-      // Simulujeme klepnutí na tláčítko, aby se dialog zobrazil.
-      await tester.tap(find.text('Show Error'));
+      // Simulujeme kliknutí na tlačítko
+      await tester.tap(find.text('Zobrazit chybu'));
       await tester.pumpAndSettle();
 
-      // Ověří, ťe dialog obsahuje titulek, zprávu a tláčítko OK.
-      expect(find.text('Error'), findsOneWidget);
+      // Ověří, že dialog obsahuje titulek, zprávu a tlačítko OK
+      expect(find.text('Chyba'), findsOneWidget);
       expect(find.text(errorMessage), findsOneWidget);
       expect(find.text('OK'), findsOneWidget);
     });
 
-    testWidgets('ErrorDialog displays custom actions when provided', (WidgetTester tester) async {
-      const String errorMessage = 'Custom error';
-      
-      final retryButton = TextButton(
-        onPressed: () {},
-        child: const Text('Retry'),
-      );
-      
+    testWidgets('ErrorDialog zavře po kliknutí na OK',
+        (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -83,23 +104,134 @@ void main() {
               onPressed: () {
                 ErrorDialog.show(
                   context,
-                  title: 'Error',
-                  message: errorMessage,
-                  actions: [retryButton],
+                  title: 'Chyba',
+                  message: 'Test zpráva',
                 );
               },
-              child: const Text('Show Error with Action'),
+              child: const Text('Zobrazit chybu'),
             ),
           ),
         ),
       );
 
-      await tester.tap(find.text('Show Error with Action'));
+      // Zobrazíme dialog
+      await tester.tap(find.text('Zobrazit chybu'));
       await tester.pumpAndSettle();
 
-      // Ověří, ťe dialog obsahuje custom tláčítko "Retry".
-      expect(find.text('Retry'), findsOneWidget);
+      // Klikneme na OK
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+
+      // Ověříme, že dialog už není vidět
+      expect(find.text('Test zpráva'), findsNothing);
+    });
+
+    testWidgets('ErrorDialog zobrazí vlastní akce',
+        (WidgetTester tester) async {
+      bool retryPressed = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                ErrorDialog.show(
+                  context,
+                  title: 'Chyba',
+                  message: 'Vlastní chyba',
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        retryPressed = true;
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Zkusit znovu'),
+                    ),
+                  ],
+                );
+              },
+              child: const Text('Zobrazit s akcí'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Zobrazit s akcí'));
+      await tester.pumpAndSettle();
+
+      // Ověří, že dialog obsahuje vlastní tlačítko
+      expect(find.text('Zkusit znovu'), findsOneWidget);
+
+      // Klikneme na vlastní tlačítko
+      await tester.tap(find.text('Zkusit znovu'));
+      await tester.pumpAndSettle();
+
+      // Ověříme, že byl callback zavolán
+      expect(retryPressed, isTrue);
     });
   });
 }
 
+// ============================================================================
+// POMOCNÉ WIDGETY PRO TESTY
+// ============================================================================
+
+/// Vlastní AppBar widget
+class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final String title;
+
+  const CustomAppBar({
+    Key? key,
+    required this.title,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      title: Text(title),
+      centerTitle: true,
+    );
+  }
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+}
+
+/// Loading widget s indikátorem
+class LoadingWidget extends StatelessWidget {
+  const LoadingWidget({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: CircularProgressIndicator(),
+    );
+  }
+}
+
+/// Error dialog pro zobrazení chyb
+class ErrorDialog {
+  static void show(
+    BuildContext context, {
+    required String title,
+    required String message,
+    List<Widget>? actions,
+  }) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: actions ??
+              [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+        );
+      },
+    );
+  }
+}

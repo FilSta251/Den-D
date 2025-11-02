@@ -1,8 +1,6 @@
 /// lib/models/payment.dart
 library;
 
-import 'package:flutter/foundation.dart';
-
 /// Model pro platební záznamy.
 class Payment {
   final String id;

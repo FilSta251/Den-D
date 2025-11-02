@@ -5,19 +5,30 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import '../models/task.dart';
-import '../models/subscription.dart';
 import '../services/checklist_manager.dart';
 import '../services/local_checklist_service.dart';
-import '../widgets/subscription_offer_dialog.dart';
+
+/// Helper funkce pro překlad starých category ID
+String _getCategoryTranslation(String categoryId) {
+  const categoryIdMap = {
+    '12-6-months': 'category_12_6_months',
+    '6-3-months': 'category_6_3_months',
+    '3-1-months': 'category_3_1_months',
+    'week-before': 'category_week_before',
+    'wedding-day': 'category_wedding_day',
+  };
+
+  if (categoryIdMap.containsKey(categoryId)) {
+    return tr(categoryIdMap[categoryId]!);
+  }
+
+  return categoryId.startsWith('category_') ? tr(categoryId) : categoryId;
+}
 
 /// Helper funkce pro získání přeloženého textu
 String _getTranslatedText(String text) {
-  // Debug log
-  debugPrint('Translating: "$text"');
-
   // Mapa českých textů na překladové klíče
   const czechToKeyMap = {
-    // Úkoly 12-6 měsíců
     'Rezervovat svatební místo': 'task_reserve_venue',
     'Vybrat fotografa a kameramana': 'task_choose_photographer',
     'Stanovit předběžný rozpočet': 'task_set_budget',
@@ -25,7 +36,6 @@ String _getTranslatedText(String text) {
     'Vybrat téma a barevnou paletu': 'task_choose_theme',
     'Rezervovat kapelu nebo DJ': 'task_reserve_band',
     'Zvážit svatebního koordinátora': 'task_consider_coordinator',
-    // Úkoly 6-3 měsíce
     'Rozeslat svatební pozvánky': 'task_send_invitations',
     'Zamluvit catering': 'task_book_catering',
     'Vybrat svatební šaty a oblek': 'task_choose_dress_suit',
@@ -33,7 +43,6 @@ String _getTranslatedText(String text) {
     'Rezervovat květiny a dekorace': 'task_reserve_flowers',
     'Naplánovat harmonogram svatebního dne': 'task_plan_schedule',
     'Zajistit ubytování pro hosty': 'task_arrange_accommodation',
-    // Úkoly 3-1 měsíc
     'Potvrdit účast hostů': 'task_confirm_guests',
     'Vybrat svatební prstýnky': 'task_choose_rings',
     'Domluvit zasedací pořádek hostů': 'task_arrange_seating',
@@ -41,7 +50,6 @@ String _getTranslatedText(String text) {
     'Vyzkoušet svatební šaty a oblek': 'task_try_dress_suit',
     'Připravit svatební program': 'task_prepare_program',
     'Dokončit výzdobu': 'task_finish_decoration',
-    // Úkoly týden před
     'Potvrdit všechny dodavatele': 'task_confirm_vendors',
     'Připravit časový harmonogram dne': 'task_prepare_timeline',
     'Zabalit věci na svatební cestu': 'task_pack_honeymoon',
@@ -49,30 +57,20 @@ String _getTranslatedText(String text) {
     'Připravit nouzovou sadu': 'task_prepare_emergency_kit',
     'Zkontrolovat počasí': 'task_check_weather',
     'Dokončit platby dodavatelům': 'task_finish_payments',
-    // Svatební den
     'Zkontrolovat všechny přípravy': 'task_check_preparations',
     'Přivítat hosty': 'task_welcome_guests',
     'Poděkovat dodavatelům': 'task_thank_vendors',
     'Užít si svůj velký den!': 'task_enjoy_day',
   };
 
-  // Pokud je to český text, převedeme na klíč
   if (czechToKeyMap.containsKey(text)) {
-    final key = czechToKeyMap[text]!;
-    final translated = tr(key);
-    debugPrint('Czech text mapped to key: $key, translated to: "$translated"');
-    return translated;
+    return tr(czechToKeyMap[text]!);
   }
 
-  // Pokud text začíná na task_ nebo category_, přeložíme
   if (text.startsWith('task_') || text.startsWith('category_')) {
-    final translated = tr(text);
-    debugPrint('Translated to: "$translated"');
-    return translated;
+    return tr(text);
   }
 
-  // Jinak vrátíme původní text
-  debugPrint('Keeping original: "$text"');
   return text;
 }
 
@@ -96,16 +94,16 @@ class _ChecklistPageState extends State<ChecklistPage>
   void initState() {
     super.initState();
 
-    // Aktualizace search query
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text;
       });
     });
 
-    // Spustit synchronizaci na pozadí po prvním vykreslení
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChecklistManager>().forceRefreshFromCloud();
+      if (mounted) {
+        context.read<ChecklistManager>().forceRefreshFromCloud();
+      }
     });
   }
 
@@ -115,14 +113,11 @@ class _ChecklistPageState extends State<ChecklistPage>
     final categories =
         Provider.of<ChecklistManager>(context, listen: false).categories;
 
-    // Inicializace TabControlleru
     if (!_isTabControllerInitialized && categories.isNotEmpty) {
       _isTabControllerInitialized = true;
       _tabController = TabController(length: categories.length, vsync: this);
       _selectedCategory = categories.first.id;
-    }
-    // Aktualizace délky TabControlleru, pokud se změnil počet kategorií
-    else if (_isTabControllerInitialized &&
+    } else if (_isTabControllerInitialized &&
         _tabController.length != categories.length) {
       _tabController.dispose();
       _tabController = TabController(length: categories.length, vsync: this);
@@ -299,15 +294,22 @@ class _ChecklistPageState extends State<ChecklistPage>
             bottom: TabBar(
               controller: _tabController,
               isScrollable: true,
+              labelColor: Colors.white,
+              labelStyle:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              unselectedLabelColor: Colors.white.withOpacity(0.6),
+              unselectedLabelStyle:
+                  const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
+              indicatorColor: Colors.white,
+              indicatorWeight: 3,
               tabs: cats
-                  .map((c) => Tab(text: _getTranslatedText(c.name)))
+                  .map((c) => Tab(text: _getCategoryTranslation(c.id)))
                   .toList(),
               onTap: (i) => setState(() => _selectedCategory = cats[i].id),
             ),
           ),
           body: Column(
             children: [
-              // Search field
               Padding(
                 padding: const EdgeInsets.all(8),
                 child: TextField(
@@ -321,7 +323,6 @@ class _ChecklistPageState extends State<ChecklistPage>
                   ),
                 ),
               ),
-              // Task lists
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
@@ -351,7 +352,6 @@ class _ChecklistPageState extends State<ChecklistPage>
   }
 }
 
-/// Placeholder pro prázdný stav
 class _EmptyPlaceholder extends StatelessWidget {
   final IconData icon;
   final String title, subtitle;
@@ -377,16 +377,15 @@ class _EmptyPlaceholder extends StatelessWidget {
       );
 }
 
-/// Formulář pro přidání úkolu
 class _AddTaskForm extends StatefulWidget {
   final String categoryId;
-  const _AddTaskForm({super.key, required this.categoryId});
+  const _AddTaskForm({required this.categoryId});
 
   @override
-  __AddTaskFormState createState() => __AddTaskFormState();
+  State<_AddTaskForm> createState() => _AddTaskFormState();
 }
 
-class __AddTaskFormState extends State<_AddTaskForm> {
+class _AddTaskFormState extends State<_AddTaskForm> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _noteController = TextEditingController();
@@ -400,7 +399,7 @@ class __AddTaskFormState extends State<_AddTaskForm> {
     super.dispose();
   }
 
-  void _submitForm() async {
+  Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
       final mgr = Provider.of<ChecklistManager>(context, listen: false);
       final newTask = LocalChecklistService.createTask(
@@ -412,6 +411,9 @@ class __AddTaskFormState extends State<_AddTaskForm> {
       );
 
       final success = await mgr.addTask(newTask, context);
+
+      if (!mounted) return;
+
       if (success) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -421,7 +423,6 @@ class __AddTaskFormState extends State<_AddTaskForm> {
           ),
         );
       }
-      // Pokud success == false, paywall dialog se už zobrazil v mgr.addTask()
     }
   }
 
@@ -438,7 +439,6 @@ class __AddTaskFormState extends State<_AddTaskForm> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle
           Padding(
             padding: const EdgeInsets.only(top: 12, bottom: 8),
             child: Container(
@@ -450,7 +450,6 @@ class __AddTaskFormState extends State<_AddTaskForm> {
               ),
             ),
           ),
-          // Scrollable content
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -586,27 +585,33 @@ class __AddTaskFormState extends State<_AddTaskForm> {
   }
 }
 
-/// Formulář pro úpravu úkolu
+/// ✅ OPRAVENÝ EDITAČNÍ FORMULÁŘ
 class _EditTaskForm extends StatefulWidget {
   final Task task;
-  const _EditTaskForm({super.key, required this.task});
+  const _EditTaskForm({required this.task});
 
   @override
-  __EditTaskFormState createState() => __EditTaskFormState();
+  State<_EditTaskForm> createState() => _EditTaskFormState();
 }
 
-class __EditTaskFormState extends State<_EditTaskForm> {
+class _EditTaskFormState extends State<_EditTaskForm> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _titleController, _noteController;
   late String _selectedCategory;
   DateTime? _dueDate;
   late int _priority;
   late bool _isDone;
+  late String _originalTitle;
+  late String _translatedTitle;
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.task.title);
+
+    _originalTitle = widget.task.title;
+    _translatedTitle = _getTranslatedText(widget.task.title);
+
+    _titleController = TextEditingController(text: _translatedTitle);
     _noteController = TextEditingController(text: widget.task.note ?? '');
     _selectedCategory = widget.task.category;
     _dueDate = widget.task.dueDate;
@@ -624,14 +629,20 @@ class __EditTaskFormState extends State<_EditTaskForm> {
   void _submitForm() {
     if (_formKey.currentState!.validate()) {
       final mgr = Provider.of<ChecklistManager>(context, listen: false);
+
+      final newTitle = _titleController.text.trim();
+      final titleToSave =
+          (newTitle == _translatedTitle) ? _originalTitle : newTitle;
+
       final updated = widget.task.copyWith(
-        title: _titleController.text.trim(),
+        title: titleToSave,
         category: _selectedCategory,
         note: _noteController.text.trim(),
         dueDate: _dueDate,
         priority: _priority,
         isDone: _isDone,
       );
+
       mgr.updateTask(updated);
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -655,7 +666,6 @@ class __EditTaskFormState extends State<_EditTaskForm> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle
           Padding(
             padding: const EdgeInsets.only(top: 12, bottom: 8),
             child: Container(
@@ -667,7 +677,6 @@ class __EditTaskFormState extends State<_EditTaskForm> {
               ),
             ),
           ),
-          // Scrollable content
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -708,7 +717,7 @@ class __EditTaskFormState extends State<_EditTaskForm> {
                       items: cats
                           .map((c) => DropdownMenuItem(
                               value: c.id,
-                              child: Text(_getTranslatedText(c.name))))
+                              child: Text(_getCategoryTranslation(c.id))))
                           .toList(),
                       onChanged: (v) => setState(() => _selectedCategory = v!),
                     ),

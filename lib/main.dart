@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:easy_localization/easy_localization.dart';
@@ -57,9 +56,7 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 
 // Router a Navigation
 import 'routes.dart';
-import 'router/app_router.dart' show AppRoutes;
 import 'theme/app_theme.dart';
-import 'routes.dart';
 
 // Error handling komponenty
 import 'widgets/error_dialog.dart';
@@ -67,7 +64,6 @@ import 'widgets/custom_error_widget.dart';
 import 'utils/global_error_handler.dart';
 import 'services/environment_config.dart';
 import 'services/connectivity_manager.dart';
-import 'utils/error_handler.dart';
 import 'services/security_service.dart';
 
 /// Konstanta prostředí
@@ -160,7 +156,8 @@ Future<void> _initializeApp() async {
       );
 
       await FirebaseAppCheck.instance.activate(
-        androidProvider: AndroidProvider.playIntegrity,
+        androidProvider: AndroidProvider.debug,
+        appleProvider: AppleProvider.debug,
       );
       debugPrint("[Main] App Check aktivován úspěšně");
 
@@ -168,7 +165,7 @@ Future<void> _initializeApp() async {
       FirebaseMessaging.onBackgroundMessage(
           _firebaseMessagingBackgroundHandler);
 
-      FirebaseFirestore.instance.settings = Settings(
+      FirebaseFirestore.instance.settings = const Settings(
         persistenceEnabled: true,
         cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
       );
@@ -271,6 +268,7 @@ Future<void> _initializeApp() async {
                     userMessage: 'Chyba při obnově přihlášení',
                     errorCode: 'TOKEN_REFRESH_001',
                   );
+                  return null;
                 });
               }
             }
@@ -283,6 +281,7 @@ Future<void> _initializeApp() async {
               userMessage: 'Chyba při ověření přihlášení',
               errorCode: 'TOKEN_VALIDATION_001',
             );
+            return null;
           });
         } else {
           FirebaseCrashlytics.instance.setUserIdentifier('');
@@ -333,8 +332,10 @@ Future<void> _initializeApp() async {
     await locator<CrashReportingService>().initialize();
 
     try {
-      final connectivityResult = await Connectivity().checkConnectivity();
-      if (connectivityResult == ConnectivityResult.none) {
+      final connectivityResults = await Connectivity().checkConnectivity();
+      if (connectivityResults.isEmpty ||
+          connectivityResults
+              .every((result) => result == ConnectivityResult.none)) {
         debugPrint("[Main] Při startu nebylo detekováno síťové připojení");
 
         GlobalErrorHandler.instance.handleError(
@@ -842,10 +843,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
       (List<ConnectivityResult> results) {
         try {
-          final connectivityResult =
-              results.isNotEmpty ? results.first : ConnectivityResult.none;
+          final hasConnection = results.isNotEmpty &&
+              results.any((result) => result != ConnectivityResult.none);
 
-          if (connectivityResult != ConnectivityResult.none) {
+          if (hasConnection) {
             _scheduleManager.forceRefreshFromCloud();
             _budgetManager.forceRefreshFromCloud();
             _guestsManager.forceRefreshFromCloud();
@@ -974,8 +975,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
                 Text('loading_services'.tr())
               ],
             ),
@@ -1127,7 +1128,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             },
             navigatorKey: locator<NavigationService>().navigatorKey,
             scaffoldMessengerKey: _scaffoldMessengerKey,
-            navigatorObservers: [],
+            navigatorObservers: const [],
             builder: (context, child) {
               ErrorWidget.builder = (FlutterErrorDetails details) {
                 GlobalErrorHandler.instance.handleError(
@@ -1174,7 +1175,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                           errorType: ErrorType.info,
                           errorCode: 'UI_ERROR_REPORT',
                           technicalDetails: details.toString(),
-                          recoveryActions: [
+                          recoveryActions: const [
                             RecoveryAction.contact,
                             RecoveryAction.ignore
                           ],

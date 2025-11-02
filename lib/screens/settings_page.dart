@@ -1,43 +1,38 @@
 /// lib/screens/settings_page.dart
 library;
 
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../repositories/wedding_repository.dart';
 import '../services/onboarding_manager.dart';
-import '../services/calendar_manager.dart';
 import '../services/payment_service.dart';
 import '../providers/subscription_provider.dart';
 import '../providers/theme_manager.dart';
-import '../router/app_router.dart';
 import '../router/app_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 /// Stránka nastavení s položkami: jazyk, zobrazení předplatného, smazání účtu a o aplikaci.
 class SettingsPage extends StatefulWidget {
-  // ← ZMĚŇ ZPĚT na StatefulWidget
   const SettingsPage({super.key});
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState(); // ← PŘIDEJ TOTO
+  State<SettingsPage> createState() => _SettingsPageState();
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  // ← NECH TO TAK
   @override
   void initState() {
     super.initState();
-    // inicializace - ale BEZ _checkAccountDeletionStatus()
   }
 
   /// Zobrazí dialog pro výběr jazyka.
   Future<void> _showLanguageDialog() async {
+    if (!mounted) return;
+
     debugPrint('[SettingsPage] Showing language dialog');
     await showDialog(
       context: context,
@@ -47,6 +42,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
   /// Zobrazí dialog pro výběr tématu (světlé/tmavé).
   Future<void> _showThemeDialog() async {
+    if (!mounted) return;
+
     debugPrint('[SettingsPage] Showing theme dialog');
     await showDialog(
       context: context,
@@ -57,6 +54,8 @@ class _SettingsPageState extends State<SettingsPage> {
   /// Otevře správu předplatného přes PaymentService
   Future<void> _openManageSubscriptions() async {
     try {
+      if (!mounted) return;
+
       final paymentService =
           Provider.of<PaymentService>(context, listen: false);
       await paymentService.openManageSubscriptions();
@@ -382,6 +381,8 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
 
+    if (!mounted) return;
+
     final weddingRepo = Provider.of<WeddingRepository>(context, listen: false);
 
     showDialog(
@@ -455,6 +456,8 @@ class _SettingsPageState extends State<SettingsPage> {
       }
       return;
     }
+
+    if (!mounted) return;
 
     showDialog(
       context: context,
@@ -557,8 +560,8 @@ class _SettingsPageState extends State<SettingsPage> {
                           horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: isPremium
-                            ? Colors.amber.withOpacity(0.2)
-                            : Colors.grey.withOpacity(0.2),
+                            ? Colors.amber.withValues(alpha: 0.2)
+                            : Colors.grey.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -839,7 +842,7 @@ class DeleteAccountDialog extends StatelessWidget {
     );
   }
 }
-*/
+KONEC ZAKOMENTOVÁNO */
 
 /// Dialog pro výběr tématu.
 class ThemeDialog extends StatelessWidget {

@@ -3,16 +3,12 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:intl/intl.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import '../models/calendar_event.dart';
 import '../repositories/wedding_repository.dart';
 import '../models/wedding_info.dart';
 import '../services/calendar_manager.dart';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import '../services/notification_service.dart';
 
 class CalendarPage extends StatefulWidget {
@@ -27,7 +23,6 @@ class _CalendarPageState extends State<CalendarPage>
   late DateTime _focusedDay;
   DateTime? _selectedDay;
 
-  bool _hasChanges = false;
   WeddingInfo? _weddingInfo;
   CalendarFormat _calendarFormat = CalendarFormat.month;
 
@@ -69,9 +64,11 @@ class _CalendarPageState extends State<CalendarPage>
     _viewTabController.addListener(_handleViewChange);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final calendarManager =
-          Provider.of<CalendarManager>(context, listen: false);
-      calendarManager.forceRefreshFromCloud();
+      if (mounted) {
+        final calendarManager =
+            Provider.of<CalendarManager>(context, listen: false);
+        calendarManager.forceRefreshFromCloud();
+      }
     });
   }
 
@@ -102,25 +99,28 @@ class _CalendarPageState extends State<CalendarPage>
   }
 
   Future<void> _loadWeddingInfo() async {
+    if (!mounted) return;
+
     try {
       final weddingRepo =
           Provider.of<WeddingRepository>(context, listen: false);
       final wedding = await weddingRepo.fetchWeddingInfo();
-      if (mounted) {
-        setState(() {
-          _weddingInfo = wedding;
-        });
-      }
 
-      if (mounted) {
-        final today = DateTime.now();
-        final todayKey = DateTime(today.year, today.month, today.day);
+      if (!mounted) return;
 
-        setState(() {
-          _selectedDay = todayKey;
-          _focusedDay = todayKey;
-        });
-      }
+      setState(() {
+        _weddingInfo = wedding;
+      });
+
+      if (!mounted) return;
+
+      final today = DateTime.now();
+      final todayKey = DateTime(today.year, today.month, today.day);
+
+      setState(() {
+        _selectedDay = todayKey;
+        _focusedDay = todayKey;
+      });
     } catch (e) {
       debugPrint('[CalendarPage] Error loading wedding info: $e');
     }
@@ -142,6 +142,8 @@ class _CalendarPageState extends State<CalendarPage>
 
   Future<void> _addOrEditEvent(
       {CalendarEvent? event, DateTime? selectedDate}) async {
+    if (!mounted) return;
+
     final calendarManager =
         Provider.of<CalendarManager>(context, listen: false);
     final notificationService =
@@ -179,7 +181,7 @@ class _CalendarPageState extends State<CalendarPage>
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (builderContext, setDialogState) {
             return Dialog(
               insetPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
@@ -189,12 +191,12 @@ class _CalendarPageState extends State<CalendarPage>
                   borderRadius: BorderRadius.circular(16)),
               child: Container(
                 constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.7,
+                  maxHeight: MediaQuery.of(builderContext).size.height * 0.7,
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Header s titulkem - FIXED
+                    // Header s titulkem
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -231,7 +233,7 @@ class _CalendarPageState extends State<CalendarPage>
                       ),
                     ),
 
-                    // Scrollovatelný obsah - FLEXIBLE
+                    // Scrollovatelný obsah
                     Flexible(
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.all(16),
@@ -256,8 +258,8 @@ class _CalendarPageState extends State<CalendarPage>
                               title: Text(tr('all_day_event')),
                               value: isAllDay,
                               activeColor: Colors.pink,
-                              onChanged: (value) {
-                                setDialogState(() => isAllDay = value);
+                              onChanged: (newValue) {
+                                setDialogState(() => isAllDay = newValue);
                               },
                             ),
 
@@ -270,7 +272,7 @@ class _CalendarPageState extends State<CalendarPage>
                                     child: InkWell(
                                       onTap: () async {
                                         final picked = await showTimePicker(
-                                          context: context,
+                                          context: builderContext,
                                           initialTime: selectedStartTime,
                                           builder: (context, child) =>
                                               MediaQuery(
@@ -307,12 +309,7 @@ class _CalendarPageState extends State<CalendarPage>
                                               const Icon(Icons.access_time),
                                         ),
                                         child: Text(
-                                          DateFormat.Hm().format(DateTime(
-                                              2022,
-                                              1,
-                                              1,
-                                              selectedStartTime.hour,
-                                              selectedStartTime.minute)),
+                                          '${selectedStartTime.hour.toString().padLeft(2, '0')}:${selectedStartTime.minute.toString().padLeft(2, '0')}',
                                           style: const TextStyle(fontSize: 16),
                                         ),
                                       ),
@@ -323,7 +320,7 @@ class _CalendarPageState extends State<CalendarPage>
                                     child: InkWell(
                                       onTap: () async {
                                         final picked = await showTimePicker(
-                                          context: context,
+                                          context: builderContext,
                                           initialTime: selectedEndTime,
                                           builder: (context, child) =>
                                               MediaQuery(
@@ -347,12 +344,7 @@ class _CalendarPageState extends State<CalendarPage>
                                               Icons.access_time_filled),
                                         ),
                                         child: Text(
-                                          DateFormat.Hm().format(DateTime(
-                                              2022,
-                                              1,
-                                              1,
-                                              selectedEndTime.hour,
-                                              selectedEndTime.minute)),
+                                          '${selectedEndTime.hour.toString().padLeft(2, '0')}:${selectedEndTime.minute.toString().padLeft(2, '0')}',
                                           style: const TextStyle(fontSize: 16),
                                         ),
                                       ),
@@ -419,7 +411,8 @@ class _CalendarPageState extends State<CalendarPage>
                                       boxShadow: isSelected
                                           ? [
                                               BoxShadow(
-                                                color: color.withOpacity(0.5),
+                                                color: color.withValues(
+                                                    alpha: 0.5),
                                                 blurRadius: 8,
                                                 spreadRadius: 2,
                                               )
@@ -470,9 +463,9 @@ class _CalendarPageState extends State<CalendarPage>
                                   : null,
                               value: notificationEnabled,
                               activeColor: Colors.pink,
-                              onChanged: (value) {
+                              onChanged: (newValue) {
                                 setDialogState(
-                                    () => notificationEnabled = value);
+                                    () => notificationEnabled = newValue);
                               },
                             ),
 
@@ -500,7 +493,7 @@ class _CalendarPageState extends State<CalendarPage>
                                       runSpacing: 8,
                                       children: [
                                         _buildTimeChip(
-                                          context,
+                                          builderContext,
                                           label: '5 ${tr('minutes')}',
                                           minutes: 5,
                                           selectedMinutes:
@@ -509,7 +502,7 @@ class _CalendarPageState extends State<CalendarPage>
                                               notificationMinutesBefore = 5),
                                         ),
                                         _buildTimeChip(
-                                          context,
+                                          builderContext,
                                           label: '10 ${tr('minutes')}',
                                           minutes: 10,
                                           selectedMinutes:
@@ -518,7 +511,7 @@ class _CalendarPageState extends State<CalendarPage>
                                               notificationMinutesBefore = 10),
                                         ),
                                         _buildTimeChip(
-                                          context,
+                                          builderContext,
                                           label: '15 ${tr('minutes')}',
                                           minutes: 15,
                                           selectedMinutes:
@@ -527,7 +520,7 @@ class _CalendarPageState extends State<CalendarPage>
                                               notificationMinutesBefore = 15),
                                         ),
                                         _buildTimeChip(
-                                          context,
+                                          builderContext,
                                           label: '30 ${tr('minutes')}',
                                           minutes: 30,
                                           selectedMinutes:
@@ -536,7 +529,7 @@ class _CalendarPageState extends State<CalendarPage>
                                               notificationMinutesBefore = 30),
                                         ),
                                         _buildTimeChip(
-                                          context,
+                                          builderContext,
                                           label: '1 ${tr('hour')}',
                                           minutes: 60,
                                           selectedMinutes:
@@ -545,7 +538,7 @@ class _CalendarPageState extends State<CalendarPage>
                                               notificationMinutesBefore = 60),
                                         ),
                                         _buildTimeChip(
-                                          context,
+                                          builderContext,
                                           label: '2 ${tr('hours')}',
                                           minutes: 120,
                                           selectedMinutes:
@@ -554,7 +547,7 @@ class _CalendarPageState extends State<CalendarPage>
                                               notificationMinutesBefore = 120),
                                         ),
                                         _buildTimeChip(
-                                          context,
+                                          builderContext,
                                           label: '1 ${tr('day')}',
                                           minutes: 1440,
                                           selectedMinutes:
@@ -573,7 +566,7 @@ class _CalendarPageState extends State<CalendarPage>
                       ),
                     ),
 
-                    // Tlačítka - FIXED na spodku
+                    // Tlačítka
                     Padding(
                       padding: const EdgeInsets.all(12),
                       child: Row(
@@ -642,6 +635,8 @@ class _CalendarPageState extends State<CalendarPage>
       },
     );
 
+    if (!mounted) return;
+
     if (result != null) {
       if (event != null) {
         final updatedEvent = event.copyWith(
@@ -685,18 +680,14 @@ class _CalendarPageState extends State<CalendarPage>
         }
       }
 
-      setState(() {
-        _hasChanges = true;
-      });
+      if (!mounted) return;
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(tr('event_saved')),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr('event_saved')),
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -712,7 +703,7 @@ class _CalendarPageState extends State<CalendarPage>
       label: Text(label),
       selected: isSelected,
       selectedColor: Colors.pink.shade200,
-      onSelected: (_) => onTap(),
+      onSelected: (bool selected) => onTap(),
     );
   }
 
@@ -740,14 +731,16 @@ class _CalendarPageState extends State<CalendarPage>
   }
 
   Future<void> _deleteEvent(CalendarEvent event) async {
+    if (!mounted) return;
+
     final bool confirm = await showDialog<bool>(
           context: context,
-          builder: (context) => AlertDialog(
+          builder: (dialogContext) => AlertDialog(
             title: Text(tr('confirm')),
             content: Text(tr('confirm_delete_event')),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () => Navigator.pop(dialogContext, false),
                 child: Text(tr('cancel')),
               ),
               ElevatedButton(
@@ -755,13 +748,15 @@ class _CalendarPageState extends State<CalendarPage>
                   backgroundColor: Colors.red,
                   foregroundColor: Colors.white,
                 ),
-                onPressed: () => Navigator.pop(context, true),
+                onPressed: () => Navigator.pop(dialogContext, true),
                 child: Text(tr('delete')),
               ),
             ],
           ),
         ) ??
         false;
+
+    if (!mounted) return;
 
     if (confirm) {
       final calendarManager =
@@ -773,10 +768,6 @@ class _CalendarPageState extends State<CalendarPage>
       await notificationService.cancelNotification(event.id.hashCode);
 
       calendarManager.removeEvent(event.id);
-
-      setState(() {
-        _hasChanges = true;
-      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -791,6 +782,8 @@ class _CalendarPageState extends State<CalendarPage>
   }
 
   Future<void> _showEventDetails(CalendarEvent event) async {
+    if (!mounted) return;
+
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -798,7 +791,7 @@ class _CalendarPageState extends State<CalendarPage>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return SafeArea(
           child: SingleChildScrollView(
             child: Padding(
@@ -806,7 +799,7 @@ class _CalendarPageState extends State<CalendarPage>
                 left: 20,
                 right: 20,
                 top: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -831,14 +824,14 @@ class _CalendarPageState extends State<CalendarPage>
                           IconButton(
                             icon: const Icon(Icons.edit, color: Colors.blue),
                             onPressed: () {
-                              Navigator.pop(context);
+                              Navigator.pop(sheetContext);
                               _addOrEditEvent(event: event);
                             },
                           ),
                           IconButton(
                             icon: const Icon(Icons.delete, color: Colors.red),
                             onPressed: () {
-                              Navigator.pop(context);
+                              Navigator.pop(sheetContext);
                               _deleteEvent(event);
                             },
                           ),
@@ -885,7 +878,7 @@ class _CalendarPageState extends State<CalendarPage>
                                 overflow: TextOverflow.ellipsis,
                               )
                             : Text(
-                                '${DateFormat.Hm().format(event.startTime)} - ${event.endTime != null ? DateFormat.Hm().format(event.endTime!) : ""}',
+                                '${event.startTime.hour.toString().padLeft(2, '0')}:${event.startTime.minute.toString().padLeft(2, '0')} - ${event.endTime != null ? '${event.endTime!.hour.toString().padLeft(2, '0')}:${event.endTime!.minute.toString().padLeft(2, '0')}' : ""}',
                                 style: const TextStyle(fontSize: 16),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -969,7 +962,7 @@ class _CalendarPageState extends State<CalendarPage>
                           foregroundColor: Colors.blue,
                         ),
                         onPressed: () {
-                          Navigator.pop(context);
+                          Navigator.pop(sheetContext);
                           _addOrEditEvent(event: event);
                         },
                       ),
@@ -981,7 +974,7 @@ class _CalendarPageState extends State<CalendarPage>
                           foregroundColor: Colors.white,
                         ),
                         onPressed: () {
-                          Navigator.pop(context);
+                          Navigator.pop(sheetContext);
                           _deleteEvent(event);
                         },
                       ),
@@ -989,99 +982,6 @@ class _CalendarPageState extends State<CalendarPage>
                   ),
                 ],
               ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showColorFilter() {
-    showModalBottomSheet(
-      context: context,
-      useSafeArea: false,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 20,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tr('filter_by_color'),
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
-                  children: [
-                    // Všechny události
-                    GestureDetector(
-                      onTap: () {
-                        setState(() => _selectedColorFilter = null);
-                        Navigator.pop(context);
-                      },
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: _selectedColorFilter == null
-                                    ? Colors.pink
-                                    : Colors.grey,
-                                width: _selectedColorFilter == null ? 3 : 1,
-                              ),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.all_inclusive),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(tr('all_events')),
-                        ],
-                      ),
-                    ),
-                    // Jednotlivé barvy
-                    ..._availableColors.map((color) {
-                      final isSelected = _selectedColorFilter == color;
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() => _selectedColorFilter = color);
-                          Navigator.pop(context);
-                        },
-                        child: Container(
-                          width: 60,
-                          height: 60,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                            border: isSelected
-                                ? Border.all(color: Colors.black, width: 3)
-                                : null,
-                          ),
-                          child: isSelected
-                              ? const Icon(Icons.check, color: Colors.white)
-                              : null,
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ],
             ),
           ),
         );
@@ -1104,10 +1004,10 @@ class _CalendarPageState extends State<CalendarPage>
         final bool showSyncIndicator =
             calendarManager.syncState == SyncState.syncing;
 
-        return WillPopScope(
-          onWillPop: () async {
-            Navigator.pop(context, _hasChanges);
-            return false;
+        return PopScope(
+          canPop: true,
+          onPopInvokedWithResult: (didPop, result) {
+            // Callback po zavření stránky
           },
           child: Scaffold(
             resizeToAvoidBottomInset: true,
@@ -1333,7 +1233,7 @@ class _CalendarPageState extends State<CalendarPage>
                             horizontal: 16, vertical: 8),
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: _selectedColorFilter!.withOpacity(0.2),
+                          color: _selectedColorFilter!.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                               color: _selectedColorFilter!, width: 2),
@@ -1475,8 +1375,8 @@ class _CalendarPageState extends State<CalendarPage>
                                           event.allDay
                                               ? tr('all_day_event')
                                               : tr('event_time', namedArgs: {
-                                                  'time': DateFormat.Hm()
-                                                      .format(event.startTime)
+                                                  'time':
+                                                      '${event.startTime.hour.toString().padLeft(2, '0')}:${event.startTime.minute.toString().padLeft(2, '0')}'
                                                 }),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
@@ -1541,7 +1441,7 @@ class _CalendarPageState extends State<CalendarPage>
                     left: 0,
                     right: 0,
                     child: Container(
-                      color: Colors.blue.withOpacity(0.9),
+                      color: Colors.blue.withValues(alpha: 0.9),
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,

@@ -1,17 +1,15 @@
-/// lib/widgets/permission_error_banner.dart - nový widget pro zobrazení problĂ©mů s oprávněními
+/// lib/widgets/permission_error_banner.dart - nový widget pro zobrazení problémů s oprávněními
 library;
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../providers/subscription_provider.dart';
 import '../services/permission_handler.dart';
 
-/// Widget pro zobrazení informací o problĂ©mech s oprávněními v aplikaci.
+/// Widget pro zobrazení informací o problémech s oprávněními v aplikaci.
 ///
-/// Tento widget se můťe zobrazit například v hlavním menu nebo na obrazovce nastavení,
-/// aby informoval uťivatele o problĂ©mech s oprávněními a nabídl řeĹˇení.
+/// Tento widget se může zobrazit například v hlavním menu nebo na obrazovce nastavení,
+/// aby informoval uživatele o problémech s oprávněními a nabídl řešení.
 class PermissionErrorBanner extends StatefulWidget {
   const PermissionErrorBanner({super.key});
 
@@ -46,7 +44,7 @@ class _PermissionErrorBannerState extends State<PermissionErrorBanner> {
         });
       }
     } catch (e) {
-      debugPrint('Chyba při náčítání kolekcí s problĂ©my oprávnění: $e');
+      debugPrint('Chyba při načítání kolekcí s problémy oprávnění: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -65,18 +63,22 @@ class _PermissionErrorBannerState extends State<PermissionErrorBanner> {
     try {
       await PermissionHandler.resetAllPermissionErrors();
 
-      // Resetujeme příznak problĂ©mu s oprávněními v SubscriptionProvider
+      // Resetujeme příznak problému s oprávněními v SubscriptionProvider
       // Pokud metoda resetPermissionError neexistuje, zakomentujte tyto řádky
       /*
-     final subscriptionProvider =
-         Provider.of<SubscriptionProvider>(context, listen: false);
-     await subscriptionProvider.resetPermissionError();
-     */
+      // Pokud budete potřebovat použít SubscriptionProvider, přidejte tyto importy:
+      // import 'package:provider/provider.dart';
+      // import '../providers/subscription_provider.dart';
 
-      // Znovu náčteme aktuální kolekce s problĂ©my
+      final subscriptionProvider =
+          Provider.of<SubscriptionProvider>(context, listen: false);
+      await subscriptionProvider.resetPermissionError();
+      */
+
+      // Znovu načteme aktuální kolekce s problémy
       await _loadErrorCollections();
 
-      // Zobrazíme informaci o úspěĹˇnĂ©m resetování
+      // Zobrazíme informaci o úspěšném resetování
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(tr('permission_error_banner.reset_success'))),
@@ -95,7 +97,7 @@ class _PermissionErrorBannerState extends State<PermissionErrorBanner> {
 
   @override
   Widget build(BuildContext context) {
-    // Pokud nemáme ťádnĂ© problĂ©my s oprávněními, nezobrazujeme nic
+    // Pokud nemáme žádné problémy s oprávněními, nezobrazujeme nic
     if (_errorCollections.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -156,4 +158,3 @@ class _PermissionErrorBannerState extends State<PermissionErrorBanner> {
     );
   }
 }
-

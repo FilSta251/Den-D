@@ -1,14 +1,12 @@
 /// lib/routes.dart - Kompatibilní wrapper pro app_router.dart
 library;
 
-// Tento soubor slouťí jako most mezi starým a novým routing systĂ©mem
+// Tento soubor slouží jako most mezi starým a novým routing systémem
 // Exportuje třídy z app_router.dart pro zpětnou kompatibilitu
 
 export 'router/app_router.dart';
 import 'package:flutter/material.dart';
 import 'package:den_d/router/app_router.dart';
-import 'package:den_d/utils/global_error_handler.dart';
-import 'package:den_d/widgets/error_dialog.dart' as ED;
 
 // Explicitní definice RoutePaths pro zpětnou kompatibilitu
 class RoutePaths {
@@ -44,7 +42,7 @@ class RoutePaths {
   static const String chatbot = AppRoutes.chatbot;
   static const String aiChat = AppRoutes.aiChat;
 
-  // Znemoťnění vytvoření instance tĂ©to třídy
+  // Znemožnění vytvoření instance této třídy
   RoutePaths._();
 }
 
@@ -60,7 +58,7 @@ class RouteGenerator {
     AppRouter.clearCache();
   }
 
-  // DalĹˇí metody pro kompatibilitu
+  // Další metody pro kompatibilitu
   static void resetRouteErrorCount(String routeName) {
     AppRouter.resetRouteErrorCount(routeName);
   }

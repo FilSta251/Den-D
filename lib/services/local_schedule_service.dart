@@ -1,10 +1,10 @@
-/// lib/services/local_schedule_service.dart - REFAKTOROVANĂ VERZE
+/// lib/services/local_schedule_service.dart - OPRAVENÁ VERZE s @override
 library;
 
 import 'package:flutter/material.dart';
 import 'base/base_local_storage_service.dart';
 
-/// Model pro poloťku harmonogramu svatby.
+/// Model pro položku harmonogramu svatby.
 class ScheduleItem {
   final String id;
   String title;
@@ -60,12 +60,12 @@ class ScheduleItem {
   }
 }
 
-/// Sluťba pro správu harmonogramu svatby vyuťívající základní třídu.
+/// Služba pro správu harmonogramu svatby využívající základní třídu.
 class LocalScheduleService extends BaseLocalStorageService<ScheduleItem>
     with IdBasedItemsMixin<ScheduleItem>, TimeBasedItemsMixin<ScheduleItem> {
   LocalScheduleService() : super(storageKey: 'wedding_schedule_items');
 
-  /// Seznam poloťek harmonogramu (pro zpětnou kompatibilitu)
+  /// Seznam položek harmonogramu (pro zpětnou kompatibilitu)
   List<ScheduleItem> get scheduleItems => items;
 
   @override
@@ -88,48 +88,48 @@ class LocalScheduleService extends BaseLocalStorageService<ScheduleItem>
     return item.id;
   }
 
-  /// Náčte poloťky harmonogramu (alias pro loadItems)
+  /// Načte položky harmonogramu (alias pro loadItems)
   Future<void> loadScheduleItems() async {
     await loadItems();
   }
 
-  /// Uloťí poloťky harmonogramu (alias pro saveItems)
+  /// Uloží položky harmonogramu (alias pro saveItems)
   Future<void> saveScheduleItems() async {
     await saveItems();
   }
 
-  /// Přidá poloťku harmonogramu s validací
+  /// Přidá položku harmonogramu s validací
   void addScheduleItem(ScheduleItem item) {
     if (item.title.trim().isEmpty) {
       debugPrint(
-          "=== HARMONOGRAM: POKUS O PĹIDĂNĂŤ POLOĹ˝KY S PRĂZDNĂťM NĂZVEM ===");
+          "=== HARMONOGRAM: POKUS O PŘIDÁNÍ POLOŽKY S PRÁZDNÝM NÁZVEM ===");
       return;
     }
     addItem(item);
   }
 
-  /// Aktualizuje poloťku harmonogramu
+  /// Aktualizuje položku harmonogramu
   void updateScheduleItem(int index, ScheduleItem updatedItem) {
-    // Nastavíme aktuální časovou znáčku pro upravenou poloťku
+    // Nastavíme aktuální časovou značku pro upravenou položku
     final newItem = updatedItem.copyWith(lastModified: DateTime.now());
     updateItemAt(index, newItem);
   }
 
-  /// Odebere poloťku podle indexu (pro zpětnou kompatibilitu)
+  /// Odebere položku podle indexu (pro zpětnou kompatibilitu)
   void removeItem(int index) {
     removeItemAt(index);
   }
 
-  /// Aktualizuje poloťku podle indexu (pro zpětnou kompatibilitu)
+  /// Aktualizuje položku podle indexu (pro zpětnou kompatibilitu)
   void updateItem(int index, ScheduleItem updatedItem) {
     updateScheduleItem(index, updatedItem);
   }
 
-  /// Seřadí poloťky podle času
+  /// Seřadí položky podle času
   List<ScheduleItem> get itemsSortedByScheduleTime {
     final sorted = List<ScheduleItem>.from(items);
     sorted.sort((a, b) {
-      // Poloťky bez času jdou na konec
+      // Položky bez času jdou na konec
       if (a.time == null && b.time == null) return 0;
       if (a.time == null) return 1;
       if (b.time == null) return -1;
@@ -138,7 +138,19 @@ class LocalScheduleService extends BaseLocalStorageService<ScheduleItem>
     return sorted;
   }
 
-  /// Najde poloťky pro konkrĂ©tní den
+  /// Najde položky v časovém rozmezí
+  @override // ✅ PŘIDÁNO @override
+  List<ScheduleItem> findItemsInTimeRange(DateTime start, DateTime end) {
+    return findItems((item) {
+      if (item.time == null) return false;
+      // Položka musí být mezi start a end (včetně)
+      return (item.time!.isAfter(start) ||
+              item.time!.isAtSameMomentAs(start)) &&
+          (item.time!.isBefore(end) || item.time!.isAtSameMomentAs(end));
+    });
+  }
+
+  /// Najde položky pro konkrétní den
   List<ScheduleItem> findItemsForDate(DateTime date) {
     final startOfDay = DateTime(date.year, date.month, date.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
@@ -149,17 +161,17 @@ class LocalScheduleService extends BaseLocalStorageService<ScheduleItem>
     });
   }
 
-  /// Najde poloťky bez přiřazenĂ©ho času
+  /// Najde položky bez přiřazeného času
   List<ScheduleItem> get itemsWithoutTime {
     return findItems((item) => item.time == null);
   }
 
-  /// Najde poloťky s přiřazeným časem
+  /// Najde položky s přiřazeným časem
   List<ScheduleItem> get itemsWithTime {
     return findItems((item) => item.time != null);
   }
 
-  /// Vytvoří novou poloťku harmonogramu
+  /// Vytvoří novou položku harmonogramu
   static ScheduleItem createScheduleItem({
     required String title,
     DateTime? time,

@@ -34,15 +34,6 @@ class NetworkStatus {
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
 
-  // nový "ždefaultní" konstruktor bez const (DateTime.now() není const)
-  NetworkStatus._now()
-      : isConnected = false,
-        type = NetworkType.none,
-        networkName = null,
-        isMetered = false,
-        signalStrength = null,
-        timestamp = DateTime.now();
-
   NetworkStatus copyWith({
     bool? isConnected,
     NetworkType? type,
@@ -56,7 +47,7 @@ class NetworkStatus {
       networkName: networkName ?? this.networkName,
       isMetered: isMetered ?? this.isMetered,
       signalStrength: signalStrength ?? this.signalStrength,
-      // copyWith vťdy nastaví "žnyní"
+      // copyWith vždy nastaví "nyní"
       timestamp: DateTime.now(),
     );
   }
@@ -67,7 +58,7 @@ class NetworkStatus {
   }
 }
 
-/// Reprezentuje offline akci pro pozdějĹˇí provedení
+/// Reprezentuje offline akci pro pozdější provedení
 class PendingAction {
   final String id;
   final Future<void> Function() action;
@@ -89,14 +80,14 @@ class PendingAction {
   Duration get age => DateTime.now().difference(created);
 }
 
-/// Pokročilý manager pro sledování a správu síšovĂ©ho připojení.
+/// Pokročilý manager pro sledování a správu síťového připojení.
 ///
 /// poskytuje:
-/// - Sledování stavu připojení v reálnĂ©m čase
-/// - RozliĹˇení typů sítí (WiFi, mobilní data, ethernet)
+/// - Sledování stavu připojení v reálném čase
+/// - Rozlišení typů sítí (WiFi, mobilní data, ethernet)
 /// - Offline queue pro akce
 /// - Kontrolu kvality připojení
-/// - AutomatickĂ© opakování neúspěĹˇných operací
+/// - Automatické opakování neúspěšných operací
 /// - Měření latence a rychlosti
 class ConnectivityManager {
   static final ConnectivityManager _instance = ConnectivityManager._internal();
@@ -144,7 +135,7 @@ class ConnectivityManager {
   /// Stream pro sledování změn stavu sítě
   Stream<NetworkStatus> get statusStream => _statusController.stream;
 
-  /// Je připojení k internetu dostupnĂ©?
+  /// Je připojení k internetu dostupné?
   bool get isConnected => _currentStatus.isConnected;
 
   /// Typ aktuálního připojení
@@ -181,7 +172,7 @@ class ConnectivityManager {
       final initialResults = await _connectivity.checkConnectivity();
       await _updateNetworkStatus(initialResults);
 
-      // SpuĹˇtění sledování změn
+      // Spuštění sledování změn
       _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
         _updateNetworkStatus,
         onError: (error) {
@@ -189,10 +180,10 @@ class ConnectivityManager {
         },
       );
 
-      // SpuĹˇtění health check timeru
+      // Spuštění health check timeru
       _startHealthCheck();
 
-      // SpuĹˇtění retry timeru pro offline akce
+      // Spuštění retry timeru pro offline akce
       _startRetryTimer();
 
       _initialized = true;
@@ -209,7 +200,7 @@ class ConnectivityManager {
     try {
       final oldStatus = _currentStatus;
 
-      // Získání nejprioritnějĹˇího typu připojení
+      // Získání nejprioritnějšího typu připojení
       final result = _getPrimaryConnectivityResult(results);
       final newType = _mapConnectivityResult(result);
 
@@ -252,7 +243,7 @@ class ConnectivityManager {
     }
   }
 
-  /// Získání nejprioritnějĹˇího typu připojení ze seznamu
+  /// Získání nejprioritnějšího typu připojení ze seznamu
   ConnectivityResult _getPrimaryConnectivityResult(
       List<ConnectivityResult> results) {
     if (results.isEmpty) return ConnectivityResult.none;
@@ -323,7 +314,6 @@ class ConnectivityManager {
       case ConnectivityResult.other:
         return NetworkType.other;
       case ConnectivityResult.none:
-      default:
         return NetworkType.none;
     }
   }
@@ -335,7 +325,7 @@ class ConnectivityManager {
         old.networkName != new_.networkName;
   }
 
-  /// Ověření skutečnĂ© dostupnosti internetu pomocí ping
+  /// Ověření skutečné dostupnosti internetu pomocí ping
   Future<bool> _verifyInternetConnectivity() async {
     try {
       final stopwatch = Stopwatch()..start();
@@ -358,7 +348,7 @@ class ConnectivityManager {
             return true;
           }
         } catch (e) {
-          // Pokráčuj na dalĹˇí server
+          // Pokračuj na další server
           continue;
         }
       }
@@ -382,7 +372,7 @@ class ConnectivityManager {
   Future<String?> _getNetworkName(ConnectivityResult result) async {
     try {
       if (result == ConnectivityResult.wifi) {
-        // Na Androidu můťeme získat SSID, na iOS je to omezenĂ©
+        // Na Androidu můžeme získat SSID, na iOS je to omezené
         // Zde by byla implementace specifická pro platformu
         return 'WiFi Network';
       }
@@ -392,13 +382,13 @@ class ConnectivityManager {
     }
   }
 
-  /// Kontrola, zda je připojení měřenĂ© (mobilní data)
+  /// Kontrola, zda je připojení měřené (mobilní data)
   Future<bool> _isMeteredConnection(ConnectivityResult result) async {
     // Mobilní data jsou obvykle měřená
     return result == ConnectivityResult.mobile;
   }
 
-  /// SpuĹˇtění health check timeru
+  /// Spuštění health check timeru
   void _startHealthCheck() {
     _healthCheckTimer?.cancel();
     _healthCheckTimer = Timer.periodic(_healthCheckInterval, (timer) async {
@@ -406,14 +396,14 @@ class ConnectivityManager {
         // Ověření kvality připojení
         final isStillConnected = await _verifyInternetConnectivity();
         if (!isStillConnected) {
-          // FaleĹˇně pozitivní připojení - aktualizuj stav
+          // Falešně pozitivní připojení - aktualizuj stav
           await _updateNetworkStatus([ConnectivityResult.none]);
         }
       }
     });
   }
 
-  /// SpuĹˇtění retry timeru pro offline akce
+  /// Spuštění retry timeru pro offline akce
   void _startRetryTimer() {
     _retryTimer?.cancel();
     _retryTimer = Timer.periodic(_retryInterval, (timer) async {
@@ -445,7 +435,7 @@ class ConnectivityManager {
 
     debugPrint('[ConnectivityManager] Added pending action: $description');
 
-    // Pokud jsme online, pokus se akci provĂ©st okamťitě
+    // Pokud jsme online, pokus se akci provést okamžitě
     if (_currentStatus.isConnected) {
       await _executeAction(pendingAction);
     }
@@ -464,7 +454,7 @@ class ConnectivityManager {
     return false;
   }
 
-  /// Zpracování vĹˇech čekajících akcí
+  /// Zpracování všech čekajících akcí
   Future<void> _processPendingActions() async {
     if (_pendingActions.isEmpty) return;
 
@@ -481,14 +471,14 @@ class ConnectivityManager {
     }
   }
 
-  /// Provedení jednotlivĂ© akce
+  /// Provedení jednotlivé akce
   Future<void> _executeAction(PendingAction pendingAction) async {
     try {
       pendingAction.attempts++;
 
       await pendingAction.action();
 
-      // Ăšspěch - odstraĹ z fronty
+      // Úspěch - odstraň z fronty
       _pendingActions.remove(pendingAction.id);
       debugPrint(
           '[ConnectivityManager] Action completed: ${pendingAction.description}');
@@ -504,26 +494,7 @@ class ConnectivityManager {
     }
   }
 
-  /// VyčiĹˇtění starých akcí z fronty
-  void _cleanupOldActions() {
-    final now = DateTime.now();
-    final toRemove = <String>[];
-
-    for (final entry in _pendingActions.entries) {
-      if (entry.value.age.inHours > 24) {
-        // StarĹˇí neť 24 hodin
-        toRemove.add(entry.key);
-      }
-    }
-
-    for (final id in toRemove) {
-      final action = _pendingActions.remove(id);
-      debugPrint(
-          '[ConnectivityManager] Cleaned up old action: ${action?.description}');
-    }
-  }
-
-  /// Měření rychlosti připojení (zjednoduĹˇená verze)
+  /// Měření rychlosti připojení (zjednodušená verze)
   Future<double?> measureConnectionSpeed() async {
     if (!_currentStatus.isConnected) return null;
 
@@ -556,7 +527,7 @@ class ConnectivityManager {
     }
   }
 
-  /// ďŚekání na obnovení připojení
+  /// Čekání na obnovení připojení
   Future<void> waitForConnection({Duration? timeout}) async {
     if (_currentStatus.isConnected) return;
 
@@ -640,7 +611,7 @@ class ConnectivityManager {
         .toList();
   }
 
-  /// Kontrola dostupnosti konkrĂ©tního serveru
+  /// Kontrola dostupnosti konkrétního serveru
   Future<bool> checkServerReachability(String host, {int port = 80}) async {
     try {
       final socket =
@@ -676,22 +647,22 @@ enum NetworkQuality {
   unknown,
 }
 
-/// RozĹˇíření pro NetworkQuality
+/// Rozšíření pro NetworkQuality
 extension NetworkQualityExtension on NetworkQuality {
   String get displayName {
     switch (this) {
       case NetworkQuality.none:
-        return 'Ĺ˝ádnĂ© připojení';
+        return 'Žádné připojení';
       case NetworkQuality.poor:
-        return 'SlabĂ©';
+        return 'Slabé';
       case NetworkQuality.fair:
-        return 'PrůměrnĂ©';
+        return 'Průměrné';
       case NetworkQuality.good:
-        return 'DobrĂ©';
+        return 'Dobré';
       case NetworkQuality.excellent:
-        return 'VýbornĂ©';
+        return 'Výborné';
       case NetworkQuality.unknown:
-        return 'NeznámĂ©';
+        return 'Neznámé';
     }
   }
 

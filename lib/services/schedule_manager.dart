@@ -1,8 +1,6 @@
-/// lib/services/schedule_manager.dart
-library;
+// lib/services/schedule_manager.dart
 
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -20,13 +18,13 @@ enum SyncState {
   offline,
 }
 
-/// Manager pro synchronizaci harmonogramu mezi lokálním úloťiĹˇtěm a cloudem.
+/// Manager pro synchronizaci harmonogramu mezi lokálním úložištěm a cloudem.
 class ScheduleManager extends ChangeNotifier {
   final LocalScheduleService _localService;
   final CloudScheduleService _cloudService;
   final fb.FirebaseAuth _auth;
 
-  // Synchronizáční stav
+  // Synchronizační stav
   SyncState _syncState = SyncState.idle;
   SyncState get syncState => _syncState;
   String? _syncError;
@@ -42,7 +40,6 @@ class ScheduleManager extends ChangeNotifier {
   // Interní stav
   StreamSubscription? _cloudSubscription;
   StreamSubscription? _authSubscription;
-  bool _initialized = false;
   bool _localDataLoaded = false;
   Timer? _syncTimer;
   Timer? _debounceTimer;
@@ -77,7 +74,7 @@ class ScheduleManager extends ChangeNotifier {
       if (user != null) {
         final newUserId = user.uid;
         if (_currentUserId != newUserId) {
-          debugPrint("ScheduleManager: Nový uťivatel přihláĹˇen: ${user.uid}");
+          debugPrint("ScheduleManager: Nový uživatel přihlášen: ${user.uid}");
 
           _currentUserId = newUserId;
 
@@ -127,7 +124,7 @@ class ScheduleManager extends ChangeNotifier {
         _isOnline = true;
         await _syncPendingChanges();
       } else if (!isConnected && _isOnline) {
-        debugPrint("ScheduleManager: Offline reťim");
+        debugPrint("ScheduleManager: Offline režim");
         _isOnline = false;
         _setSyncState(SyncState.offline);
       }
@@ -152,9 +149,11 @@ class ScheduleManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Kontrola free limitu před přidáním schedule poloťky
+  /// Kontrola free limitu před přidáním schedule položky
   Future<bool> _checkFreeLimit(BuildContext context) async {
     try {
+      if (!context.mounted) return false;
+
       final subscriptionProvider =
           Provider.of<SubscriptionProvider>(context, listen: false);
 
@@ -162,6 +161,8 @@ class ScheduleManager extends ChangeNotifier {
           .registerInteraction(InteractionType.addScheduleItem);
 
       if (!canUse) {
+        if (!context.mounted) return false;
+
         final result = await SubscriptionOfferDialog.show(
           context,
           source: 'schedule_limit',
@@ -243,8 +244,6 @@ class ScheduleManager extends ChangeNotifier {
     _setSyncState(SyncState.syncing);
 
     try {
-      final lastCloudSync = await _cloudService.getLastSyncTimestamp();
-
       final cloudItems = await _cloudService.fetchScheduleItems();
 
       await _loadLocalData();
@@ -261,7 +260,6 @@ class ScheduleManager extends ChangeNotifier {
 
       _enableCloudSync();
 
-      _initialized = true;
       _setSyncState(SyncState.idle);
     } catch (e) {
       debugPrint("ScheduleManager: Chyba při inicializaci: $e");
@@ -321,7 +319,6 @@ class ScheduleManager extends ChangeNotifier {
   void _disableCloudSync() {
     _cloudSubscription?.cancel();
     _cloudSubscription = null;
-    _initialized = false;
   }
 
   void _handleLocalChanges() {
@@ -333,9 +330,9 @@ class ScheduleManager extends ChangeNotifier {
     });
   }
 
-  // === VeřejnĂ© metody s free limit kontrolou ===
+  // === Veřejné metody s free limit kontrolou ===
 
-  /// Přidá novou poloťku do harmonogramu s kontrolou free limitu.
+  /// Přidá novou položku do harmonogramu s kontrolou free limitu.
   Future<bool> addItem(ScheduleItem item, BuildContext context) async {
     // Kontrola free limitu
     final canAdd = await _checkFreeLimit(context);
@@ -355,7 +352,7 @@ class ScheduleManager extends ChangeNotifier {
     return true;
   }
 
-  /// Aktualizuje existující poloťku v harmonogramu (bez kontroly limitu).
+  /// Aktualizuje existující položku v harmonogramu (bez kontroly limitu).
   void updateItem(int index, ScheduleItem item) {
     _localService.updateItem(index, item);
 
@@ -368,7 +365,7 @@ class ScheduleManager extends ChangeNotifier {
     _attemptSynchronization();
   }
 
-  /// Odstraní poloťku z harmonogramu (bez kontroly limitu).
+  /// Odstraní položku z harmonogramu (bez kontroly limitu).
   void removeItem(int index) {
     final item = _localService.scheduleItems[index];
 
@@ -383,7 +380,7 @@ class ScheduleManager extends ChangeNotifier {
     _attemptSynchronization();
   }
 
-  /// Změní pořadí poloťek v harmonogramu.
+  /// Změní pořadí položek v harmonogramu.
   void reorderItems(int oldIndex, int newIndex) {
     _localService.reorderItems(oldIndex, newIndex);
 
@@ -391,7 +388,7 @@ class ScheduleManager extends ChangeNotifier {
     _attemptSynchronization();
   }
 
-  /// Vyčistí vĹˇechny poloťky harmonogramu.
+  /// Vyčistí všechny položky harmonogramu.
   void clearAllItems() {
     final allItems = List<ScheduleItem>.from(_localService.scheduleItems);
 
@@ -408,7 +405,7 @@ class ScheduleManager extends ChangeNotifier {
     _attemptSynchronization();
   }
 
-  /// VynucenĂ© náčtení poloťek z cloudu.
+  /// Vynucené načtení položek z cloudu.
   Future<void> forceRefreshFromCloud() async {
     if (_auth.currentUser == null || !_isOnline) {
       if (!_isOnline) {
@@ -432,7 +429,7 @@ class ScheduleManager extends ChangeNotifier {
 
       _setSyncState(SyncState.idle);
     } catch (e) {
-      debugPrint("ScheduleManager: Chyba při náčítání z cloudu: $e");
+      debugPrint("ScheduleManager: Chyba při načítání z cloudu: $e");
       _setSyncState(SyncState.error, e.toString());
     }
   }
@@ -476,7 +473,7 @@ class ScheduleManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Vymaťe frontu nevyřízených změn
+  /// Vymaže frontu nevyřízených změn
   void clearPendingChanges() {
     _pendingChanges.clear();
     _pendingSyncOperations = 0;
@@ -492,26 +489,26 @@ class ScheduleManager extends ChangeNotifier {
     }
   }
 
-  /// Exportuje poloťky harmonogramu do JSON formátu.
+  /// Exportuje položky harmonogramu do JSON formátu.
   String exportToJson() {
     return _localService.exportToJson();
   }
 
-  /// Importuje poloťky harmonogramu z JSON formátu.
+  /// Importuje položky harmonogramu z JSON formátu.
   Future<void> importFromJson(String jsonData) async {
     await _localService.importFromJson(jsonData);
     _pendingSyncOperations++;
     _attemptSynchronization();
   }
 
-  /// Seznam poloťek harmonogramu.
+  /// Seznam položek harmonogramu.
   List<ScheduleItem> get scheduleItems => _localService.scheduleItems;
 
-  /// Indikátor náčítání.
+  /// Indikátor načítání.
   bool get isLoading =>
       _localService.isLoading || _syncState == SyncState.syncing;
 
-  /// Synchronizuje data - alias pro interní synchronizáční metody
+  /// Synchronizuje data - alias pro interní synchronizační metody
   Future<void> synchronizeData() async {
     if (_auth.currentUser == null) {
       await _loadLocalData();

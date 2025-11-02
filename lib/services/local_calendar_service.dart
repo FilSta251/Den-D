@@ -126,7 +126,6 @@ class LocalCalendarService extends BaseLocalStorageService<CalendarEvent>
 
   /// Získá statistiky kalendáře
   Map<String, dynamic> getCalendarStatistics() {
-    final now = DateTime.now();
     final upcoming = getUpcomingEvents();
     final ongoing = getOngoingEvents();
     final withNotification = getEventsWithNotification();

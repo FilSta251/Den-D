@@ -8,14 +8,12 @@ import 'package:easy_localization/easy_localization.dart';
 import 'base/base_local_storage_service.dart';
 import '../models/task.dart';
 
-/// Sluťba pro lokální správu checklistu vyuťívající základní třídu
 class LocalChecklistService extends BaseLocalStorageService<Task>
     with IdBasedItemsMixin<Task>, TimeBasedItemsMixin<Task> {
-  // Kategorie jsou ukládány separátně
   List<TaskCategory> _categories = [];
   List<TaskCategory> get categories => List.unmodifiable(_categories);
 
-  // Výchozí kategorie - ukládáme klíče pro překlad
+  // ✅ STARÉ ID (zachováváme pro kompatibilitu)
   static const List<Map<String, dynamic>> defaultCategories = [
     {
       'id': '12-6-months',
@@ -49,7 +47,6 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
     },
   ];
 
-  // Výchozí úkoly pro kaťdou kategorii - ukládáme klíče pro překlad
   static const Map<String, List<String>> defaultTasks = {
     '12-6-months': [
       'task_reserve_venue',
@@ -97,7 +94,6 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
 
   LocalChecklistService() : super(storageKey: 'wedding_checklist_tasks');
 
-  /// Seznam úkolů (pro zpětnou kompatibilitu)
   List<Task> get tasks => items;
 
   @override
@@ -120,19 +116,16 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
     return item.id;
   }
 
-  /// Náčte úkoly a kategorie
   @override
   Future<void> loadItems() async {
     await super.loadItems();
     await _loadCategories();
 
-    // Pokud nejsou ťádnĂ© úkoly, vytvoříme výchozí
     if (items.isEmpty) {
       await _createDefaultTasks();
     }
   }
 
-  /// Náčte kategorie ze separátního klíče
   Future<void> _loadCategories() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -145,25 +138,20 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
             .map((json) => TaskCategory.fromJson(json as Map<String, dynamic>))
             .toList();
       } else {
-        // Vytvoříme výchozí kategorie s překladovými klíči
         _categories = defaultCategories
             .map((data) => TaskCategory(
                   id: data['id'] as String,
-                  name: data['nameKey']
-                      as String, // Ukládáme klíč, ne přeloťený text
-                  description: data['descriptionKey']
-                      as String, // Ukládáme klíč, ne přeloťený text
+                  name: data['nameKey'] as String,
+                  description: data['descriptionKey'] as String,
                   sortOrder: data['sortOrder'] as int,
                 ))
             .toList();
         await _saveCategories();
       }
 
-      // Seřadíme kategorie podle sortOrder
       _categories.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     } catch (e) {
-      debugPrint("Chyba při náčítání kategorií: $e");
-      // Vytvoříme výchozí kategorie
+      debugPrint("Chyba při načítání kategorií: $e");
       _categories = defaultCategories
           .map((data) => TaskCategory(
                 id: data['id'] as String,
@@ -177,7 +165,6 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
     notifyListeners();
   }
 
-  /// Uloťí kategorie
   Future<void> _saveCategories() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -188,7 +175,6 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
     }
   }
 
-  /// Vytvoří výchozí úkoly
   Future<void> _createDefaultTasks() async {
     final List<Task> defaultTasksList = [];
 
@@ -197,7 +183,7 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
       for (int i = 0; i < tasksForCategory.length; i++) {
         defaultTasksList.add(Task(
           id: '${category.id}_${i}_${DateTime.now().millisecondsSinceEpoch}',
-          title: tasksForCategory[i], // Ukládáme klíč pro překlad
+          title: tasksForCategory[i],
           category: category.id,
           priority: 2,
         ));
@@ -209,22 +195,18 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
     notifyListeners();
   }
 
-  /// Přidá úkol
   void addTask(Task task) {
     addItem(task);
   }
 
-  /// Odebere úkol podle ID
   void removeTask(String id) {
     removeItemById(id);
   }
 
-  /// Aktualizuje úkol
   void updateTask(Task updatedTask) {
     updateItemById(updatedTask.id, updatedTask);
   }
 
-  /// Oznáčí úkol jako hotový/nehotový
   void toggleTaskDone(String taskId) {
     final task = findItemById(taskId);
     if (task != null) {
@@ -232,9 +214,7 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
     }
   }
 
-  /// Přidá kategorii
   Future<void> addCategory(TaskCategory category) async {
-    // Kontrola duplicit
     if (_categories.any((c) => c.name == category.name)) {
       throw Exception(tr('category_already_exists', args: [category.name]));
     }
@@ -245,14 +225,11 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
     notifyListeners();
   }
 
-  /// Odebere kategorii
   Future<void> removeCategory(String categoryId) async {
-    // Nelze odstranit výchozí kategorie
     if (defaultCategories.any((c) => c['id'] == categoryId)) {
       throw Exception(tr('cannot_delete_default_category'));
     }
 
-    // Přesuneme vĹˇechny úkoly z tĂ©to kategorie do první výchozí kategorie
     final tasksToUpdate =
         items.where((task) => task.category == categoryId).toList();
     for (final task in tasksToUpdate) {
@@ -265,7 +242,6 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
     notifyListeners();
   }
 
-  /// Aktualizuje kategorii
   Future<void> updateCategory(TaskCategory updatedCategory) async {
     final index = _categories.indexWhere((c) => c.id == updatedCategory.id);
     if (index == -1) {
@@ -278,7 +254,6 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
     notifyListeners();
   }
 
-  /// Získá kategorii podle ID
   TaskCategory? getCategoryById(String id) {
     try {
       return _categories.firstWhere((category) => category.id == id);
@@ -287,39 +262,32 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
     }
   }
 
-  /// Získá úkoly podle kategorie
   List<Task> getTasksByCategory(String categoryId) {
     return findItems((task) => task.category == categoryId);
   }
 
-  /// Získá dokončenĂ© úkoly
   List<Task> getCompletedTasks() {
     return findItems((task) => task.isDone);
   }
 
-  /// Získá nedokončenĂ© úkoly
   List<Task> getPendingTasks() {
     return findItems((task) => !task.isDone);
   }
 
-  /// Získá úkoly podle priority
   List<Task> getTasksByPriority(int priority) {
     return findItems((task) => task.priority == priority);
   }
 
-  /// Získá úkoly s termínem
   List<Task> getTasksWithDueDate() {
     return findItems((task) => task.dueDate != null);
   }
 
-  /// Získá zpoťděnĂ© úkoly
   List<Task> getOverdueTasks() {
     final now = DateTime.now();
     return findItems((task) =>
         task.dueDate != null && task.dueDate!.isBefore(now) && !task.isDone);
   }
 
-  /// Získá statistiky checklistu
   Map<String, dynamic> getChecklistStatistics() {
     final completed = getCompletedTasks().length;
     final total = itemCount;
@@ -337,7 +305,6 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
     };
   }
 
-  /// Získá statistiky podle kategorií
   Map<String, Map<String, dynamic>> getCategoryStatistics() {
     final stats = <String, Map<String, dynamic>>{};
 
@@ -358,7 +325,6 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
     return stats;
   }
 
-  /// Vytvoří nový úkol
   static Task createTask({
     required String title,
     required String category,
@@ -376,7 +342,6 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
     );
   }
 
-  /// Vytvoří novou kategorii
   static TaskCategory createCategory({
     required String name,
     required String description,
@@ -390,12 +355,10 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
     );
   }
 
-  /// Vymaťe vĹˇechna data
   @override
   void clearAllItems() {
     super.clearAllItems();
 
-    // Obnovíme výchozí kategorie s překladovými klíči
     _categories = defaultCategories
         .map((data) => TaskCategory(
               id: data['id'] as String,
@@ -406,17 +369,13 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
         .toList();
 
     _saveCategories();
-
-    // Vytvoříme výchozí úkoly
     _createDefaultTasks();
   }
 
-  /// Nastaví úkoly a kategorie bez notifikace (pro synchronizaci)
   void setTasksAndCategoriesWithoutNotify(
       List<Task> tasks, List<TaskCategory> categories) {
     setItemsWithoutNotify(tasks);
 
-    // Zajistíme, ťe výchozí kategorie zůstanou
     final defaultCategoryIds =
         defaultCategories.map((c) => c['id'] as String).toSet();
     final customCategories =
@@ -436,7 +395,6 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
     _saveCategories();
   }
 
-  /// Exportuje data úkolů a kategorií do JSON
   @override
   String exportToJson() {
     final data = {
@@ -447,13 +405,11 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
     return jsonEncode(data);
   }
 
-  /// Importuje data úkolů a kategorií z JSON
   @override
   Future<void> importFromJson(String jsonData) async {
     try {
       final data = jsonDecode(jsonData) as Map<String, dynamic>;
 
-      // Import úkolů
       if (data.containsKey('tasks')) {
         final tasksList = (data['tasks'] as List<dynamic>)
             .map((json) => Task.fromJson(json as Map<String, dynamic>))
@@ -461,13 +417,11 @@ class LocalChecklistService extends BaseLocalStorageService<Task>
         setItemsWithoutNotify(tasksList);
       }
 
-      // Import kategorií
       if (data.containsKey('categories')) {
         final categoriesList = (data['categories'] as List<dynamic>)
             .map((json) => TaskCategory.fromJson(json as Map<String, dynamic>))
             .toList();
 
-        // Sloučíme s výchozími kategoriemi
         setTasksAndCategoriesWithoutNotify(items, categoriesList);
       }
 

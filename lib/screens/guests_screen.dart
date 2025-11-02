@@ -1,11 +1,9 @@
 /// lib/screens/guests_screen.dart - PRODUKČNÍ VERZE S GUESTS MANAGER - OPRAVENO
 library;
 
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
-import 'package:uuid/uuid.dart';
 import '../models/guest.dart';
 import '../models/table_arrangement.dart';
 import '../services/guests_manager.dart';
@@ -37,7 +35,7 @@ class GuestsScreen extends StatefulWidget {
   const GuestsScreen({super.key});
 
   @override
-  _GuestsScreenState createState() => _GuestsScreenState();
+  State<GuestsScreen> createState() => _GuestsScreenState();
 }
 
 class _GuestsScreenState extends State<GuestsScreen>
@@ -56,7 +54,6 @@ class _GuestsScreenState extends State<GuestsScreen>
   String _selectedAttendanceFilter = '';
   List<String> _attendanceOptions = [];
 
-  // ✅ Přidána proměnná pro sledování aktuálního jazyka
   String _currentLocale = '';
 
   @override
@@ -71,17 +68,21 @@ class _GuestsScreenState extends State<GuestsScreen>
 
     // Inicializace filtrů
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeFilters();
+      if (mounted) {
+        _initializeFilters();
+      }
     });
 
     // Načtení dat při prvním zobrazení
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final guestsManager = Provider.of<GuestsManager>(context, listen: false);
-      guestsManager.forceRefreshFromCloud();
+      if (mounted) {
+        final guestsManager =
+            Provider.of<GuestsManager>(context, listen: false);
+        guestsManager.forceRefreshFromCloud();
+      }
     });
   }
 
-  // ✅ NOVÁ METODA: Inicializace filtrů
   void _initializeFilters() {
     setState(() {
       _currentLocale = context.locale.toString();
@@ -96,7 +97,6 @@ class _GuestsScreenState extends State<GuestsScreen>
         tr('guest.gender_other')
       ];
 
-      // ✅ OPRAVENO: Ujistíme se, že tr('filter_all') je jen jednou
       _groups = [tr('filter_all'), ...predefinedGroups];
 
       _attendanceOptions = [
@@ -111,7 +111,6 @@ class _GuestsScreenState extends State<GuestsScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // ✅ OPRAVENO: Při změně jazyka resetujeme filtry
     if (_currentLocale != context.locale.toString()) {
       _initializeFilters();
     }
@@ -124,11 +123,9 @@ class _GuestsScreenState extends State<GuestsScreen>
     super.dispose();
   }
 
-  /// Aplikuje filtry na seznam hostů
   List<Guest> _applyFilters(List<Guest> guests) {
     List<Guest> filteredGuests = List.from(guests);
 
-    // ✅ Filtrace podle pohlaví - OPRAVENO - porovnává konstanty
     if (_selectedGenderFilter != tr('filter_all')) {
       String? genderValue;
       if (_selectedGenderFilter == tr('guest.gender_male')) {
@@ -146,14 +143,12 @@ class _GuestsScreenState extends State<GuestsScreen>
       }
     }
 
-    // Filtrace podle skupiny
     if (_selectedGroupFilter != tr('filter_all')) {
       filteredGuests = filteredGuests
           .where((guest) => guest.group == _selectedGroupFilter)
           .toList();
     }
 
-    // ✅ Filtrace podle stavu účasti - OPRAVENO - porovnává konstanty
     if (_selectedAttendanceFilter != tr('filter_all')) {
       String? attendanceValue;
       if (_selectedAttendanceFilter == tr('guest.attendance_confirmed')) {
@@ -171,7 +166,6 @@ class _GuestsScreenState extends State<GuestsScreen>
       }
     }
 
-    // Vyhledávání podle jména
     if (_searchQuery.isNotEmpty) {
       filteredGuests = filteredGuests
           .where((guest) =>
@@ -182,9 +176,10 @@ class _GuestsScreenState extends State<GuestsScreen>
     return filteredGuests;
   }
 
-  /// Zobrazí dialog pro přidání hosta
   Future<void> _addGuest() async {
-    showModalBottomSheet(
+    if (!mounted) return;
+
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: false,
@@ -193,9 +188,10 @@ class _GuestsScreenState extends State<GuestsScreen>
     );
   }
 
-  /// Zobrazí dialog pro úpravu hosta
   Future<void> _editGuest(Guest guest) async {
-    showModalBottomSheet(
+    if (!mounted) return;
+
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: false,
@@ -204,8 +200,9 @@ class _GuestsScreenState extends State<GuestsScreen>
     );
   }
 
-  /// Smaže hosta s potvrzením
   Future<void> _deleteGuest(String guestId) async {
+    if (!mounted) return;
+
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -227,22 +224,24 @@ class _GuestsScreenState extends State<GuestsScreen>
       ),
     );
 
+    if (!mounted) return;
+
     if (confirm == true) {
       final guestsManager = Provider.of<GuestsManager>(context, listen: false);
       guestsManager.removeGuest(guestId);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(tr('guest_deleted')),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(tr('guest_deleted')),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     }
   }
 
-  /// Widget pro zobrazení přehledu podle pohlaví
   Widget _buildGenderOverview(GuestsManager guestsManager) {
-    // ✅ Spočítáme statistiky podle KONSTANT
     final maleCount = guestsManager.guests
         .where((g) => g.gender == GuestConstants.genderMale)
         .length;
@@ -259,7 +258,7 @@ class _GuestsScreenState extends State<GuestsScreen>
         color: Theme.of(context).cardColor,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -276,7 +275,7 @@ class _GuestsScreenState extends State<GuestsScreen>
               },
               child: Container(
                 color: _selectedGenderFilter == tr('guest.gender_male')
-                    ? Colors.blue.withOpacity(0.8)
+                    ? Colors.blue.withValues(alpha: 0.8)
                     : Colors.blue,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -304,7 +303,7 @@ class _GuestsScreenState extends State<GuestsScreen>
               },
               child: Container(
                 color: _selectedGenderFilter == tr('guest.gender_female')
-                    ? Colors.pink.withOpacity(0.8)
+                    ? Colors.pink.withValues(alpha: 0.8)
                     : Colors.pink,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -332,7 +331,7 @@ class _GuestsScreenState extends State<GuestsScreen>
               },
               child: Container(
                 color: _selectedGenderFilter == tr('guest.gender_other')
-                    ? Colors.grey.withOpacity(0.8)
+                    ? Colors.grey.withValues(alpha: 0.8)
                     : Colors.grey,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -357,9 +356,7 @@ class _GuestsScreenState extends State<GuestsScreen>
     );
   }
 
-  /// Panel s filtry - ✅ OPRAVENO
   void _openFilterPanel() {
-    // ✅ Před otevřením panelu zkontrolujeme, že filtry jsou inicializované
     if (_groups.isEmpty || _genders.isEmpty || _attendanceOptions.isEmpty) {
       _initializeFilters();
     }
@@ -367,14 +364,13 @@ class _GuestsScreenState extends State<GuestsScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      useSafeArea: true, // ✅ Změněno na true pro lepší chování
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setStateSheet) {
-            // ✅ OPRAVENO: Validace hodnot filtrů před zobrazením
             String validGroupFilter = _groups.contains(_selectedGroupFilter)
                 ? _selectedGroupFilter
                 : _groups.first;
@@ -420,8 +416,6 @@ class _GuestsScreenState extends State<GuestsScreen>
                           ],
                         ),
                         const SizedBox(height: 16),
-
-                        // Filtr skupiny - ✅ OPRAVENO
                         DropdownButtonFormField<String>(
                           decoration: InputDecoration(
                             labelText: tr('group'),
@@ -445,8 +439,6 @@ class _GuestsScreenState extends State<GuestsScreen>
                           },
                         ),
                         const SizedBox(height: 16),
-
-                        // Filtr pohlaví - ✅ OPRAVENO
                         DropdownButtonFormField<String>(
                           decoration: InputDecoration(
                             labelText: tr('gender'),
@@ -470,8 +462,6 @@ class _GuestsScreenState extends State<GuestsScreen>
                           },
                         ),
                         const SizedBox(height: 16),
-
-                        // Filtr účasti - ✅ OPRAVENO
                         DropdownButtonFormField<String>(
                           decoration: InputDecoration(
                             labelText: tr('attendance_status'),
@@ -495,8 +485,6 @@ class _GuestsScreenState extends State<GuestsScreen>
                           },
                         ),
                         const SizedBox(height: 16),
-
-                        // Vyhledávací pole
                         TextField(
                           controller: _searchController,
                           textCapitalization: TextCapitalization.words,
@@ -507,8 +495,6 @@ class _GuestsScreenState extends State<GuestsScreen>
                           ),
                         ),
                         const SizedBox(height: 24),
-
-                        // Tlačítko reset
                         Center(
                           child: OutlinedButton.icon(
                             icon: const Icon(Icons.refresh),
@@ -538,7 +524,6 @@ class _GuestsScreenState extends State<GuestsScreen>
     );
   }
 
-  /// Widget se seznamem hostů
   Widget _buildGuestsList(GuestsManager guestsManager) {
     final filteredGuests = _applyFilters(guestsManager.guests);
 
@@ -585,7 +570,6 @@ class _GuestsScreenState extends State<GuestsScreen>
       itemBuilder: (context, index) {
         final guest = filteredGuests[index];
 
-        // ✅ Použij pomocné metody z Guest modelu
         Color genderColor = guest.gender == GuestConstants.genderMale
             ? Colors.blue
             : guest.gender == GuestConstants.genderFemale
@@ -623,22 +607,20 @@ class _GuestsScreenState extends State<GuestsScreen>
             title: Text(
               guest.name,
               style: const TextStyle(fontWeight: FontWeight.bold),
-              overflow: TextOverflow.ellipsis, // ✅ Přidáno pro řešení overflow
+              overflow: TextOverflow.ellipsis,
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   '${guest.group} • ${tr('table')}: ${guest.tableDisplay}',
-                  overflow:
-                      TextOverflow.ellipsis, // ✅ Přidáno pro řešení overflow
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Row(
                   children: [
                     Icon(attendanceIcon, size: 16, color: attendanceColor),
                     const SizedBox(width: 4),
                     Flexible(
-                      // ✅ Přidáno pro řešení overflow
                       child: Text(
                         guest.attendanceDisplay,
                         style: TextStyle(
@@ -662,7 +644,6 @@ class _GuestsScreenState extends State<GuestsScreen>
     );
   }
 
-  /// Widget se seznamem stolů
   Widget _buildTablesList(GuestsManager guestsManager) {
     final tables = guestsManager.tables;
     final utilization = guestsManager.getTableUtilization();
@@ -699,7 +680,6 @@ class _GuestsScreenState extends State<GuestsScreen>
         final maxCapacity = tableInfo['max'] ?? 0;
         final isFull = tableInfo['isFull'] ?? false;
 
-        // Přeskočíme výchozí stůl v seznamu
         if (table.id == 'unassigned') {
           return const SizedBox.shrink();
         }
@@ -717,14 +697,14 @@ class _GuestsScreenState extends State<GuestsScreen>
             title: Text(
               table.name,
               style: const TextStyle(fontWeight: FontWeight.bold),
-              overflow: TextOverflow.ellipsis, // ✅ Přidáno
+              overflow: TextOverflow.ellipsis,
             ),
             subtitle: Text(
               '${tr('occupied')}: $currentGuests / $maxCapacity ${tr('seats')}',
               style: TextStyle(
                 color: isFull ? Colors.red : null,
               ),
-              overflow: TextOverflow.ellipsis, // ✅ Přidáno
+              overflow: TextOverflow.ellipsis,
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
@@ -761,8 +741,9 @@ class _GuestsScreenState extends State<GuestsScreen>
     );
   }
 
-  /// Smaže stůl
   Future<void> _deleteTable(String tableId, GuestsManager guestsManager) async {
+    if (!mounted) return;
+
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -784,19 +765,22 @@ class _GuestsScreenState extends State<GuestsScreen>
       ),
     );
 
+    if (!mounted) return;
+
     if (confirm == true) {
       await guestsManager.removeTable(tableId);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(tr('table_deleted')),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(tr('table_deleted')),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     }
   }
 
-  /// Zobrazí detail stolu
   void _showTableDetails(TableArrangement table, GuestsManager guestsManager) {
     final guestsAtTable = guestsManager.getGuestsByTable(table.name);
 
@@ -878,7 +862,6 @@ class _GuestsScreenState extends State<GuestsScreen>
     );
   }
 
-  /// Dialog pro přidání stolu
   void _showAddTableDialog() {
     final nameController = TextEditingController();
     final capacityController = TextEditingController();
@@ -932,6 +915,9 @@ class _GuestsScreenState extends State<GuestsScreen>
                   );
 
                   await guestsManager.addTable(newTable);
+
+                  if (!context.mounted) return;
+
                   Navigator.pop(context);
 
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -941,6 +927,8 @@ class _GuestsScreenState extends State<GuestsScreen>
                     ),
                   );
                 } catch (e) {
+                  if (!context.mounted) return;
+
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('${tr('error')}: $e'),
@@ -957,16 +945,13 @@ class _GuestsScreenState extends State<GuestsScreen>
     );
   }
 
-  /// Export hostů do PDF
   Future<void> _exportGuestsToPDF(GuestsManager guestsManager) async {
     try {
       final pdf = pw.Document();
 
-      // Získání dat
       final guests = guestsManager.guests;
       final tables = guestsManager.tables;
 
-      // ✅ Spočítáme statistiky podle KONSTANT
       int maleCount =
           guests.where((g) => g.gender == GuestConstants.genderMale).length;
       int femaleCount =
@@ -975,14 +960,12 @@ class _GuestsScreenState extends State<GuestsScreen>
           guests.where((g) => g.gender == GuestConstants.genderOther).length;
       int totalCount = guests.length;
 
-      // Načtení fontu s diakritikou
       final fontData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
       final fontBoldData =
           await rootBundle.load('assets/fonts/Roboto-Bold.ttf');
       final ttf = pw.Font.ttf(fontData);
       final ttfBold = pw.Font.ttf(fontBoldData);
 
-      // Stránka 1: Přehled
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
@@ -991,7 +974,6 @@ class _GuestsScreenState extends State<GuestsScreen>
             return pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                // Nadpis
                 pw.Text(
                   tr('guests'),
                   style: pw.TextStyle(
@@ -1001,8 +983,6 @@ class _GuestsScreenState extends State<GuestsScreen>
                   ),
                 ),
                 pw.SizedBox(height: 20),
-
-                // Statistiky
                 pw.Container(
                   padding: const pw.EdgeInsets.all(16),
                   decoration: pw.BoxDecoration(
@@ -1041,8 +1021,6 @@ class _GuestsScreenState extends State<GuestsScreen>
                   ),
                 ),
                 pw.SizedBox(height: 20),
-
-                // Seznam hostů
                 pw.Text(
                   tr('guest_list'),
                   style: pw.TextStyle(
@@ -1052,12 +1030,9 @@ class _GuestsScreenState extends State<GuestsScreen>
                   ),
                 ),
                 pw.SizedBox(height: 12),
-
-                // Tabulka s hosty
                 pw.Table(
                   border: pw.TableBorder.all(color: PdfColors.grey300),
                   children: [
-                    // Hlavička
                     pw.TableRow(
                       decoration:
                           const pw.BoxDecoration(color: PdfColors.grey200),
@@ -1069,18 +1044,15 @@ class _GuestsScreenState extends State<GuestsScreen>
                         _buildTableHeader(tr('attendance_status'), ttfBold),
                       ],
                     ),
-                    // Řádky s hosty - ✅ POUŽIJ .genderDisplay a .attendanceDisplay
-                    ...guests
-                        .map((guest) => pw.TableRow(
-                              children: [
-                                _buildTableCell(guest.name, ttf),
-                                _buildTableCell(guest.group, ttf),
-                                _buildTableCell(guest.genderDisplay, ttf),
-                                _buildTableCell(guest.tableDisplay, ttf),
-                                _buildTableCell(guest.attendanceDisplay, ttf),
-                              ],
-                            ))
-                        .toList(),
+                    ...guests.map((guest) => pw.TableRow(
+                          children: [
+                            _buildTableCell(guest.name, ttf),
+                            _buildTableCell(guest.group, ttf),
+                            _buildTableCell(guest.genderDisplay, ttf),
+                            _buildTableCell(guest.tableDisplay, ttf),
+                            _buildTableCell(guest.attendanceDisplay, ttf),
+                          ],
+                        )),
                   ],
                 ),
               ],
@@ -1089,7 +1061,6 @@ class _GuestsScreenState extends State<GuestsScreen>
         ),
       );
 
-      // Stránka 2: Rozložení stolů
       if (tables.length > 1) {
         pdf.addPage(
           pw.Page(
@@ -1145,16 +1116,16 @@ class _GuestsScreenState extends State<GuestsScreen>
                             pw.Wrap(
                               spacing: 8,
                               runSpacing: 4,
-                              children: tableGuests
-                                  .map((g) => pw.Text('• ${g.name}',
-                                      style: pw.TextStyle(
-                                          fontSize: 12, font: ttf)))
-                                  .toList(),
+                              children: [
+                                ...tableGuests.map((g) => pw.Text('• ${g.name}',
+                                    style:
+                                        pw.TextStyle(fontSize: 12, font: ttf)))
+                              ],
                             ),
                         ],
                       ),
                     );
-                  }).toList(),
+                  }),
                 ],
               );
             },
@@ -1162,20 +1133,16 @@ class _GuestsScreenState extends State<GuestsScreen>
         );
       }
 
-      // Uložení PDF
       final bytes = await pdf.save();
 
-      // Uložení PDF na zařízení
       final directory = await getApplicationDocumentsDirectory();
       final filePath =
           '${directory.path}/guests_${DateTime.now().millisecondsSinceEpoch}.pdf';
       final file = File(filePath);
       await file.writeAsBytes(bytes);
 
-      // Otevření PDF
       await OpenFile.open(filePath);
 
-      // Zobrazení hlášky o úspěchu
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1185,7 +1152,6 @@ class _GuestsScreenState extends State<GuestsScreen>
         );
       }
     } catch (e) {
-      // Zobrazení chybové hlášky
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1197,7 +1163,6 @@ class _GuestsScreenState extends State<GuestsScreen>
     }
   }
 
-  // Pomocné funkce pro PDF - S FONTEM
   pw.Widget _buildStatBox(String text, pw.Font font) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(8),
@@ -1258,7 +1223,6 @@ class _GuestsScreenState extends State<GuestsScreen>
               title: Text(tr('guests')),
               actions: [
                 _buildPremiumButton(),
-                // Indikátor online/offline stavu
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: Icon(
@@ -1267,12 +1231,10 @@ class _GuestsScreenState extends State<GuestsScreen>
                         guestsManager.isOnline ? Colors.green : Colors.orange,
                   ),
                 ),
-                // Tlačítko filtru
                 IconButton(
                   icon: const Icon(Icons.filter_list),
                   onPressed: _openFilterPanel,
                 ),
-                // Menu s dalšími akcemi
                 PopupMenuButton<String>(
                   onSelected: (value) async {
                     switch (value) {
@@ -1317,11 +1279,9 @@ class _GuestsScreenState extends State<GuestsScreen>
                     TabBar(
                       controller: _tabController,
                       indicatorColor: Colors.white,
-                      tabs: [
-                        Tab(text: tr('guests'), icon: const Icon(Icons.people)),
-                        Tab(
-                            text: tr('tables'),
-                            icon: const Icon(Icons.table_chart)),
+                      tabs: const [
+                        Tab(icon: Icon(Icons.people)),
+                        Tab(icon: Icon(Icons.table_chart)),
                       ],
                     ),
                   ],
@@ -1331,12 +1291,10 @@ class _GuestsScreenState extends State<GuestsScreen>
             body: TabBarView(
               controller: _tabController,
               children: [
-                // Tab Hosté
                 RefreshIndicator(
                   onRefresh: () => guestsManager.forceRefreshFromCloud(),
                   child: _buildGuestsList(guestsManager),
                 ),
-                // Tab Stoly
                 RefreshIndicator(
                   onRefresh: () => guestsManager.forceRefreshFromCloud(),
                   child: _buildTablesList(guestsManager),
@@ -1360,15 +1318,14 @@ class _GuestsScreenState extends State<GuestsScreen>
   }
 }
 
-/// Formulář pro přidání hosta (zůstává beze změny)
 class _AddGuestForm extends StatefulWidget {
-  const _AddGuestForm({super.key});
+  const _AddGuestForm();
 
   @override
-  __AddGuestFormState createState() => __AddGuestFormState();
+  State<_AddGuestForm> createState() => _AddGuestFormState();
 }
 
-class __AddGuestFormState extends State<_AddGuestForm> {
+class _AddGuestFormState extends State<_AddGuestForm> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _contactController = TextEditingController();
@@ -1391,8 +1348,10 @@ class __AddGuestFormState extends State<_AddGuestForm> {
     super.dispose();
   }
 
-  void _submitForm() async {
+  Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
+      if (!mounted) return;
+
       final guestsManager = Provider.of<GuestsManager>(context, listen: false);
 
       final newGuest = LocalGuestsService.createGuest(
@@ -1405,6 +1364,9 @@ class __AddGuestFormState extends State<_AddGuestForm> {
       );
 
       final success = await guestsManager.addGuest(newGuest, context);
+
+      if (!mounted) return;
+
       if (success) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1419,8 +1381,8 @@ class __AddGuestFormState extends State<_AddGuestForm> {
 
   List<TableArrangement> _sortTablesWithUnassignedLast(
       List<TableArrangement> tables) {
-    final unassignedTables = tables.where((t) => t.id == 'unassigned').toList();
-    final regularTables = tables.where((t) => t.id != 'unassigned').toList();
+    final unassignedTables = tables.where((t) => t.id == 'unassigned');
+    final regularTables = tables.where((t) => t.id != 'unassigned');
     return [...regularTables, ...unassignedTables];
   }
 
@@ -1664,20 +1626,18 @@ class __AddGuestFormState extends State<_AddGuestForm> {
   }
 }
 
-/// Formulář pro úpravu hosta (zůstává beze změny s drobnými opravami)
 class _EditGuestForm extends StatefulWidget {
   final Guest guest;
 
   const _EditGuestForm({
-    super.key,
     required this.guest,
   });
 
   @override
-  __EditGuestFormState createState() => __EditGuestFormState();
+  State<_EditGuestForm> createState() => _EditGuestFormState();
 }
 
-class __EditGuestFormState extends State<_EditGuestForm> {
+class _EditGuestFormState extends State<_EditGuestForm> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _contactController;
@@ -1732,8 +1692,8 @@ class __EditGuestFormState extends State<_EditGuestForm> {
 
   List<TableArrangement> _sortTablesWithUnassignedLast(
       List<TableArrangement> tables) {
-    final unassignedTables = tables.where((t) => t.id == 'unassigned').toList();
-    final regularTables = tables.where((t) => t.id != 'unassigned').toList();
+    final unassignedTables = tables.where((t) => t.id == 'unassigned');
+    final regularTables = tables.where((t) => t.id != 'unassigned');
     return [...regularTables, ...unassignedTables];
   }
 
