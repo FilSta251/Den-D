@@ -416,47 +416,49 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  // ❌ APPLE SIGN IN - ZAKOMENTOVÁNO
-  // Future<void> _handleAppleSignIn() async {
-  //   setState(() {
-  //     _isLoading = true;
-  //     _errorMessage = "";
-  //   });
+  // ✅ APPLE SIGN IN - ODKOMENTOVÁNO
+  Future<void> _handleAppleSignIn() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = "";
+    });
 
-  //   try {
-  //     final fb.UserCredential? userCredential =
-  //         await _authService.signInWithApple();
+    try {
+      final fb.UserCredential? userCredential =
+          await _authService.signInWithApple();
 
-  //     if (userCredential != null && mounted) {
-  //       if (_analyticsService != null) {
-  //         try {
-  //           _analyticsService!.logEvent(name: 'login_apple');
-  //         } catch (e) {
-  //           debugPrint('Chyba při logování analytiky: $e');
-  //         }
-  //       }
+      if (!mounted) return;
 
-  //       await _saveRememberedEmail(userCredential.user?.email ?? '');
+      if (userCredential != null) {
+        if (_analyticsService != null) {
+          try {
+            _analyticsService!.logEvent(name: 'login_apple');
+          } catch (e) {
+            debugPrint('Chyba při logování analytiky: $e');
+          }
+        }
 
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(
-  //           content: Text(tr('login_successful')),
-  //           backgroundColor: Colors.green,
-  //         ),
-  //       );
+        await _saveRememberedEmail(userCredential.user?.email ?? '');
 
-  //       await _navigateAfterLogin();
-  //     }
-  //   } on fb.FirebaseAuthException catch (e) {
-  //     if (mounted) _showError(e.code);
-  //   } on AuthException catch (e) {
-  //     if (mounted) _showError(e.message);
-  //   } catch (e) {
-  //     if (mounted) _showError(e.toString());
-  //   } finally {
-  //     if (mounted) setState(() => _isLoading = false);
-  //   }
-  // }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(tr('login_successful')),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        await _navigateAfterLogin();
+      }
+    } on fb.FirebaseAuthException catch (e) {
+      if (mounted) _showError(e.code);
+    } on AuthException catch (e) {
+      if (mounted) _showError(e.message);
+    } catch (e) {
+      if (mounted) _showError(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
   // endregion
 
   // region: Zapomenuté heslo
@@ -761,21 +763,21 @@ class _AuthScreenState extends State<AuthScreen> {
             label: Text(tr('continue_with_google')),
           ),
         ),
-        // ❌ APPLE SIGN IN TLAČÍTKO - ZAKOMENTOVÁNO
-        // const SizedBox(height: 12),
-        // SizedBox(
-        //   width: double.infinity,
-        //   child: ElevatedButton.icon(
-        //     onPressed: _isLoading ? null : _handleAppleSignIn,
-        //     style: ElevatedButton.styleFrom(
-        //       backgroundColor: Colors.black,
-        //       foregroundColor: Colors.white,
-        //       padding: const EdgeInsets.symmetric(vertical: 12),
-        //     ),
-        //     icon: const Icon(Icons.apple, color: Colors.white, size: 24),
-        //     label: Text(tr('continue_with_apple')),
-        //   ),
-        // ),
+        // ✅ APPLE SIGN IN TLAČÍTKO - ODKOMENTOVÁNO
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _isLoading ? null : _handleAppleSignIn,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            icon: const Icon(Icons.apple, color: Colors.white, size: 24),
+            label: Text(tr('continue_with_apple')),
+          ),
+        ),
       ],
     );
   }

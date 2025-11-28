@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'dart:convert';
@@ -11,12 +10,11 @@ import 'security_service.dart';
 /// AuthService zajišťuje autentizační metody pro:
 /// - E-mail + heslo
 /// - Google OAuth
-/// - Facebook OAuth
 /// - Apple Sign In (iOS/macOS)
 /// - (Volitelně) Anonymní přihlášení
 /// - Reset hesla (password reset)
 ///
-/// Po přihlášení vždy spravuje stav FirebaseAuth, Google Sign-In a Facebook Auth.
+/// Po přihlášení vždy spravuje stav FirebaseAuth a Google Sign-In.
 /// V odhlášení se odhlásí ze všech poskytovatelů najednou.
 class AuthService {
   /// Instance Firebase Auth SDK.
@@ -241,13 +239,45 @@ class AuthService {
         nonce: nonce,
       );
 
+      // ✅ DEBUG: Kontrola Apple credential
+      debugPrint('Apple credential získán:');
+      debugPrint('  - identityToken: ${appleCredential.identityToken != null ? "OK (${appleCredential.identityToken!.length} znaků)" : "NULL ⚠️"}');
+      debugPrint('  - authorizationCode: ${appleCredential.authorizationCode.isNotEmpty ? "OK (${appleCredential.authorizationCode.length} znaků)" : "PRÁZDNÝ ⚠️"}');
+      debugPrint('  - email: ${appleCredential.email ?? "není k dispozici"}');
+      debugPrint('  - userIdentifier: ${appleCredential.userIdentifier ?? "není k dispozici"}');
+
+      // Kontrola, že identityToken existuje
+      if (appleCredential.identityToken == null) {
+        throw AuthException(
+          'Apple neposkytl identity token. Zkontrolujte Xcode capability "Sign in with Apple".',
+          'apple-missing-token',
+          StackTrace.current,
+        );
+      }
+
+      // ✅ DEBUG: Dekódujme JWT token a podívejme se na audience
+      try {
+        final parts = appleCredential.identityToken!.split('.');
+        if (parts.length == 3) {
+          final payload = parts[1];
+          final normalized = base64Url.normalize(payload);
+          final decoded = utf8.decode(base64Url.decode(normalized));
+          debugPrint('Apple JWT payload: $decoded');
+        }
+      } catch (e) {
+        debugPrint('Nepodařilo se dekódovat JWT: $e');
+      }
+
       // Vytvořte OAuthCredential pro Firebase
+      debugPrint('Vytvářím Firebase credential s rawNonce a accessToken...');
       final oauthCredential = fb.OAuthProvider('apple.com').credential(
         idToken: appleCredential.identityToken,
+        accessToken: appleCredential.authorizationCode,
         rawNonce: rawNonce,
       );
 
       // Přihlaste se do Firebase
+      debugPrint('Odesílám credential do Firebase...');
       final userCredential = await _auth.signInWithCredential(oauthCredential);
 
       debugPrint('Apple Sign In úspěšný: ${userCredential.user?.uid}');
@@ -328,46 +358,6 @@ class AuthService {
     final bytes = utf8.encode(input);
     final digest = sha256.convert(bytes);
     return digest.toString();
-  }
-
-  // -----------------------
-  // Facebook OAuth
-  // -----------------------
-
-  /// Přihlášení přes Facebook OAuth.
-  /// Po úspěchu vrací `UserCredential` a vypíše UID do logu.
-  Future<fb.UserCredential?> signInWithFacebook() async {
-    try {
-      final result = await FacebookAuth.instance.login(
-        permissions: ['email', 'public_profile'],
-      );
-      if (result.status != LoginStatus.success || result.accessToken == null) {
-        throw Exception('Facebook login failed: ${result.status}');
-      }
-      final credential = fb.FacebookAuthProvider.credential(
-        result.accessToken!.tokenString,
-      );
-      final userCredential = await _auth.signInWithCredential(credential);
-
-      // Uložení tokenu
-      final user = userCredential.user;
-      if (user != null) {
-        final idTokenResult = await user.getIdTokenResult();
-        if (idTokenResult.token != null) {
-          final expiry = idTokenResult.expirationTime ??
-              DateTime.now().add(const Duration(hours: 1));
-          await _securityService.storeAuthToken(idTokenResult.token!, expiry);
-        }
-        debugPrint('>>> CurrentUser UID (Facebook): ${user.uid}');
-      }
-
-      return userCredential;
-    } on fb.FirebaseAuthException catch (e, stackTrace) {
-      _handleAuthError(e, stackTrace);
-      return null;
-    } catch (e, stackTrace) {
-      throw AuthException(e.toString(), 'unknown', stackTrace);
-    }
   }
 
   // -----------------------
@@ -452,10 +442,11 @@ class AuthService {
 
   Future<void> signOut() async {
     try {
-      // Použití správných metod SecurityService
+      // Vyčištění bezpečnostních dat
       await _securityService.clearAuthToken();
       await _securityService.clearAllData();
 
+      // Odhlášení z Firebase
       await _auth.signOut();
 
       // Bezpečné odhlášení z Google
@@ -463,13 +454,6 @@ class AuthService {
         await _googleSignIn.signOut();
       } catch (e) {
         debugPrint('Google sign out error: $e');
-      }
-
-      // Bezpečné odhlášení z Facebooku
-      try {
-        await FacebookAuth.instance.logOut();
-      } catch (e) {
-        debugPrint('Facebook sign out error: $e');
       }
 
       debugPrint('User signed out from all providers.');

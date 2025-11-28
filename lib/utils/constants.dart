@@ -28,9 +28,10 @@ class Constants {
   // BILLING KONSTANTY
   // ================================
 
-  // Product IDs pro in-app nákupy
-  static const String productPremiumYearlyAndroid = 'premium_yearly';
-  static const String productPremiumYearlyIOS = 'premium_yearly';
+  // ✅ OPRAVENO: Product IDs pro in-app nákupy
+  // Musí přesně odpovídat ID v App Store Connect a Google Play Console
+  static const String productPremiumYearlyAndroid = 'cz.filipstastny.dend.premium_yearly';
+  static const String productPremiumYearlyIOS = 'cz.filipstastny.dend.premium_yearly';
 
   // Free tier limity - počet povolených akcí v každé funkci
   // Uživatel může provést 3 akce v checklistu, 3 ve schedule, 3 v guests atd.
@@ -50,8 +51,9 @@ class Constants {
   // ================================
   // PACKAGE INFO
   // ================================
-  static const String packageName = 'cz.svatba.dend';
-  static const String bundleId = 'cz.svatba.dend';
+  // ✅ OPRAVENO: Musí odpovídat Bundle ID v App Store Connect a Package Name v Google Play
+  static const String packageName = 'cz.filipstastny.dend';
+  static const String bundleId = 'cz.filipstastny.dend';
 
   // ================================
   // TÉMATICKÉ KONSTANTY
@@ -185,7 +187,7 @@ class Constants {
 /// Tato třída poskytuje přístup k billing konstantám
 /// pro správu předplatného a in-app nákupů.
 class Billing {
-  // Product IDs
+  // Product IDs - ✅ OPRAVENO
   static const String productPremiumYearlyAndroid =
       Constants.productPremiumYearlyAndroid;
   static const String productPremiumYearlyIOS =

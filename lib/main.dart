@@ -1,4 +1,4 @@
-/// lib/main.dart - PRODUKČNÍ VERZE S NOTIFIKACEMI
+/// lib/main.dart - PRODUKČNÍ VERZE S NOTIFIKACEMI A AUTODETEKCÍ JAZYKA
 library;
 
 import 'package:flutter/material.dart';
@@ -16,7 +16,9 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'dart:async';
+import 'dart:io' show Platform;
 
 // Repositories and Services
 import 'repositories/user_repository.dart';
@@ -52,7 +54,6 @@ import 'services/payment_service.dart';
 
 // Theme
 import 'providers/theme_manager.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
 
 // Router a Navigation
 import 'routes.dart';
@@ -69,12 +70,49 @@ import 'services/security_service.dart';
 /// Konstanta prostředí
 const String environment = "production";
 
+/// Podporované jazyky aplikace
+const List<Locale> supportedLocales = [
+  Locale('cs'), // Čeština
+  Locale('en'), // Angličtina
+  Locale('es'), // Španělština
+  Locale('uk'), // Ukrajinština
+  Locale('pl'), // Polština
+  Locale('fr'), // Francouzština
+  Locale('de'), // Němčina
+];
+
 /// Background message handler pro Firebase Messaging - MUSÍ BÝT TOP-LEVEL
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   debugPrint('[Firebase] Background message: ${message.messageId}');
   debugPrint('[Firebase] Notification: ${message.notification?.title}');
+}
+
+/// Detekce jazyka zařízení a vrácení odpovídající Locale
+/// Pokud jazyk není podporovaný, vrátí angličtinu jako fallback
+Locale? _getDeviceLocale() {
+  try {
+    // Získání jazyka systému
+    final String systemLocale = Platform.localeName;
+    final String languageCode = systemLocale.split('_')[0].toLowerCase();
+    
+    debugPrint('[Main] Detekovaný jazyk zařízení: $languageCode (z $systemLocale)');
+    
+    // Kontrola, zda je jazyk podporovaný
+    final supportedLanguageCodes = supportedLocales.map((l) => l.languageCode).toList();
+    
+    if (supportedLanguageCodes.contains(languageCode)) {
+      debugPrint('[Main] Jazyk $languageCode je podporovaný');
+      return Locale(languageCode);
+    } else {
+      debugPrint('[Main] Jazyk $languageCode není podporovaný, použije se výchozí');
+      return null; // EasyLocalization použije fallbackLocale
+    }
+  } catch (e) {
+    debugPrint('[Main] Chyba při detekci jazyka: $e');
+    return null;
+  }
 }
 
 /// Pomocná funkce pro ošetření asynchronních operací s timeoutem
@@ -145,7 +183,6 @@ Future<void> _initializeApp() async {
     await EasyLocalization.ensureInitialized();
 
     // KRITICKÉ: EnvironmentConfig MUSÍ být inicializován PŘED Firebase.initializeApp()
-    // protože firebase_options.dart ho používá
     final envConfig = EnvironmentConfig();
     await envConfig.initialize();
     debugPrint("[Main] EnvironmentConfig inicializován před Firebase");
@@ -155,13 +192,20 @@ Future<void> _initializeApp() async {
         options: DefaultFirebaseOptions.currentPlatform,
       );
 
+      // ✅ PRODUKČNÍ APP CHECK KONFIGURACE
       await FirebaseAppCheck.instance.activate(
-        androidProvider: AndroidProvider.debug,
-        appleProvider: AppleProvider.debug,
+        // Android: Play Integrity pro produkci, debug pro vývoj
+        androidProvider: kDebugMode
+            ? AndroidProvider.debug
+            : AndroidProvider.playIntegrity,
+        // Apple: Device Check pro produkci (iOS 11+), debug pro vývoj
+        appleProvider: kDebugMode
+            ? AppleProvider.debug
+            : AppleProvider.deviceCheck,
       );
-      debugPrint("[Main] App Check aktivován úspěšně");
+      debugPrint("[Main] App Check aktivován úspěšně (${kDebugMode ? 'DEBUG' : 'PRODUCTION'} mód)");
 
-      // Registrace background message handleru - DŮLEŽITÉ!
+      // Registrace background message handleru
       FirebaseMessaging.onBackgroundMessage(
           _firebaseMessagingBackgroundHandler);
 
@@ -221,7 +265,8 @@ Future<void> _initializeApp() async {
       );
     }
 
-    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+    // Crashlytics - zapnout pouze v produkci
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode);
 
     FlutterError.onError = (FlutterErrorDetails details) {
       FirebaseCrashlytics.instance.recordFlutterError(details);
@@ -396,6 +441,10 @@ Future<void> main() async {
 
   debugPrint("=== APLIKACE SE SPOUŠTÍ ===");
 
+  // ✅ Detekce jazyka zařízení
+  final Locale? deviceLocale = _getDeviceLocale();
+  debugPrint("[Main] Počáteční jazyk: ${deviceLocale?.languageCode ?? 'použije se fallback (en)'}");
+
   try {
     await _initializeApp();
 
@@ -403,17 +452,11 @@ Future<void> main() async {
 
     runApp(
       EasyLocalization(
-        supportedLocales: const [
-          Locale('cs'),
-          Locale('en'),
-          Locale('es'),
-          Locale('uk'),
-          Locale('pl'),
-          Locale('fr'),
-          Locale('de'),
-        ],
+        supportedLocales: supportedLocales,
         path: 'assets/translations',
-        fallbackLocale: const Locale('en'),
+        fallbackLocale: const Locale('en'), // Výchozí jazyk pokud není podporovaný
+        startLocale: deviceLocale, // ✅ Použít jazyk zařízení při prvním spuštění
+        saveLocale: true, // ✅ Uložit vybraný jazyk pro příští spuštění
         useOnlyLangCode: true,
         child: const MyApp(),
       ),
@@ -576,12 +619,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late LocalStorageService _localStorageService;
   late SubscriptionProvider _subscriptionProvider;
 
-  late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
-  late StreamSubscription<List<PurchaseDetails>> _purchaseStreamSubscription;
-  late StreamSubscription<fb.User?> _authStreamSubscription;
-  late Trace _appStartupTrace;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  StreamSubscription<List<PurchaseDetails>>? _purchaseStreamSubscription;
+  StreamSubscription<fb.User?>? _authStreamSubscription;
+  Trace? _appStartupTrace;
   bool _isFirstBuild = true;
   bool _subscriptionServicesInitialized = false;
+  bool _mainServicesInitialized = false;
 
   // GLOBÁLNÍ KEY PRO BEZPEČNÝ PŘÍSTUP K SCAFFOLDMESSENGER
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
@@ -621,6 +665,75 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         errorCode: 'SUBSCRIPTION_SERVICES_INIT_001',
       );
       _subscriptionServicesInitialized = false;
+    }
+  }
+
+  // Inicializace hlavních služeb
+  Future<void> _initializeMainServices() async {
+    try {
+      _subscriptionRepository = locator<SubscriptionRepository>();
+
+      _cloudScheduleService = CloudScheduleService(
+          firestore: FirebaseFirestore.instance,
+          auth: fb.FirebaseAuth.instance);
+
+      _scheduleManager = ScheduleManager(
+          localService: locator<LocalScheduleService>(),
+          cloudService: _cloudScheduleService,
+          auth: fb.FirebaseAuth.instance);
+
+      _localBudgetService = locator<LocalBudgetService>();
+      _cloudBudgetService = CloudBudgetService(
+          firestore: FirebaseFirestore.instance,
+          auth: fb.FirebaseAuth.instance);
+
+      _budgetManager = BudgetManager(
+          localService: _localBudgetService,
+          cloudService: _cloudBudgetService,
+          auth: fb.FirebaseAuth.instance);
+
+      // NOVÉ INSTANCE
+      _localGuestsService = LocalGuestsService();
+      _cloudGuestsService = CloudGuestsService(
+          firestore: FirebaseFirestore.instance,
+          auth: fb.FirebaseAuth.instance);
+
+      _guestsManager = GuestsManager(
+          localService: _localGuestsService,
+          cloudService: _cloudGuestsService,
+          auth: fb.FirebaseAuth.instance);
+
+      _localChecklistService = LocalChecklistService();
+      _cloudChecklistService = CloudChecklistService(
+          firestore: FirebaseFirestore.instance,
+          auth: fb.FirebaseAuth.instance);
+
+      _checklistManager = ChecklistManager(
+          localService: _localChecklistService,
+          cloudService: _cloudChecklistService,
+          auth: fb.FirebaseAuth.instance);
+
+      _localCalendarService = LocalCalendarService();
+      _cloudCalendarService = CloudCalendarService(
+          firestore: FirebaseFirestore.instance,
+          auth: fb.FirebaseAuth.instance);
+
+      _calendarManager = CalendarManager(
+          localService: _localCalendarService,
+          cloudService: _cloudCalendarService,
+          auth: fb.FirebaseAuth.instance);
+
+      _mainServicesInitialized = true;
+      debugPrint('[Main] Main services inicializovány úspěšně');
+    } catch (e, stack) {
+      GlobalErrorHandler.instance.handleError(
+        e,
+        stackTrace: stack,
+        type: ErrorType.critical,
+        userMessage: 'Chyba při inicializaci hlavních služeb',
+        errorCode: 'MAIN_SERVICES_INIT_001',
+      );
+      _mainServicesInitialized = false;
     }
   }
 
@@ -723,17 +836,49 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
 
-    // REGISTRACE SCAFFOLDMESSENGERKEY V GLOBALERRORHANDLER
-    // DOČASNĚ ZAKOMENTOVÁNO - metoda neexistuje
-    // WidgetsBinding.instance.addPostFrameCallback((_) {
-    //   GlobalErrorHandler.instance
-    //       .setScaffoldMessengerKey(_scaffoldMessengerKey);
-    // });
-
     _appStartupTrace = FirebasePerformance.instance.newTrace('app_startup');
-    _appStartupTrace.start();
+    _appStartupTrace?.start();
 
     WidgetsBinding.instance.addObserver(this);
+
+    // Inicializace hlavních služeb
+    _initializeMainServices().then((_) {
+      if (_mainServicesInitialized) {
+        // Nastavení connectivity subscription
+        _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+          (List<ConnectivityResult> results) {
+            try {
+              final hasConnection = results.isNotEmpty &&
+                  results.any((result) => result != ConnectivityResult.none);
+
+              if (hasConnection) {
+                _scheduleManager.forceRefreshFromCloud();
+                _budgetManager.forceRefreshFromCloud();
+                _guestsManager.forceRefreshFromCloud();
+                _checklistManager.forceRefreshFromCloud();
+                _calendarManager.forceRefreshFromCloud();
+              }
+            } catch (e, stack) {
+              GlobalErrorHandler.instance.handleError(
+                e,
+                stackTrace: stack,
+                type: ErrorType.network,
+                userMessage: 'Chyba při zpracování změny připojení',
+                errorCode: 'CONNECTIVITY_CHANGE_001',
+              );
+            }
+          },
+          onError: (error) {
+            GlobalErrorHandler.instance.handleError(
+              error,
+              type: ErrorType.network,
+              userMessage: 'Chyba při sledování stavu připojení',
+              errorCode: 'CONNECTIVITY_MONITOR_001',
+            );
+          },
+        );
+      }
+    });
 
     // Inicializace subscription services
     _initializeSubscriptionServices().then((_) {
@@ -774,104 +919,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           },
         );
 
-        setState(() {});
+        if (mounted) {
+          setState(() {});
+        }
       }
     });
-
-    try {
-      _subscriptionRepository = locator<SubscriptionRepository>();
-
-      _cloudScheduleService = CloudScheduleService(
-          firestore: FirebaseFirestore.instance,
-          auth: fb.FirebaseAuth.instance);
-
-      _scheduleManager = ScheduleManager(
-          localService: locator<LocalScheduleService>(),
-          cloudService: _cloudScheduleService,
-          auth: fb.FirebaseAuth.instance);
-
-      _localBudgetService = locator<LocalBudgetService>();
-      _cloudBudgetService = CloudBudgetService(
-          firestore: FirebaseFirestore.instance,
-          auth: fb.FirebaseAuth.instance);
-
-      _budgetManager = BudgetManager(
-          localService: _localBudgetService,
-          cloudService: _cloudBudgetService,
-          auth: fb.FirebaseAuth.instance);
-
-      // NOVÉ INSTANCE
-      _localGuestsService = LocalGuestsService();
-      _cloudGuestsService = CloudGuestsService(
-          firestore: FirebaseFirestore.instance,
-          auth: fb.FirebaseAuth.instance);
-
-      _guestsManager = GuestsManager(
-          localService: _localGuestsService,
-          cloudService: _cloudGuestsService,
-          auth: fb.FirebaseAuth.instance);
-
-      _localChecklistService = LocalChecklistService();
-      _cloudChecklistService = CloudChecklistService(
-          firestore: FirebaseFirestore.instance,
-          auth: fb.FirebaseAuth.instance);
-
-      _checklistManager = ChecklistManager(
-          localService: _localChecklistService,
-          cloudService: _cloudChecklistService,
-          auth: fb.FirebaseAuth.instance);
-
-      _localCalendarService = LocalCalendarService();
-      _cloudCalendarService = CloudCalendarService(
-          firestore: FirebaseFirestore.instance,
-          auth: fb.FirebaseAuth.instance);
-
-      _calendarManager = CalendarManager(
-          localService: _localCalendarService,
-          cloudService: _cloudCalendarService,
-          auth: fb.FirebaseAuth.instance);
-    } catch (e, stack) {
-      GlobalErrorHandler.instance.handleError(
-        e,
-        stackTrace: stack,
-        type: ErrorType.critical,
-        userMessage: 'Chyba při inicializaci hlavních služeb',
-        errorCode: 'MAIN_SERVICES_INIT_001',
-      );
-    }
-
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
-      (List<ConnectivityResult> results) {
-        try {
-          final hasConnection = results.isNotEmpty &&
-              results.any((result) => result != ConnectivityResult.none);
-
-          if (hasConnection) {
-            _scheduleManager.forceRefreshFromCloud();
-            _budgetManager.forceRefreshFromCloud();
-            _guestsManager.forceRefreshFromCloud();
-            _checklistManager.forceRefreshFromCloud();
-            _calendarManager.forceRefreshFromCloud();
-          }
-        } catch (e, stack) {
-          GlobalErrorHandler.instance.handleError(
-            e,
-            stackTrace: stack,
-            type: ErrorType.network,
-            userMessage: 'Chyba při zpracování změny připojení',
-            errorCode: 'CONNECTIVITY_CHANGE_001',
-          );
-        }
-      },
-      onError: (error) {
-        GlobalErrorHandler.instance.handleError(
-          error,
-          type: ErrorType.network,
-          userMessage: 'Chyba při sledování stavu připojení',
-          errorCode: 'CONNECTIVITY_MONITOR_001',
-        );
-      },
-    );
 
     _runBackgroundChecks();
   }
@@ -881,7 +933,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.didChangeDependencies();
     if (_isFirstBuild) {
       _isFirstBuild = false;
-      // Bez setContext() - používáme globální keys
     }
   }
 
@@ -889,11 +940,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       try {
-        _scheduleManager.forceRefreshFromCloud();
-        _budgetManager.forceRefreshFromCloud();
-        _guestsManager.forceRefreshFromCloud();
-        _checklistManager.forceRefreshFromCloud();
-        _calendarManager.forceRefreshFromCloud();
+        if (_mainServicesInitialized) {
+          _scheduleManager.forceRefreshFromCloud();
+          _budgetManager.forceRefreshFromCloud();
+          _guestsManager.forceRefreshFromCloud();
+          _checklistManager.forceRefreshFromCloud();
+          _calendarManager.forceRefreshFromCloud();
+        }
         fb.FirebaseAuth.instance.currentUser?.getIdToken(true);
       } catch (e, stack) {
         GlobalErrorHandler.instance.handleError(
@@ -909,19 +962,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    _appStartupTrace.stop();
+    _appStartupTrace?.stop();
     WidgetsBinding.instance.removeObserver(this);
-    _connectivitySubscription.cancel();
-    _purchaseStreamSubscription.cancel();
-    _authStreamSubscription.cancel();
+    _connectivitySubscription?.cancel();
+    _purchaseStreamSubscription?.cancel();
+    _authStreamSubscription?.cancel();
 
     try {
-      _subscriptionRepository.dispose();
-      _scheduleManager.dispose();
-      _budgetManager.dispose();
-      _guestsManager.dispose();
-      _checklistManager.dispose();
-      _calendarManager.dispose();
+      if (_mainServicesInitialized) {
+        _subscriptionRepository.dispose();
+        _scheduleManager.dispose();
+        _budgetManager.dispose();
+        _guestsManager.dispose();
+        _checklistManager.dispose();
+        _calendarManager.dispose();
+      }
 
       if (_subscriptionServicesInitialized) {
         _paymentService.dispose();
@@ -942,7 +997,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   void _runBackgroundChecks() async {
     try {
-      Future.delayed(const Duration(seconds: 1), () {});
+      await Future.delayed(const Duration(seconds: 1));
 
       await logCurrentUser();
       await testFirestorePermissions();
@@ -968,7 +1023,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     String appName = _tr('app_name');
 
-    if (!_subscriptionServicesInitialized) {
+    if (!_subscriptionServicesInitialized || !_mainServicesInitialized) {
       return MaterialApp(
         home: Scaffold(
           body: Center(
@@ -1007,7 +1062,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         Provider<WeddingRepository>(
             create: (_) => locator<WeddingRepository>()),
 
-        // PŘIDÁNO: NotificationService provider
+        // NotificationService provider
         Provider<NotificationService>(
           create: (_) => locator<NotificationService>(),
         ),
@@ -1084,20 +1139,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             themeMode: themeManager.themeMode,
             onGenerateRoute: (settings) {
               try {
-                if (settings.name != null && settings.name != '/') {
-                  try {
-                    // Analytika
-                  } catch (e) {
-                    debugPrint('[Navigation] Chyba logování zobrazení: $e');
-                    GlobalErrorHandler.instance.handleError(
-                      e,
-                      type: ErrorType.unknown,
-                      userMessage: 'Chyba při zaznamenání navigace',
-                      errorCode: 'NAVIGATION_LOG_001',
-                    );
-                  }
-                }
-
                 return RouteGenerator.generateRoute(settings);
               } catch (e, stack) {
                 GlobalErrorHandler.instance.handleError(
@@ -1169,7 +1210,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                       showDialog(
                         context: context,
                         builder: (context) => ErrorDialog(
-                          title: 'auto.main.nahl_sit_chybu'.tr(),
+                          title: 'Nahlásit chybu',
                           message:
                               'Chcete nahlásit tuto chybu vývojářskému týmu?',
                           errorType: ErrorType.info,

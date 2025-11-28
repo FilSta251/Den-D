@@ -30,7 +30,6 @@ dependencies:
   cloud_functions: ^6.0.0
   google_sign_in: ^6.2.1
   sign_in_with_apple: ^7.0.1
-  flutter_facebook_auth: ^7.1.2
   logger: ^2.6.1
   easy_localization: ^3.0.8
   http: ^1.4.0
