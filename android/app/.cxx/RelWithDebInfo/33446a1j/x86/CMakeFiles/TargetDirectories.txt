@@ -1,0 +1,2 @@
+C:/Users/Phili/Documents/svatebni_planovac/android/app/.cxx/RelWithDebInfo/33446a1j/x86/CMakeFiles/edit_cache.dir
+C:/Users/Phili/Documents/svatebni_planovac/android/app/.cxx/RelWithDebInfo/33446a1j/x86/CMakeFiles/rebuild_cache.dir

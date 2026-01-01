@@ -1,0 +1,33 @@
+{
+  "app_name": "Plánovač Svatby",
+  "welcome": "Vítejte",
+  "login": "Přihlásit se",
+  "register": "Registrovat se",
+  "email": "Email",
+  "password": "Heslo",
+  "save": "Uložit",
+  "cancel": "Zrušit",
+  "delete": "Smazat",
+  "edit": "Upravit",
+  "add": "Přidat",
+  "home": "Domů",
+  "guests": "Hosté",
+  "budget": "Rozpočet",
+  "settings": "Nastavení",
+  "wedding_date": "Datum svatby",
+  "venue": "Místo svatby",
+  "budget_amount": "Rozpočet (Kč)",
+  "monthly_price": "120 Kč/měsíc",
+  "yearly_price": "800 Kč/rok",
+  "error_network": "Chyba sítě",
+  "error_server": "Chyba serveru",
+  "success_saved": "Úspěšně uloženo",
+  "_meta": {
+    "version": "1.0.0",
+    "language": "Čeština",
+    "currency": "CZK",
+    "symbol": "Kč",
+    "lastUpdated": "2025-09-29T13:43:47.156Z",
+    "completeness": 100
+  }
+}

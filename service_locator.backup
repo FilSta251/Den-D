@@ -1,0 +1,175 @@
+import 'package:get_it/get_it.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
+
+// Repositories
+import '../repositories/user_repository.dart';
+import '../repositories/event_repository.dart';
+import '../repositories/wedding_repository.dart';
+import '../repositories/subscription_repository.dart';
+import '../repositories/message_repository.dart';
+import '../repositories/tasks_repository.dart';
+import '../repositories/supplier_repository.dart';
+
+// Services
+import '../services/auth_service.dart';
+import '../services/notification_service.dart';
+import '../services/payment_service.dart';
+import '../services/local_storage_service.dart';
+import '../services/analytics_service.dart';
+import '../services/crash_reporting_service.dart';
+import '../services/ai_chat_service.dart';
+import '../services/navigation_service.dart'; // Nový import
+import '../services/cloud_schedule_service.dart'; // Nový import
+import '../services/local_schedule_service.dart';
+
+final GetIt locator = GetIt.instance;
+
+/// Inicializace DI a registrace všech služeb a repozitářů.
+/// Zavolejte ji jako `await init();` na začátku aplikace.
+Future<void> init() async {
+  await setupServiceLocator();
+}
+
+/// Registruje všechny závislosti.
+Future<void> setupServiceLocator() async {
+  // Reset locatoru, aby nedošlo k duplicitní registraci (užitečné např. při hot restartu).
+  await locator.reset();
+
+  // Asynchroní inicializace základních utilit.
+  final sharedPreferences = await SharedPreferences.getInstance();
+  final secureStorage = const FlutterSecureStorage();
+
+  // Registrace základních utilit.
+  locator.registerSingleton<SharedPreferences>(sharedPreferences);
+  locator.registerSingleton<FlutterSecureStorage>(secureStorage);
+
+  // Registrace asynchronních služeb s vlastní inicializací.
+  try {
+    locator.registerSingletonAsync<NotificationService>(() async {
+      final service = NotificationService();
+      await service.initialize();
+      return service;
+    });
+  } catch (e) {
+    print("Error registering NotificationService: $e");
+  }
+
+  try {
+    locator.registerSingletonAsync<CrashReportingService>(() async {
+      final service = CrashReportingService();
+      await service.initialize();
+      return service;
+    });
+  } catch (e) {
+    print("Error registering CrashReportingService: $e");
+  }
+
+  try {
+    locator.registerSingletonAsync<PaymentService>(() async {
+      final service = PaymentService();
+      // Pokud PaymentService obsahuje metodu configure, zavolejte ji zde:
+      // await service.configure();
+      return service;
+    });
+  } catch (e) {
+    print("Error registering PaymentService: $e");
+  }
+
+  // Firebase závislosti – registrujeme instanci FirebaseAuth.
+  locator.registerSingleton<fb.FirebaseAuth>(fb.FirebaseAuth.instance);
+
+  // Registrace hlavních služeb s využitím lazy singletonu.
+  locator.registerLazySingleton<AuthService>(() => AuthService());
+  locator.registerLazySingleton<LocalStorageService>(
+    () => LocalStorageService(
+      sharedPreferences: locator<SharedPreferences>(),
+      secureStorage: locator<FlutterSecureStorage>(),
+      crashReporting: locator<CrashReportingService>(),
+    ),
+  );
+  locator.registerLazySingleton<AnalyticsService>(() => AnalyticsService());
+
+  // Nové služby
+  locator.registerLazySingleton<NavigationService>(() => NavigationService());
+  locator.registerLazySingleton<CloudScheduleService>(() => CloudScheduleService());
+  locator.registerLazySingleton<LocalScheduleService>(() => LocalScheduleService());
+
+  // Registrace repozitářů.
+  locator.registerLazySingleton<UserRepository>(() => UserRepository());
+  locator.registerLazySingleton<EventRepository>(() => EventRepository());
+  locator.registerLazySingleton<WeddingRepository>(() => WeddingRepository());
+  locator.registerLazySingleton<SubscriptionRepository>(() => SubscriptionRepository());
+  locator.registerLazySingleton<TasksRepository>(() => TasksRepository());
+  locator.registerLazySingleton<SupplierRepository>(() => SupplierRepository());
+
+  // Registrace MessageRepository pomocí factory, která přijímá parametr conversationId.
+  locator.registerFactoryParam<MessageRepository, String, void>(
+    (conversationId, _) => MessageRepository(conversationId: conversationId),
+  );
+
+  // Registrace AIChatService.
+  locator.registerLazySingleton<AIChatService>(() => AIChatService(
+        apiUrl: 'https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium',
+        apiKey: 'hf_XXXXXXXXXXXXXXXXXXXXXX', // Nahraďte svým reálným tokenem
+      ));
+
+  // Počkáme, až všechny asynchronní registrace dokončí inicializaci.
+  // Registrace ScheduleManager 
+  locator.registerLazySingleton<ScheduleManager>(() => ScheduleManager( 
+    localService: locator<LocalScheduleService>(), 
+    cloudService: locator<CloudScheduleService>(), 
+  ));
+  await locator.allReady();
+
+  // Debug log: vypíšeme, zda klíčové služby a repozitáře byly registrovány.
+  _logRegistrationStatus();
+}
+
+/// Pomocná funkce pro výpis registračního statusu.
+void _logRegistrationStatus() {
+  final servicesToCheck = {
+    'AuthService': locator.isRegistered<AuthService>(),
+    'NotificationService': locator.isRegistered<NotificationService>(),
+    'PaymentService': locator.isRegistered<PaymentService>(),
+    'UserRepository': locator.isRegistered<UserRepository>(),
+    'MessageRepository': locator.isRegistered<MessageRepository>(),
+    'SupplierRepository': locator.isRegistered<SupplierRepository>(),
+    'AIChatService': locator.isRegistered<AIChatService>(),
+    'NavigationService': locator.isRegistered<NavigationService>(),
+    'CloudScheduleService': locator.isRegistered<CloudScheduleService>(),
+    'LocalScheduleService': locator.isRegistered<LocalScheduleService>(),
+  };
+
+  servicesToCheck.forEach((serviceName, isRegistered) {
+    if (isRegistered) {
+      print('ServiceLocator: $serviceName registered successfully');
+    } else {
+      print('ServiceLocator: $serviceName registration failed');
+    }
+  });
+}
+
+// Import pro ScheduleManager na začátek souboru
+import '../services/schedule_manager.dart';
+
+
+// Přidej tyto importy na začátek souboru, pokud ještě neexistují
+import '../services/schedule_manager.dart';
+
+// A přidej tuto registraci do setupServiceLocator, před await locator.allReady():
+locator.registerLazySingleton<ScheduleManager>(() => ScheduleManager(
+  localService: locator<LocalScheduleService>(),
+  cloudService: locator<CloudScheduleService>(),
+));
+
+// Přidej tyto importy na začátek souboru, pokud ještě neexistují
+import '../services/schedule_manager.dart';
+
+// A přidej tuto registraci do setupServiceLocator, před await locator.allReady():
+locator.registerLazySingleton<ScheduleManager>(() => ScheduleManager(
+  localService: locator<LocalScheduleService>(),
+  cloudService: locator<CloudScheduleService>(),
+));

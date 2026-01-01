@@ -1,0 +1,132 @@
+Folder PATH listing
+Volume serial number is AA91-13C4
+C:\USERS\PHILI\DOCUMENTS\SVATEBNI_PLANOVAC\LIB
+|   firebase_options.dart
+|   main.dart
+|   routes.dart
+|   
++---di
+|       service_locator.dart
+|       
++---models
+|       calendar_event.dart
+|       event.dart
+|       expense.dart
+|       guest.dart
+|       message.dart
+|       payment.dart
+|       subscription.dart
+|       supplier.dart
+|       table_arrangement.dart
+|       task.dart
+|       user.dart
+|       wedding_info.dart
+|       
++---notifiers
+|       wedding_info_notifier.dart
+|       
++---providers
+|       base_notifier.dart
+|       subscription_provider.dart
+|       theme_manager.dart
+|       
++---repositories
+|       event_repository.dart
+|       message_repository.dart
+|       payment_repository.dart
+|       subscription_repository.dart
+|       supplier_repository.dart
+|       user_repository.dart
+|       wedding_repository.dart
+|       
++---router
+|       app_router.dart
+|       
++---screens
+|       app_introduction_screen.dart
+|       auth_screen.dart
+|       bride_groom_main_menu.dart
+|       budget_screen.dart
+|       calendar_page.dart
+|       chatbot_screen.dart
+|       checklist_screen.dart
+|       guests_screen.dart
+|       home_screen.dart
+|       legal_information_page.dart
+|       messages_page.dart
+|       oldwelcome_screen.dart
+|       Old_onboarding_screen.dart
+|       profile_page.dart
+|       settings_page.dart
+|       splash_screen.dart
+|       subscription_page.dart
+|       suppliers_list_page.dart
+|       supplier_profile_page.dart
+|       usage_selection_screen.dart
+|       wedding_info_page.dart
+|       wedding_schedule_screen.dart
+|       
++---services
+|   |   ai_chat_service.dart
+|   |   analytics_service.dart
+|   |   auth_service.dart
+|   |   base_repository.dart
+|   |   budget_manager.dart
+|   |   caching_strategy.dart
+|   |   calendar_manager.dart
+|   |   checklist_manager.dart
+|   |   cloud_budget_service.dart
+|   |   cloud_calendar_service.dart
+|   |   cloud_checklist_service.dart
+|   |   cloud_guests_service.dart
+|   |   cloud_schedule_service.dart
+|   |   connectivity_manager.dart
+|   |   crash_reporting_service.dart
+|   |   environment_config.dart
+|   |   firestore_subscription_service.dart
+|   |   guests_manager.dart
+|   |   local_budget_service.dart
+|   |   local_calendar_service.dart
+|   |   local_checklist_service.dart
+|   |   local_guests_service.dart
+|   |   local_schedule_service.dart
+|   |   local_storage_service.dart
+|   |   local_wedding_info_service.dart
+|   |   navigation_service.dart
+|   |   notification_service.dart
+|   |   onboarding_manager.dart
+|   |   payment_service.dart
+|   |   permission_handler.dart
+|   |   schedule_manager.dart
+|   |   security_service.dart
+|   |   theme_manager.dart
+|   |   
+|   \---base
+|           base_local_storage_service.dart
+|           
++---theme
+|       app_theme.dart
+|       
++---utils
+|       app_config.dart
+|       compute_helpers.dart
+|       constants.dart
+|       error_handler.dart
+|       global_error_handler.dart
+|       local_database.dart
+|       logger.dart
+|       performance_monitor.dart
+|       safe_tr.dart
+|       translation_helper.dart
+|       validators.dart
+|       
+\---widgets
+        custom_app_bar.dart
+        custom_error_widget.dart
+        error_dialog.dart
+        error_widget.dart
+        global_widgets.dart
+        permission_error_banner.dart
+        responsive_layout.dart
+        subscription_offer_dialog.dart
+        

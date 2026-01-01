@@ -1,0 +1,33 @@
+{
+  "app_name": "Planificador de Bodas",
+  "welcome": "Bienvenido",
+  "login": "Iniciar sesión",
+  "register": "Registrarse",
+  "email": "Email",
+  "password": "Contraseña",
+  "save": "Guardar",
+  "cancel": "Cancelar",
+  "delete": "Eliminar",
+  "edit": "Editar",
+  "add": "Añadir",
+  "home": "Inicio",
+  "guests": "Invitados",
+  "budget": "Presupuesto",
+  "settings": "Configuración",
+  "wedding_date": "Fecha de la boda",
+  "venue": "Lugar de la boda",
+  "budget_amount": "Presupuesto (€)",
+  "monthly_price": "9.99 €/mes",
+  "yearly_price": "79.99 €/año",
+  "error_network": "Error de red",
+  "error_server": "Error del servidor",
+  "success_saved": "Guardado exitosamente",
+  "_meta": {
+    "version": "1.0.0",
+    "language": "Español",
+    "currency": "EUR",
+    "symbol": "€",
+    "lastUpdated": "2025-09-29T13:43:47.161Z",
+    "completeness": 100
+  }
+}

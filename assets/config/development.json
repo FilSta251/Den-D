@@ -1,0 +1,142 @@
+{
+  "firebase": {
+    "apiKey": "AIzaSyA9ZQyrnconAW98RLSto3SH2XZm3LMf9Qs",
+    "authDomain": "svatba-f3e9b.firebaseapp.com",
+    "projectId": "svatba-f3e9b",
+    "storageBucket": "svatba-f3e9b.firebasestorage.app",
+    "messagingSenderId": "163734675450",
+    "appId": "1:163734675450:android:839b89141df7dec4f70e43",
+    "measurementId": "G-XXXXXXXXXX",
+    "ios": {
+      "apiKey": "AIzaSyA9ZQyrnconAW98RLSto3SH2XZm3LMf9Qs",
+      "appId": "1:163734675450:ios:xxxxxxxxxxxxx",
+      "bundleId": "com.example.svatebni-planovac"
+    }
+  },
+  "api": {
+    "baseUrl": "https://svatba-f3e9b.firebaseio.com",
+    "version": "v1",
+    "timeoutSeconds": 30,
+    "maxRetries": 3,
+    "headers": {
+      "X-App-Version": "1.0.0",
+      "X-Platform": "flutter"
+    }
+  },
+  "features": {
+    "crashlytics": false,
+    "analytics": false,
+    "performanceMonitoring": false,
+    "biometricAuth": true,
+    "pushNotifications": true,
+    "offlineMode": true,
+    "debugLogging": true,
+    "remoteConfig": false,
+    "inAppPurchases": false,
+    "socialLogin": true,
+    "googleMaps": true,
+    "imageUpload": true
+  },
+  "security": {
+    "minPasswordLength": 6,
+    "maxLoginAttempts": 10,
+    "sessionTimeoutMinutes": 60,
+    "tokenRefreshMinutes": 30,
+    "requireEmailVerification": false,
+    "enableEncryption": true,
+    "encryptionKeyRotationDays": 90,
+    "allowedDomains": ["svatba-f3e9b.firebaseapp.com", "localhost"]
+  },
+  "limits": {
+    "maxImageSizeMB": 10,
+    "maxVideoSizeMB": 100,
+    "maxAttachmentSizeMB": 20,
+    "maxGuestCount": 1000,
+    "maxTaskCount": 500,
+    "maxBudgetItems": 200,
+    "maxPhotosPerAlbum": 100,
+    "maxVendors": 50,
+    "cacheExpirationDays": 1,
+    "offlineDataRetentionDays": 7
+  },
+  "subscription": {
+    "monthlyPrice": 0.0,
+    "yearlyPrice": 0.0,
+    "trialDays": 999,
+    "offerFreeTrial": true,
+    "stripePlanIdMonthly": "test_monthly",
+    "stripePlanIdYearly": "test_yearly",
+    "googlePlayProductIdMonthly": "test_monthly_subscription",
+    "googlePlayProductIdYearly": "test_yearly_subscription",
+    "appStoreProductIdMonthly": "com.svatebni.test.monthly",
+    "appStoreProductIdYearly": "com.svatebni.test.yearly"
+  },
+  "notifications": {
+    "fcmServerKey": "",
+    "reminderHours": 24,
+    "enableEmail": true,
+    "enableSms": false,
+    "defaultSound": "default"
+  },
+  "external": {
+    "sentryDsn": "",
+    "googleMapsApiKey": "",
+    "stripePublishableKey": "pk_test_xxxxxxxxxxxxx",
+    "mixpanelToken": "",
+    "oneSignalAppId": "",
+    "cloudinaryCloudName": "",
+    "cloudinaryApiKey": ""
+  },
+  "ui": {
+    "defaultLanguage": "cs",
+    "supportedLanguages": ["cs", "en"],
+    "dateFormat": "dd.MM.yyyy",
+    "timeFormat": "HH:mm",
+    "use24HourFormat": true,
+    "defaultTheme": "system"
+  },
+  "cache": {
+    "httpMaxAge": 0,
+    "imageMaxCount": 50,
+    "imageMaxSizeMB": 25,
+    "enableAggressive": false
+  },
+  "logging": {
+    "level": "debug",
+    "toFile": false,
+    "retentionDays": 1,
+    "maxFileSizeMB": 5
+  },
+  "app": {
+    "name": "Svatební plánovač DEV",
+    "version": "1.0.0-dev",
+    "buildNumber": "1",
+    "packageName": "com.example.svatebni_planovac",
+    "appStoreId": "",
+    "playStoreUrl": "",
+    "websiteUrl": "http://localhost:3000",
+    "supportEmail": "dev@svatba-f3e9b.com",
+    "privacyPolicyUrl": "http://localhost:3000/privacy",
+    "termsOfServiceUrl": "http://localhost:3000/terms"
+  },
+  "deepLink": {
+    "scheme": "svatebni-planovac-dev",
+    "host": "app",
+    "universalDomain": "localhost"
+  },
+  "performance": {
+    "imageCompressionQuality": 70,
+    "thumbnailSize": 150,
+    "listPageSize": 10,
+    "searchDebounceMs": 500,
+    "enableLazyLoading": true
+  },
+  "abTesting": {
+    "enabled": false,
+    "flags": {}
+  },
+  "remoteConfig": {
+    "fetchIntervalHours": 1,
+    "cacheExpirationHours": 0
+  }
+}

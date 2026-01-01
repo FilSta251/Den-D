@@ -1,0 +1,33 @@
+{
+  "app_name": "Planificateur de Mariage",
+  "welcome": "Bienvenue",
+  "login": "Se connecter",
+  "register": "S'inscrire",
+  "email": "Email",
+  "password": "Mot de passe",
+  "save": "Enregistrer",
+  "cancel": "Annuler",
+  "delete": "Supprimer",
+  "edit": "Modifier",
+  "add": "Ajouter",
+  "home": "Accueil",
+  "guests": "Invités",
+  "budget": "Budget",
+  "settings": "Paramètres",
+  "wedding_date": "Date du mariage",
+  "venue": "Lieu du mariage",
+  "budget_amount": "Budget (€)",
+  "monthly_price": "9.99 €/mois",
+  "yearly_price": "79.99 €/an",
+  "error_network": "Erreur réseau",
+  "error_server": "Erreur serveur",
+  "success_saved": "Enregistré avec succès",
+  "_meta": {
+    "version": "1.0.0",
+    "language": "Français",
+    "currency": "EUR",
+    "symbol": "€",
+    "lastUpdated": "2025-09-29T13:43:47.161Z",
+    "completeness": 100
+  }
+}

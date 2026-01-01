@@ -1,0 +1,3 @@
+
+
+dart run tool/scan_missing_translation_keys.dart

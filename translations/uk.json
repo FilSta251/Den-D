@@ -1,0 +1,33 @@
+{
+  "app_name": "Планувальник Весіль",
+  "welcome": "Ласкаво просимо",
+  "login": "Увійти",
+  "register": "Зареєструватися",
+  "email": "Email",
+  "password": "Пароль",
+  "save": "Зберегти",
+  "cancel": "Скасувати",
+  "delete": "Видалити",
+  "edit": "Редагувати",
+  "add": "Додати",
+  "home": "Головна",
+  "guests": "Гості",
+  "budget": "Бюджет",
+  "settings": "Налаштування",
+  "wedding_date": "Дата весілля",
+  "venue": "Місце весілля",
+  "budget_amount": "Бюджет (грн)",
+  "monthly_price": "150 грн/міс",
+  "yearly_price": "1200 грн/рік",
+  "error_network": "Помилка мережі",
+  "error_server": "Помилка сервера",
+  "success_saved": "Успішно збережено",
+  "_meta": {
+    "version": "1.0.0",
+    "language": "Українська",
+    "currency": "UAH",
+    "symbol": "грн",
+    "lastUpdated": "2025-09-29T13:43:47.161Z",
+    "completeness": 100
+  }
+}

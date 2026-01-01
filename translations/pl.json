@@ -1,0 +1,33 @@
+{
+  "app_name": "Planner Ślubu",
+  "welcome": "Witamy",
+  "login": "Zaloguj się",
+  "register": "Zarejestruj się",
+  "email": "Email",
+  "password": "Hasło",
+  "save": "Zapisz",
+  "cancel": "Anuluj",
+  "delete": "Usuń",
+  "edit": "Edytuj",
+  "add": "Dodaj",
+  "home": "Strona główna",
+  "guests": "Goście",
+  "budget": "Budżet",
+  "settings": "Ustawienia",
+  "wedding_date": "Data ślubu",
+  "venue": "Miejsce ślubu",
+  "budget_amount": "Budżet (zł)",
+  "monthly_price": "30 zł/miesiąc",
+  "yearly_price": "200 zł/rok",
+  "error_network": "Błąd sieci",
+  "error_server": "Błąd serwera",
+  "success_saved": "Pomyślnie zapisano",
+  "_meta": {
+    "version": "1.0.0",
+    "language": "Polski",
+    "currency": "PLN",
+    "symbol": "zł",
+    "lastUpdated": "2025-09-29T13:43:47.161Z",
+    "completeness": 100
+  }
+}

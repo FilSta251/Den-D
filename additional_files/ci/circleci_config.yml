@@ -1,0 +1,75 @@
+version: 2.1
+
+orbs:
+  flutter: circleci/flutter@2.0.1
+
+jobs:
+  build_android:
+    docker:
+      - image: circleci/flutter:stable
+    steps:
+      - checkout
+      # Instalace potřebných závislostí Flutteru
+      - flutter/install-deps
+      # Obnova cache založené na checksum souboru pubspec.yaml
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "pubspec.yaml" }}
+            - v1-dependencies-
+      - run:
+          name: Get Dependencies
+          command: flutter pub get
+      - save_cache:
+          paths:
+            - ~/.pub-cache
+          key: v1-dependencies-{{ checksum "pubspec.yaml" }}
+      - run:
+          name: Analyze Code
+          command: flutter analyze
+      - run:
+          name: Run Unit Tests
+          command: flutter test --coverage
+      - run:
+          name: Build Android APK
+          command: flutter build apk --release
+      - store_artifacts:
+          path: build/app/outputs/flutter-apk/app-release.apk
+          destination: app-release.apk
+
+  build_ios:
+    macos:
+      xcode: "13.2.1"  # Upravte dle vašich potřeb
+    steps:
+      - checkout
+      # Instalace Flutter SDK (stáhne se pouze při prvním běhu; můžete si vytvořit vlastní obraz)
+      - run:
+          name: Install Flutter SDK
+          command: |
+            git clone https://github.com/flutter/flutter.git --branch stable --depth 1
+            export PATH="$PATH:`pwd`/flutter/bin"
+            flutter doctor
+      - run:
+          name: Get Dependencies
+          command: flutter pub get
+      - run:
+          name: Analyze Code
+          command: flutter analyze
+      - run:
+          name: Run Unit Tests
+          command: flutter test --coverage
+      - run:
+          name: Build iOS
+          command: flutter build ios --release --no-codesign
+      - store_artifacts:
+          path: build/ios/iphoneos/Runner.app
+          destination: Runner.app
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - build_android
+      - build_ios:
+          filters:
+            branches:
+              only: master

@@ -1,0 +1,33 @@
+{
+  "app_name": "Wedding Planner",
+  "welcome": "Welcome",
+  "login": "Log In",
+  "register": "Register",
+  "email": "Email",
+  "password": "Password",
+  "save": "Save",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "edit": "Edit",
+  "add": "Add",
+  "home": "Home",
+  "guests": "Guests",
+  "budget": "Budget",
+  "settings": "Settings",
+  "wedding_date": "Wedding Date",
+  "venue": "Wedding Venue",
+  "budget_amount": "Budget ($)",
+  "monthly_price": "$4.99/month",
+  "yearly_price": "$39.99/year",
+  "error_network": "Network Error",
+  "error_server": "Server Error",
+  "success_saved": "Successfully Saved",
+  "_meta": {
+    "version": "1.0.0",
+    "language": "English",
+    "currency": "USD",
+    "symbol": "$",
+    "lastUpdated": "2025-09-29T13:43:47.161Z",
+    "completeness": 100
+  }
+}
