@@ -3,6 +3,7 @@
 /// PaymentService pro správu in-app nákupů.
 /// AKTUALIZOVÁNO: Odstraněno automatické completePurchase - nyní řízeno z SubscriptionRepository
 /// po server-side ověření.
+/// OPRAVA v1.3.4: Graceful handling když IAP není dostupný - aplikace nepadá
 library;
 
 import 'dart:async';
@@ -13,6 +14,17 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../utils/constants.dart';
 
+/// Výjimka pro případ, kdy IAP není dostupný
+/// Tato výjimka je "očekávaná" a neměla by způsobit crash
+class IAPNotAvailableException implements Exception {
+  final String message;
+  IAPNotAvailableException(
+      [this.message = 'In-app purchases are not available on this device']);
+
+  @override
+  String toString() => message;
+}
+
 /// PaymentService pro správu in-app nákupů
 ///
 /// Poskytuje jednotné rozhraní pro Google Play Billing a Apple StoreKit.
@@ -21,6 +33,8 @@ import '../utils/constants.dart';
 /// ZMĚNA: completePurchase se nyní NEVOLÁ automaticky v _handlePurchaseUpdates.
 /// Je zodpovědností SubscriptionRepository zavolat completePurchase až PO
 /// úspěšném server-side ověření nákupu.
+///
+/// OPRAVA v1.3.4: Když IAP není dostupný, aplikace funguje dál (bez možnosti nákupu)
 class PaymentService {
   // Singleton instance
   static final PaymentService _instance = PaymentService._internal();
@@ -31,7 +45,7 @@ class PaymentService {
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
 
   // Stream pro poslouchání nákupních aktualizací
-  late StreamSubscription<List<PurchaseDetails>> _subscription;
+  StreamSubscription<List<PurchaseDetails>>? _subscription;
 
   // Controller pro vlastní purchase stream
   final StreamController<List<PurchaseDetails>> _purchaseStreamController =
@@ -43,9 +57,16 @@ class PaymentService {
   // Příznak inicializace
   bool _isInitialized = false;
 
+  // Příznak dostupnosti IAP - NOVÉ
+  bool _isIAPAvailable = false;
+
   /// Getter pro purchase stream - přeposílá InAppPurchase.instance.purchaseStream
   Stream<List<PurchaseDetails>> get purchaseStream =>
       _purchaseStreamController.stream;
+
+  /// Getter pro dostupnost IAP - NOVÉ
+  /// Vrací true pouze pokud je služba inicializovaná A IAP je dostupný
+  bool get isIAPAvailable => _isInitialized && _isIAPAvailable;
 
   /// Kontrola dostupnosti in-app nákupů
   Future<bool> isAvailable() async {
@@ -58,20 +79,33 @@ class PaymentService {
   }
 
   /// Inicializuje PaymentService
-  Future<void> initialize() async {
+  ///
+  /// OPRAVA v1.3.4: Když IAP není dostupný, služba se inicializuje v "degraded" módu
+  /// místo házení výjimky. Aplikace funguje dál, jen bez možnosti nákupu.
+  ///
+  /// Vrací true pokud je IAP plně dostupný, false pokud není (ale služba je inicializovaná)
+  Future<bool> initialize() async {
     if (_isInitialized) {
-      debugPrint('PaymentService již byl inicializován');
-      return;
+      debugPrint(
+          'PaymentService již byl inicializován (IAP available: $_isIAPAvailable)');
+      return _isIAPAvailable;
     }
 
     try {
       // Kontrola dostupnosti in-app nákupů
       final bool available = await isAvailable();
+
       if (!available) {
-        throw Exception('error_iap_not_available'.tr());
+        // OPRAVA: Místo výjimky nastavíme příznak a pokračujeme
+        debugPrint('⚠️ In-app purchases nejsou na tomto zařízení dostupné');
+        debugPrint(
+            '   Aplikace bude fungovat v omezeném režimu bez možnosti nákupu');
+        _isIAPAvailable = false;
+        _isInitialized = true;
+        return false;
       }
 
-      // Nastavení posluchače pro nákupní aktualizace - přeposílání do vlastního streamu
+      // IAP je dostupný - nastavíme posluchače
       _subscription = _inAppPurchase.purchaseStream.listen(
         (List<PurchaseDetails> purchaseDetailsList) {
           _purchaseStreamController.add(purchaseDetailsList);
@@ -86,18 +120,32 @@ class PaymentService {
         },
       );
 
+      _isIAPAvailable = true;
       _isInitialized = true;
-      debugPrint('PaymentService úspěšně inicializován');
+      debugPrint(
+          '✅ PaymentService úspěšně inicializován (IAP available: true)');
+      return true;
     } catch (e) {
-      debugPrint('Chyba při inicializaci PaymentService: $e');
-      rethrow;
+      // Neočekávaná chyba při inicializaci - stále nepadáme, ale logujeme
+      debugPrint('❌ Neočekávaná chyba při inicializaci PaymentService: $e');
+      _isIAPAvailable = false;
+      _isInitialized = true;
+      return false;
     }
   }
 
   /// Načte produkty z obchodu
+  ///
+  /// OPRAVA v1.3.4: Kontroluje dostupnost IAP před načtením
   Future<List<ProductDetails>> loadProducts() async {
     if (!_isInitialized) {
       throw Exception('error_payment_service_not_initialized'.tr());
+    }
+
+    // OPRAVA: Kontrola dostupnosti IAP
+    if (!_isIAPAvailable) {
+      debugPrint('⚠️ Nelze načíst produkty - IAP není dostupný');
+      throw IAPNotAvailableException('error_iap_not_available'.tr());
     }
 
     try {
@@ -136,9 +184,17 @@ class PaymentService {
   }
 
   /// Zahájí nákup Premium předplatného
+  ///
+  /// OPRAVA v1.3.4: Kontroluje dostupnost IAP před nákupem
   Future<void> buyPremium(ProductDetails productDetails) async {
     if (!_isInitialized) {
       throw Exception('error_payment_service_not_initialized'.tr());
+    }
+
+    // OPRAVA: Kontrola dostupnosti IAP
+    if (!_isIAPAvailable) {
+      debugPrint('⚠️ Nelze provést nákup - IAP není dostupný');
+      throw IAPNotAvailableException('error_iap_not_available'.tr());
     }
 
     try {
@@ -165,7 +221,8 @@ class PaymentService {
     try {
       if (purchaseDetails.pendingCompletePurchase) {
         await _inAppPurchase.completePurchase(purchaseDetails);
-        debugPrint('Nákup ${purchaseDetails.productID} dokončen (acknowledged)');
+        debugPrint(
+            'Nákup ${purchaseDetails.productID} dokončen (acknowledged)');
       } else {
         debugPrint(
             'Nákup ${purchaseDetails.productID} již byl dokončen nebo nevyžaduje acknowledge');
@@ -226,9 +283,17 @@ class PaymentService {
   }
 
   /// Obnoví předchozí nákupy
+  ///
+  /// OPRAVA v1.3.4: Kontroluje dostupnost IAP
   Future<void> restorePurchases() async {
     if (!_isInitialized) {
       throw Exception('PaymentService není inicializován');
+    }
+
+    // OPRAVA: Kontrola dostupnosti IAP
+    if (!_isIAPAvailable) {
+      debugPrint('⚠️ Nelze obnovit nákupy - IAP není dostupný');
+      throw IAPNotAvailableException('error_iap_not_available'.tr());
     }
 
     try {
@@ -243,7 +308,7 @@ class PaymentService {
 
   /// Zpracování aktualizací nákupů
   ///
-  /// ZMĚNA: Neporovádí automatické completePurchase!
+  /// ZMĚNA: Neprovádí automatické completePurchase!
   /// Pouze loguje stavy. CompletePurchase je zodpovědností SubscriptionRepository
   /// po úspěšném server-side ověření.
   void _handlePurchaseUpdates(List<PurchaseDetails> purchaseDetailsList) async {
@@ -324,8 +389,9 @@ class PaymentService {
   /// Uvolní zdroje
   void dispose() {
     debugPrint('PaymentService dispose');
-    _subscription.cancel();
+    _subscription?.cancel();
     _purchaseStreamController.close();
     _isInitialized = false;
+    _isIAPAvailable = false;
   }
 }

@@ -9,3 +9,6 @@ export {
   verifyPlaySubscription,
   checkExpiredSubscriptions,
 } from "./verifyPlaySubscription";
+
+// Export funkce pro Real-time Developer Notifications
+export { handlePlayNotification } from "./handlePlayNotification";

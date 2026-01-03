@@ -4,6 +4,7 @@
 /// AKTUALIZOVÁNO: Implementováno setActiveUser, server-side validace,
 /// správné analytics tracking a deduplikace.
 /// OPRAVENO: iOS nyní získává skutečnou cenu z ProductDetails
+/// OPRAVA v1.3.4: Graceful handling když IAP není dostupný - aplikace nepadá
 library;
 
 import 'dart:async';
@@ -32,6 +33,10 @@ enum PurchaseProcessingState { idle, verifying, success, error }
 /// - Server-side validace před acknowledge
 /// - Analytics tracking (pouze pro nové nákupy, ne restored)
 /// - Deduplikace purchase logů
+///
+/// OPRAVA v1.3.4:
+/// - Graceful handling když IAP není dostupný
+/// - Aplikace funguje i bez možnosti nákupu
 class SubscriptionRepository {
   final PaymentService _paymentService;
   final FirestoreSubscriptionService _firestoreService;
@@ -61,6 +66,9 @@ class SubscriptionRepository {
   // Cache pro poslední načtený produkt (pro iOS analytics)
   ProductDetails? _lastLoadedProduct;
 
+  // Příznak dostupnosti IAP - NOVÉ
+  bool _isIAPAvailable = false;
+
   SubscriptionRepository({
     PaymentService? paymentService,
     FirestoreSubscriptionService? firestoreService,
@@ -76,30 +84,51 @@ class SubscriptionRepository {
   }
 
   /// Inicializuje repository a nastaví listenery
+  ///
+  /// OPRAVA v1.3.4: Nikdy nehodí výjimku - aplikace funguje i bez IAP
   Future<void> _initializeRepository() async {
     try {
-      // Inicializace payment service
-      await _paymentService.initialize();
+      // Inicializace payment service - OPRAVA: nyní vrací bool místo throwing
+      _isIAPAvailable = await _paymentService.initialize();
+
+      if (!_isIAPAvailable) {
+        debugPrint(
+          '[SubscriptionRepository] ⚠️ IAP není dostupný - repository funguje v omezeném režimu',
+        );
+        // Pokračujeme dál - aplikace funguje, jen bez možnosti nákupu
+      }
 
       // Inicializace analytics service
       await _analyticsService.initialize();
 
-      // Nastavení posluchače pro nákupy
-      _purchaseSubscription = _paymentService.purchaseStream.listen(
-        _handlePurchaseUpdates,
-        onError: (error) {
-          debugPrint(
-            '[SubscriptionRepository] Chyba v purchase stream: $error',
-          );
-        },
-      );
+      // Nastavení posluchače pro nákupy - POUZE pokud je IAP dostupný
+      if (_isIAPAvailable) {
+        _purchaseSubscription = _paymentService.purchaseStream.listen(
+          _handlePurchaseUpdates,
+          onError: (error) {
+            debugPrint(
+              '[SubscriptionRepository] Chyba v purchase stream: $error',
+            );
+          },
+        );
+      }
 
-      debugPrint('[SubscriptionRepository] Repository úspěšně inicializován');
+      debugPrint(
+        '[SubscriptionRepository] Repository inicializován (IAP available: $_isIAPAvailable)',
+      );
     } catch (e) {
-      debugPrint('[SubscriptionRepository] Chyba při inicializaci: $e');
-      rethrow;
+      // OPRAVA: Nikdy neděláme rethrow - aplikace musí fungovat
+      debugPrint('[SubscriptionRepository] ⚠️ Chyba při inicializaci: $e');
+      debugPrint(
+          '[SubscriptionRepository] Repository funguje v omezeném režimu');
+      _isIAPAvailable = false;
+      // ODSTRANĚNO: rethrow - to způsobovalo crash
     }
   }
+
+  /// Getter pro dostupnost IAP - NOVÉ
+  /// Vrací true pokud je možné provádět nákupy
+  bool get isIAPAvailable => _isIAPAvailable;
 
   /// Nastaví aktivního uživatele pro zpracování nákupů
   ///
@@ -123,7 +152,7 @@ class SubscriptionRepository {
   /// Sleduje předplatné konkrétního uživatele
   ///
   /// [uid] - ID uživatele
-  /// Vrací Stream<Subscription?> s aktuálním stavem předplatného
+  /// Vrací Stream s aktuálním stavem předplatného
   Stream<Subscription?> watch(String uid) {
     if (uid.isEmpty) {
       return Stream.error(ArgumentError('error_uid_empty'.tr()));
@@ -154,10 +183,10 @@ class SubscriptionRepository {
   /// Zpracování aktualizací z purchase stream
   ///
   /// HLAVNÍ LOGIKA:
-  /// - PurchaseStatus.purchased -> verify na serveru -> analytics -> completePurchase
-  /// - PurchaseStatus.restored -> pouze verify (BEZ analytics) -> completePurchase
-  /// - PurchaseStatus.error -> log error
-  /// - PurchaseStatus.canceled -> log canceled
+  /// - PurchaseStatus.purchased - verify na serveru, analytics, completePurchase
+  /// - PurchaseStatus.restored - pouze verify (BEZ analytics), completePurchase
+  /// - PurchaseStatus.error - log error
+  /// - PurchaseStatus.canceled - log canceled
   void _handlePurchaseUpdates(List<PurchaseDetails> purchaseDetailsList) async {
     for (final purchase in purchaseDetailsList) {
       debugPrint(
@@ -406,6 +435,7 @@ class SubscriptionRepository {
 
       // Zkusíme získat skutečnou cenu z cache nebo z PaymentService
       final product = _lastLoadedProduct ?? _paymentService.getPremiumProduct();
+
       if (product != null) {
         final (extractedPrice, extractedCurrency) =
             _paymentService.extractPriceAndCurrency(product);
@@ -539,7 +569,16 @@ class SubscriptionRepository {
   ///
   /// [uid] - ID uživatele
   /// Zahájí IAP flow pro roční předplatné a loguje begin_checkout
+  ///
+  /// OPRAVA v1.3.4: Kontroluje dostupnost IAP před zahájením nákupu
   Future<void> startPremiumPurchase(String uid) async {
+    // OPRAVA: Kontrola dostupnosti IAP
+    if (!_isIAPAvailable) {
+      debugPrint(
+          '[SubscriptionRepository] ⚠️ IAP není dostupný - nelze zahájit nákup');
+      throw IAPNotAvailableException('error_iap_not_available'.tr());
+    }
+
     try {
       debugPrint('[SubscriptionRepository] Zahajuji nákup Premium pro: $uid');
 
@@ -586,7 +625,16 @@ class SubscriptionRepository {
   /// Obnoví předchozí nákupy
   ///
   /// [uid] - ID uživatele
+  ///
+  /// OPRAVA v1.3.4: Kontroluje dostupnost IAP
   Future<void> restorePurchases(String uid) async {
+    // OPRAVA: Kontrola dostupnosti IAP
+    if (!_isIAPAvailable) {
+      debugPrint(
+          '[SubscriptionRepository] ⚠️ IAP není dostupný - nelze obnovit nákupy');
+      throw IAPNotAvailableException('error_iap_not_available'.tr());
+    }
+
     try {
       debugPrint('[SubscriptionRepository] Obnovuji nákupy pro: $uid');
 
@@ -601,7 +649,16 @@ class SubscriptionRepository {
   }
 
   /// Načte dostupné produkty z obchodu
+  ///
+  /// OPRAVA v1.3.4: Kontroluje dostupnost IAP
   Future<List<ProductDetails>> getAvailableProducts() async {
+    // OPRAVA: Kontrola dostupnosti IAP
+    if (!_isIAPAvailable) {
+      debugPrint(
+          '[SubscriptionRepository] ⚠️ IAP není dostupný - nelze načíst produkty');
+      return []; // Vrátíme prázdný seznam místo výjimky
+    }
+
     try {
       final products = await _paymentService.loadProducts();
 
@@ -630,8 +687,10 @@ class SubscriptionRepository {
   }
 
   /// Kontrola dostupnosti IAP
+  ///
+  /// OPRAVA v1.3.4: Používá cached hodnotu místo async volání
   Future<bool> isPaymentAvailable() async {
-    return await _paymentService.isAvailable();
+    return _isIAPAvailable;
   }
 
   /// Getter pro aktuální cache
