@@ -14,6 +14,7 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import '../services/payment_service.dart';
 import '../repositories/subscription_repository.dart';
 import '../router/app_router.dart';
+import '../utils/constants.dart';
 
 /// Univerzální paywall dialog pro nabídku Premium předplatného
 ///
@@ -29,6 +30,12 @@ class SubscriptionOfferDialog extends StatefulWidget {
     String? priceText,
     String? source,
   }) {
+    // 🔴 DOČASNĚ: Když je subscription disabled, nezobrazujeme paywall
+    if (!Billing.subscriptionEnabled) {
+      debugPrint('[SubscriptionOfferDialog] Subscription disabled - skipping paywall');
+      return Future.value(true); // Vrátíme true jako by měl Premium
+    }
+
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,

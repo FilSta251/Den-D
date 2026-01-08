@@ -28,6 +28,14 @@ class Constants {
   // BILLING KONSTANTY
   // ================================
 
+  // ============================================================
+  // 🔴 DOČASNÉ VYPNUTÍ PŘEDPLATNÉHO
+  // ============================================================
+  // Nastavte na `true` pro zapnutí předplatného (až budete mít IČO)
+  // Nastavte na `false` pro vypnutí předplatného (všichni mají Premium)
+  static const bool subscriptionEnabled = false;
+  // ============================================================
+
   // ✅ OPRAVENO: Product IDs pro in-app nákupy
   // Musí přesně odpovídat ID v Google Play Console: "premium_yearly"
   // POZOR: V Google Play Console je ID produktu "premium_yearly" (bez package name prefix!)
@@ -189,6 +197,9 @@ class Constants {
 /// Tato třída poskytuje přístup k billing konstantám
 /// pro správu předplatného a in-app nákupů.
 class Billing {
+  // 🔴 DOČASNÉ VYPNUTÍ PŘEDPLATNÉHO
+  static const bool subscriptionEnabled = Constants.subscriptionEnabled;
+
   // Product IDs - ✅ OPRAVENO: Pouze "premium_yearly" bez package name
   static const String productPremiumYearlyAndroid =
       Constants.productPremiumYearlyAndroid;

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import '../services/onboarding_manager.dart';
+import '../utils/constants.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -101,7 +102,15 @@ class _SplashScreenState extends State<SplashScreen>
         if (subscriptionShown) {
           Navigator.of(context).pushReplacementNamed('/brideGroomMain');
         } else if (chatbotCompleted) {
-          Navigator.of(context).pushReplacementNamed('/subscription');
+          // 🔴 DOČASNĚ: Když je subscription disabled, přeskočíme na hlavní stránku
+          if (!Billing.subscriptionEnabled) {
+            debugPrint('[SplashScreen] Subscription disabled - going to main');
+            await OnboardingManager.markSubscriptionShown(userId: userId);
+            await OnboardingManager.markOnboardingCompleted(userId: userId);
+            Navigator.of(context).pushReplacementNamed('/brideGroomMain');
+          } else {
+            Navigator.of(context).pushReplacementNamed('/subscription');
+          }
         } else {
           // Kontrola intro
           final introCompleted = await OnboardingManager.isIntroCompleted(

@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/subscription.dart';
 import '../repositories/subscription_repository.dart';
 import '../services/local_storage_service.dart';
+import '../utils/constants.dart';
 
 /// Enum pro typy interakcí v free verzi
 enum InteractionType {
@@ -58,7 +59,12 @@ class SubscriptionProvider extends ChangeNotifier {
   User? get currentUser => _auth.currentUser;
 
   /// Zda má uživatel aktivní Premium předplatné
+  /// 🔴 DOČASNĚ: Když je subscription disabled, všichni mají Premium
   bool get isPremium {
+    // Když je předplatné vypnuté, všichni mají plný přístup
+    if (!Billing.subscriptionEnabled) {
+      return true;
+    }
     return _sub?.isActivePremium ?? false;
   }
 

@@ -2,7 +2,7 @@ name: den_d
 description: "Svatební plánovač – aplikace pro organizaci vašeho velkého dne."
 publish_to: 'none' # Odstraňte, pokud chcete publikovat na pub.dev
 
-version: 1.3.4+35
+version: 1.3.4+36
 
 environment:
   sdk: ">=3.6.1 <4.0.0"

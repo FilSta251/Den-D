@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import '../repositories/wedding_repository.dart';
 import '../models/wedding_info.dart';
 import '../services/onboarding_manager.dart';
+import '../utils/constants.dart';
 
 class ChatMessage {
   final String sender;
@@ -116,6 +117,17 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     }
 
     if (!mounted) return;
+
+    // 🔴 DOČASNĚ: Když je subscription disabled, přeskočíme na hlavní stránku
+    if (!Billing.subscriptionEnabled) {
+      debugPrint(
+          '[ChatBotScreen] Subscription disabled - navigating directly to main menu');
+      // Označíme subscription jako "zobrazenou" aby se neopakoval onboarding
+      await OnboardingManager.markSubscriptionShown(userId: userId);
+      await OnboardingManager.markOnboardingCompleted(userId: userId);
+      Navigator.pushReplacementNamed(context, '/brideGroomMain');
+      return;
+    }
 
     debugPrint(
         '[ChatBotScreen] Navigating to subscription screen: /subscription');

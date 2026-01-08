@@ -8,6 +8,7 @@ import 'dart:collection';
 import '../di/service_locator.dart';
 import '../services/crash_reporting_service.dart';
 import '../repositories/user_repository.dart';
+import '../utils/constants.dart';
 
 // NOVÉ IMPORTY - CHYBOVÉ KOMPONENTY
 import '../widgets/error_dialog.dart';
@@ -371,7 +372,13 @@ class AppRouter {
   }
 
   /// NOVÉ: Metody pro navigaci na subscription stránky
+  /// 🔴 DOČASNĚ: Když je subscription disabled, přeskočíme na hlavní stránku
   static void navigateToSubscription(BuildContext context) {
+    if (!Billing.subscriptionEnabled) {
+      debugPrint('[AppRouter] Subscription disabled - redirecting to main');
+      Navigator.of(context).pushReplacementNamed(AppRoutes.brideGroomMain);
+      return;
+    }
     Navigator.of(context).pushNamed(AppRoutes.subscription);
   }
 
@@ -384,7 +391,13 @@ class AppRouter {
   }
 
   /// NOVÉ: Metoda pro navigaci z paywallu
+  /// 🔴 DOČASNĚ: Když je subscription disabled, přeskočíme na hlavní stránku
   static void navigateFromPaywall(BuildContext context, {String? source}) {
+    if (!Billing.subscriptionEnabled) {
+      debugPrint('[AppRouter] Subscription disabled - redirecting to main');
+      Navigator.of(context).pushReplacementNamed(AppRoutes.brideGroomMain);
+      return;
+    }
     Navigator.of(context).pushNamed(
       AppRoutes.subscription,
       arguments: {'source': source ?? 'paywall'},
@@ -392,7 +405,13 @@ class AppRouter {
   }
 
   /// NOVÉ: Metoda pro navigaci z onboardingu
+  /// 🔴 DOČASNĚ: Když je subscription disabled, přeskočíme na hlavní stránku
   static void navigateFromOnboarding(BuildContext context) {
+    if (!Billing.subscriptionEnabled) {
+      debugPrint('[AppRouter] Subscription disabled - redirecting to main');
+      Navigator.of(context).pushReplacementNamed(AppRoutes.brideGroomMain);
+      return;
+    }
     Navigator.of(context).pushNamed(
       AppRoutes.subscription,
       arguments: {'source': 'onboarding'},
