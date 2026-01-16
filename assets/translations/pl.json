@@ -748,5 +748,6 @@
   "subs.loading.price": "Ładowanie...",
   "subs.free.limit_info": "Wersja darmowa pozwala na maks. 3 elementy na sekcję",
   "subs.features.unlimited_items": "Nieograniczona liczba elementów",
-  "subs.features.priority_support": "Priorytetowe wsparcie"
+  "subs.features.priority_support": "Priorytetowe wsparcie",
+  "settings_delete_account_subtitle": "Trwale usuń swoje konto i wszystkie dane"
 }

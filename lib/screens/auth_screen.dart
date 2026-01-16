@@ -14,6 +14,7 @@ import '../repositories/subscription_repository.dart';
 import '../services/auth_service.dart';
 import '../services/analytics_service.dart';
 import '../utils/validators.dart';
+import '../utils/constants.dart';
 import '../services/onboarding_manager.dart';
 import '../di/service_locator.dart';
 
@@ -226,6 +227,14 @@ class _AuthScreenState extends State<AuthScreen> {
       if (!chatbotCompleted) {
         debugPrint('→ Navigace na /chatbot');
         Navigator.pushReplacementNamed(context, '/chatbot');
+        return;
+      }
+
+      // DOČASNĚ: Když je subscription disabled, přeskočíme na hlavní menu
+      if (!Billing.subscriptionEnabled) {
+        debugPrint('→ Subscription disabled - jde přímo na /brideGroomMain');
+        await OnboardingManager.markSubscriptionShown(userId: uid);
+        Navigator.pushReplacementNamed(context, '/brideGroomMain');
         return;
       }
 

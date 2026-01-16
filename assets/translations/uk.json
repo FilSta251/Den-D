@@ -747,5 +747,6 @@
   "subs.loading.price": "Завантаження...",
   "subs.free.limit_info": "Безкоштовна версія дозволяє макс. 3 елементи на розділ",
   "subs.features.unlimited_items": "Необмежена кількість елементів",
-  "subs.features.priority_support": "Пріоритетна підтримка"
+  "subs.features.priority_support": "Пріоритетна підтримка",
+  "settings_delete_account_subtitle": "Назавжди видалити ваш обліковий запис і всі дані"
 }

@@ -56,6 +56,9 @@ import 'services/payment_service.dart';
 // Analytics - NOVÝ IMPORT
 import 'services/analytics_service.dart';
 
+// App Tracking Transparency - POVINNÉ PRO iOS APP STORE
+import 'services/app_tracking_service.dart';
+
 // Theme
 import 'providers/theme_manager.dart';
 
@@ -385,6 +388,17 @@ Future<void> _initializeApp() async {
     try {
       await AnalyticsService().initialize();
       debugPrint('[Main] AnalyticsService inicializován úspěšně');
+
+      // ✅ NOVÉ: Požádej o ATT povolení na iOS - POVINNÉ PRO APP STORE (Guideline 5.1.2)
+      if (Platform.isIOS) {
+        final attService = AppTrackingService();
+        if (attService.canRequestTracking) {
+          // Malé zpoždění pro lepší UX - nechceme dialog hned po spuštění
+          await Future.delayed(const Duration(milliseconds: 500));
+          final status = await AnalyticsService().requestTrackingAuthorization();
+          debugPrint('[Main] ATT authorization status: $status');
+        }
+      }
     } catch (e, stack) {
       debugPrint('[Main] Chyba při inicializaci AnalyticsService: $e');
       GlobalErrorHandler.instance.handleError(

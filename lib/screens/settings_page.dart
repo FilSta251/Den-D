@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../repositories/wedding_repository.dart';
@@ -13,6 +14,7 @@ import '../services/payment_service.dart';
 import '../providers/subscription_provider.dart';
 import '../providers/theme_manager.dart';
 import '../router/app_router.dart';
+import '../utils/constants.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 /// Stránka nastavení s položkami: jazyk, zobrazení předplatného, smazání účtu a o aplikaci.
@@ -91,7 +93,6 @@ class _SettingsPageState extends State<SettingsPage> {
     AppRouter.navigateToPrivacy(context);
   }
 
-  /* ZAKOMENTOVÁNO - MAZÁNÍ ÚČTU
   /// Zobrazí potvrzovací dialog pro smazání účtu.
   Future<void> _confirmDeleteAccount() async {
     debugPrint('[SettingsPage] Showing delete account confirmation dialog');
@@ -143,7 +144,8 @@ class _SettingsPageState extends State<SettingsPage> {
         }
 
         // 2. NOVÁ ČÁST - Smaž všechny podkolekce pod users/{uid}/
-        final userDocRef = FirebaseFirestore.instance.collection('users').doc(uid);
+        final userDocRef =
+            FirebaseFirestore.instance.collection('users').doc(uid);
 
         // Smaž guests
         try {
@@ -162,7 +164,8 @@ class _SettingsPageState extends State<SettingsPage> {
           for (final doc in snapshot.docs) {
             await doc.reference.delete();
           }
-          debugPrint('[SettingsPage] Deleted ${snapshot.docs.length} budget items');
+          debugPrint(
+              '[SettingsPage] Deleted ${snapshot.docs.length} budget items');
         } catch (e) {
           debugPrint('[SettingsPage] Error deleting budget: $e');
         }
@@ -173,7 +176,8 @@ class _SettingsPageState extends State<SettingsPage> {
           for (final doc in snapshot.docs) {
             await doc.reference.delete();
           }
-          debugPrint('[SettingsPage] Deleted ${snapshot.docs.length} calendar events');
+          debugPrint(
+              '[SettingsPage] Deleted ${snapshot.docs.length} calendar events');
         } catch (e) {
           debugPrint('[SettingsPage] Error deleting calendar_events: $e');
         }
@@ -184,7 +188,8 @@ class _SettingsPageState extends State<SettingsPage> {
           for (final doc in snapshot.docs) {
             await doc.reference.delete();
           }
-          debugPrint('[SettingsPage] Deleted ${snapshot.docs.length} schedule items');
+          debugPrint(
+              '[SettingsPage] Deleted ${snapshot.docs.length} schedule items');
         } catch (e) {
           debugPrint('[SettingsPage] Error deleting schedule: $e');
         }
@@ -195,18 +200,21 @@ class _SettingsPageState extends State<SettingsPage> {
           for (final doc in snapshot.docs) {
             await doc.reference.delete();
           }
-          debugPrint('[SettingsPage] Deleted ${snapshot.docs.length} checklist tasks');
+          debugPrint(
+              '[SettingsPage] Deleted ${snapshot.docs.length} checklist tasks');
         } catch (e) {
           debugPrint('[SettingsPage] Error deleting checklist_tasks: $e');
         }
 
         // Smaž checklist_categories
         try {
-          final snapshot = await userDocRef.collection('checklist_categories').get();
+          final snapshot =
+              await userDocRef.collection('checklist_categories').get();
           for (final doc in snapshot.docs) {
             await doc.reference.delete();
           }
-          debugPrint('[SettingsPage] Deleted ${snapshot.docs.length} checklist categories');
+          debugPrint(
+              '[SettingsPage] Deleted ${snapshot.docs.length} checklist categories');
         } catch (e) {
           debugPrint('[SettingsPage] Error deleting checklist_categories: $e');
         }
@@ -228,7 +236,8 @@ class _SettingsPageState extends State<SettingsPage> {
           for (final doc in snapshot.docs) {
             await doc.reference.delete();
           }
-          debugPrint('[SettingsPage] Deleted ${snapshot.docs.length} suppliers');
+          debugPrint(
+              '[SettingsPage] Deleted ${snapshot.docs.length} suppliers');
         } catch (e) {
           debugPrint('[SettingsPage] Error deleting suppliers: $e');
         }
@@ -242,7 +251,8 @@ class _SettingsPageState extends State<SettingsPage> {
           for (var doc in weddingsQuery.docs) {
             await doc.reference.delete();
           }
-          debugPrint('[SettingsPage] Deleted ${weddingsQuery.docs.length} weddings');
+          debugPrint(
+              '[SettingsPage] Deleted ${weddingsQuery.docs.length} weddings');
         } catch (e) {
           debugPrint('[SettingsPage] Error deleting weddings: $e');
         }
@@ -311,7 +321,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(tr('account_data_deleted_reauth'), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  content: Text(tr('account_data_deleted_reauth'),
+                      maxLines: 2, overflow: TextOverflow.ellipsis),
                   backgroundColor: Colors.orange,
                   duration: const Duration(seconds: 5),
                 ),
@@ -326,7 +337,11 @@ class _SettingsPageState extends State<SettingsPage> {
         if (mounted) {
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(tr('no_user_found'), maxLines: 2, overflow: TextOverflow.ellipsis), behavior: SnackBarBehavior.floating, margin: const EdgeInsets.all(16)),
+            SnackBar(
+                content: Text(tr('no_user_found'),
+                    maxLines: 2, overflow: TextOverflow.ellipsis),
+                behavior: SnackBarBehavior.floating,
+                margin: const EdgeInsets.all(16)),
           );
         }
       }
@@ -340,14 +355,14 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(tr('delete_account_error', args: [e.toString()]), maxLines: 2, overflow: TextOverflow.ellipsis),
+            content: Text(tr('delete_account_error', args: [e.toString()]),
+                maxLines: 2, overflow: TextOverflow.ellipsis),
             backgroundColor: Colors.red,
           ),
         );
       }
     }
   }
-  KONEC ZAKOMENTOVÁNO */
 
   /// Zobrazí dialog s informacemi o aplikaci.
   Future<void> _showAboutDialog() async {
@@ -663,10 +678,11 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       body: ListView(
         children: [
-          // Sekce Moje předplatné
-          _buildSubscriptionSection(),
-
-          const Divider(),
+          // Sekce Moje předplatné - POUZE když je subscription enabled
+          if (Billing.subscriptionEnabled) ...[
+            _buildSubscriptionSection(),
+            const Divider(),
+          ],
 
           ListTile(
             leading: const Icon(Icons.language),
@@ -697,13 +713,13 @@ class _SettingsPageState extends State<SettingsPage> {
 
           const Divider(),
 
-          /* ZAKOMENTOVÁNO - TLAČÍTKO PRO SMAZÁNÍ ÚČTU
+          // Tlačítko pro smazání účtu - POVINNÉ PRO APP STORE (Guideline 5.1.1(v))
           ListTile(
-            leading: const Icon(Icons.delete),
+            leading: const Icon(Icons.delete_forever, color: Colors.red),
             title: Text(tr('settings_delete_account')),
+            subtitle: Text(tr('settings_delete_account_subtitle')),
             onTap: _confirmDeleteAccount,
           ),
-          */
 
           ListTile(
             leading: const Icon(Icons.info),
@@ -817,8 +833,7 @@ class LanguageDialog extends StatelessWidget {
   }
 }
 
-/* ZAKOMENTOVÁNO - DIALOG PRO POTVRZENÍ SMAZÁNÍ ÚČTU
-/// Dialog pro potvrzení smazání účtu.
+/// Dialog pro potvrzení smazání účtu - POVINNÉ PRO APP STORE (Guideline 5.1.1(v))
 class DeleteAccountDialog extends StatelessWidget {
   const DeleteAccountDialog({super.key});
 
@@ -867,7 +882,6 @@ class DeleteAccountDialog extends StatelessWidget {
     );
   }
 }
-KONEC ZAKOMENTOVÁNO */
 
 /// Dialog pro výběr tématu.
 class ThemeDialog extends StatelessWidget {

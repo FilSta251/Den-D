@@ -59,9 +59,9 @@
 		<string>remote-notification</string>
 	</array>
 	
-	<!-- Tracking pro analytiku (iOS 14+) -->
+	<!-- App Tracking Transparency (iOS 14+) - POVINNÉ PRO APP STORE -->
 	<key>NSUserTrackingUsageDescription</key>
-	<string>Pomáhá nám zlepšovat aplikaci a poskytovat vám lepší služby pro plánování vaší svatby.</string>
+	<string>Tato aplikace využívá anonymní analytická data ke zlepšení uživatelského zážitku a k měření efektivity marketingových kampaní. Vaše osobní údaje nikdy neprodáváme třetím stranám.</string>
 	
 	<!-- Povolení HTTPS komunikace -->
 	<key>NSAppTransportSecurity</key>
@@ -75,12 +75,17 @@
 	<array>
 		<string>cs</string>
 		<string>en</string>
+		<string>de</string>
+		<string>es</string>
+		<string>fr</string>
+		<string>pl</string>
+		<string>uk</string>
 	</array>
 	
 	<!-- URL TYPES - pro Google Sign In a Apple Sign In -->
 	<key>CFBundleURLTypes</key>
 	<array>
-		<!-- Google Sign In - OPRAVENO: Správný REVERSED_CLIENT_ID z GoogleService-Info.plist -->
+		<!-- Google Sign In - REVERSED_CLIENT_ID z GoogleService-Info.plist -->
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>

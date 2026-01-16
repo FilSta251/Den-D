@@ -6,6 +6,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'chatbot_screen.dart';
 import '../services/onboarding_manager.dart';
+import '../utils/constants.dart';
 
 class IntroductionPage {
   final String title;
@@ -159,6 +160,15 @@ class _AppIntroductionScreenState extends State<AppIntroductionScreen> {
     setState(() {
       _isNavigating = true;
     });
+
+    // DOČASNĚ: Když je subscription disabled, jde přímo na hlavní menu
+    if (!Billing.subscriptionEnabled) {
+      debugPrint('[AppIntroScreen] Subscription disabled - navigating to main');
+      OnboardingManager.markSubscriptionShown(userId: _userId);
+      Navigator.pushReplacementNamed(context, '/brideGroomMain');
+      return;
+    }
+
     Navigator.pushReplacementNamed(context, '/subscription');
   }
 

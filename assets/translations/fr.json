@@ -747,5 +747,6 @@
   "subs.loading.price": "Chargement...",
   "subs.free.limit_info": "La version gratuite permet max. 3 éléments par section",
   "subs.features.unlimited_items": "Éléments illimités",
-  "subs.features.priority_support": "Support prioritaire"
+  "subs.features.priority_support": "Support prioritaire",
+  "settings_delete_account_subtitle": "Supprimer définitivement votre compte et toutes les données"
 }

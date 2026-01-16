@@ -4,12 +4,15 @@
 /// user engagement, funnel tracking a remarketing.
 ///
 /// Implementuje "gold standard" tracking s deduplikací.
+/// AKTUALIZOVÁNO: Integrace App Tracking Transparency pro iOS
 library;
 
+import 'dart:io';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'app_tracking_service.dart';
 
 /// Service pro Google Analytics / Firebase Analytics eventy
 ///
@@ -58,12 +61,23 @@ class AnalyticsService {
   int _sessionCount = 0;
   bool _isInitialized = false;
 
+  // ATT (App Tracking Transparency) - POVINNÉ PRO iOS
+  final AppTrackingService _attService = AppTrackingService();
+  bool _isTrackingAllowed = true; // Default pro Android
+
+  /// Getter pro ATT status
+  bool get isTrackingAllowed => _isTrackingAllowed;
+
+  /// Getter pro ATT service (pro UI)
+  AppTrackingService get attService => _attService;
+
   // ============================================================
   // INICIALIZACE
   // ============================================================
 
   /// Inicializuje Analytics Service
   ///
+  /// - Inicializuje App Tracking Transparency (iOS)
   /// - Načte poslední zalogované orderId pro deduplikaci
   /// - Inicializuje session tracking
   /// - Nastaví install date při prvním spuštění
@@ -74,6 +88,15 @@ class AnalyticsService {
     }
 
     try {
+      // NOVÉ: Inicializace ATT pro iOS - POVINNÉ PRO APP STORE
+      if (Platform.isIOS) {
+        await _attService.initialize();
+        _isTrackingAllowed = _attService.isTrackingAuthorized ||
+            _attService.status == AppTrackingStatus.notDetermined;
+        debugPrint(
+            '[AnalyticsService] ATT status: ${_attService.status}, tracking allowed: $_isTrackingAllowed');
+      }
+
       final prefs = await SharedPreferences.getInstance();
 
       // Načtení posledního orderId pro deduplikaci
@@ -110,6 +133,24 @@ class AnalyticsService {
     }
   }
 
+  /// Požádá o ATT povolení na iOS
+  ///
+  /// DŮLEŽITÉ: Volat po zobrazení vysvětlení uživateli,
+  /// ideálně při prvním spuštění nebo před prvním trackingem.
+  Future<AppTrackingStatus> requestTrackingAuthorization() async {
+    if (!Platform.isIOS) {
+      return AppTrackingStatus.notSupported;
+    }
+
+    final status = await _attService.requestTrackingAuthorization();
+    _isTrackingAllowed = status == AppTrackingStatus.authorized;
+
+    debugPrint(
+        '[AnalyticsService] ATT authorization result: $status, tracking allowed: $_isTrackingAllowed');
+
+    return status;
+  }
+
   // ============================================================
   // OBECNÉ LOGOVÁNÍ (zpětná kompatibilita)
   // ============================================================
@@ -123,6 +164,12 @@ class AnalyticsService {
     Map<String, Object>? parameters,
   }) async {
     try {
+      // Na iOS respektujeme ATT volbu
+      if (Platform.isIOS && !_isTrackingAllowed) {
+        debugPrint('[AnalyticsService] Skipping event $name - tracking not allowed');
+        return;
+      }
+
       await _analytics.logEvent(
         name: name,
         parameters: parameters,

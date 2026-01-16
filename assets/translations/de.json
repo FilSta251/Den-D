@@ -748,5 +748,6 @@
   "subs.loading.price": "Lädt...",
   "subs.free.limit_info": "Die kostenlose Version erlaubt max. 3 Einträge pro Bereich",
   "subs.features.unlimited_items": "Unbegrenzte Einträge",
-  "subs.features.priority_support": "Prioritäts-Support"
+  "subs.features.priority_support": "Prioritäts-Support",
+  "settings_delete_account_subtitle": "Ihr Konto und alle Daten dauerhaft löschen"
 }

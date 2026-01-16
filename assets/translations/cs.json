@@ -747,5 +747,6 @@
   "subs.free.limit_info": "Ve Free verzi můžete přidat max. 3 položky do každé sekce",
   "subs.features.unlimited_items": "Neomezený počet položek",
   "subs.features.priority_support": "Prioritní podpora",
-  "subs.premium.subtitle": "Neomezený přístup"
+  "subs.premium.subtitle": "Neomezený přístup",
+  "settings_delete_account_subtitle": "Trvale smaže váš účet a všechna data"
 }

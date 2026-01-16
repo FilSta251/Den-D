@@ -744,5 +744,6 @@
   "subs.features.calendar": "Calendar",
   "subs.features.suppliers": "Vendors",
   "subs.renewal.auto": "Auto-renewable",
-  "subs.loading.price": "Loading..."
+  "subs.loading.price": "Loading...",
+  "settings_delete_account_subtitle": "Permanently delete your account and all data"
 }

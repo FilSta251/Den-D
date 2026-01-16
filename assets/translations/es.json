@@ -743,5 +743,6 @@
   "subs.features.calendar": "Calendario",
   "subs.features.suppliers": "Proveedores",
   "subs.renewal.auto": "Renovación automática",
-  "subs.loading.price": "Cargando..."
+  "subs.loading.price": "Cargando...",
+  "settings_delete_account_subtitle": "Eliminar permanentemente tu cuenta y todos los datos"
 }
